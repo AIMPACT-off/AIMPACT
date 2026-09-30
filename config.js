@@ -1,0 +1,1 @@
+window.AIMPACT_CONFIG={supabaseUrl:"https://kakrrfsyczjbddezscvk.supabase.co",supabaseKey:"sb_publishable_lJKNIGyz0H4MBzWAiMI7_A_xdfXVra2"};
