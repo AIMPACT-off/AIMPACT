@@ -27,7 +27,11 @@ jobs:
           grep -q 'id="leadForm"' index.html
       - name: Production HTTP smoke
         run: |
-          code=$(curl -L -s -o /tmp/aimpact.html -w "%{http_code}" --max-time 20 https://aimpact-ai.netlify.app/)
+          set -o pipefail
+          curl -sSIL --max-time 20 https://aimpact-ai.netlify.app/ | tee /tmp/headers.txt
+          code=$(curl -L -sS -o /tmp/aimpact.html -w "%{http_code}" --max-time 20 https://aimpact-ai.netlify.app/)
+          echo "HTTP_STATUS=$code"
+          head -c 1000 /tmp/aimpact.html || true
           test "$code" -ge 200
           test "$code" -lt 400
           grep -q 'AIMPACT' /tmp/aimpact.html
