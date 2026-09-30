@@ -1,11 +1,63 @@
 <!doctype html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AIMPACT — AI Intelligence, Decision & Workflow Platform</title><meta name="description" content="AIMPACT discovers, verifies, compares and turns AI tools into practical workflows for business."><meta name="robots" content="index,follow"><link rel="canonical" href="https://aimpact-ai.netlify.app/"><meta property="og:title" content="AIMPACT — AI CURATES THE FUTURE"><meta property="og:description" content="Discover verified AI tools and turn business problems into workflows."><meta property="og:type" content="website"><link rel="stylesheet" href="styles.css"></head>
-<body><header><a class="logo" href="#">AIMPACT</a><nav><a href="#tools">TOOLS</a><a href="#compare">COMPARE</a><a href="#apply">APPLY</a><a href="#business">BUSINESS</a></nav></header>
-<main><section class="hero"><p class="eyebrow">AI CURATES THE FUTURE</p><h1>DISCOVER.<br>VERIFY.<br>APPLY.</h1><p class="sub">Find the right AI for the work you need to get done.</p><div class="search"><input id="search" aria-label="Search AI tools and use cases" placeholder="Try: 쇼핑몰 사진 자동화, 인스타그램 콘텐츠, 영상 편집"><button id="searchBtn">SEARCH</button></div></section>
-<section class="stats"><div><b id="toolCount">—</b><span>VERIFIED TOOLS</span></div><div><b id="categoryCount">—</b><span>CATEGORIES</span></div><div><b id="freeCount">—</b><span>FREE / FREEMIUM</span></div></section>
-<section id="tools"><div class="sectionHead"><div><p class="eyebrow">DISCOVER</p><h2>AI TOOLS</h2></div><div class="filters"><select id="category" aria-label="Category"><option value="">ALL CATEGORIES</option></select><select id="pricing" aria-label="Pricing"><option value="">ALL PRICING</option><option>FREE</option><option>FREEMIUM</option><option>PAID</option></select></div></div><div id="grid" class="grid"><div class="loading">Loading verified intelligence…</div></div></section>
-<section id="compare" class="panel"><p class="eyebrow">COMPARE</p><h2>Make the decision clearer.</h2><p>Select up to three verified tools.</p><div id="compareBox"></div></section>
-<section id="apply" class="panel dark"><p class="eyebrow">APPLY</p><h2>Turn a business problem into an AI workflow.</h2><p>Describe the job you want to improve. AIMPACT matches your intent to verified tools and stored workflow patterns.</p><form id="applyForm"><textarea id="applyProblem" rows="4" required placeholder="예: 쇼핑몰 상품 사진과 인스타그램 콘텐츠 제작을 자동화하고 싶다."></textarea><button class="primary" type="submit">BUILD WORKFLOW →</button></form><input id="applyTool" type="hidden"><div id="applyResult"></div></section>
-<section id="business" class="panel"><p class="eyebrow">BUSINESS</p><h2>Turn a business problem into an AI audit.</h2><p>Tell AIMPACT what your team needs to improve. The request is stored as a qualified lead for workflow and implementation follow-up.</p><form id="leadForm" class="leadForm"><input id="leadName" maxlength="120" placeholder="Name"><input id="leadCompany" maxlength="160" placeholder="Company"><input id="leadEmail" type="email" maxlength="320" required placeholder="Business email"><input id="leadIndustry" maxlength="120" placeholder="Industry"><input id="leadSize" maxlength="80" placeholder="Company size"><textarea id="leadProblem" rows="4" maxlength="4000" required placeholder="What business process do you want to improve or automate?"></textarea><input id="leadCurrentTools" maxlength="1000" placeholder="Current tools (optional)"><input id="leadAutomation" maxlength="1000" placeholder="Desired automation (optional)"><input id="leadBudget" maxlength="120" placeholder="Budget range (optional)"><textarea id="leadMessage" rows="3" maxlength="3000" placeholder="Additional message (optional)"></textarea><label class="consent"><input id="leadConsent" type="checkbox" required> I agree that AIMPACT may use this information to respond to this business request.</label><button class="primary" type="submit">REQUEST AI AUDIT →</button><p id="leadStatus" class="status" aria-live="polite"></p></form></section></main>
-<div id="modal" class="modal"><div class="modalCard"><button id="close" class="close" aria-label="Close">×</button><div id="modalBody"></div></div></div><footer>AIMPACT · AI CURATES THE FUTURE</footer>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="config.js"></script><script src="app.js"></script></body></html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AIMPACT — AI Audit & Workflow Implementation for Business</title>
+<meta name="description" content="AIMPACT helps e-commerce, fashion, retail and marketing teams find repetitive work, design AI workflows and implement automation.">
+<meta name="robots" content="index,follow"><link rel="canonical" href="https://aimpact-ai.netlify.app/">
+<meta property="og:title" content="AIMPACT — AI CURATES THE FUTURE"><meta property="og:description" content="Find the work. Design the workflow. Implement the AI.">
+<meta property="og:type" content="website"><link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header><a class="logo" href="#">AIMPACT</a><nav><a href="#audit">AI AUDIT</a><a href="#workflow">WORKFLOW</a><a href="#tools">TOOLS</a><a href="#business">CONTACT</a></nav></header>
+<main>
+<section class="hero">
+<p class="eyebrow">AI CURATES THE FUTURE</p>
+<h1>TURN REPETITIVE WORK<br>INTO AI WORKFLOWS.</h1>
+<p class="sub">AIMPACT analyzes business processes, identifies practical AI opportunities, and builds the workflow when your team does not have the time or expertise.</p>
+<div class="heroActions"><a class="primary" href="#audit">REQUEST A QUICK AUDIT →</a><a href="#workflow">SEE HOW IT WORKS</a></div>
+<p class="micro">FOCUS: E-COMMERCE · FASHION · RETAIL · MARKETING · CONTENT</p>
+</section>
+
+<section id="audit" class="panel dark">
+<p class="eyebrow">01 · AI AUDIT</p><h2>Start with one real business problem.</h2>
+<p>Tell us where your team is losing time. AIMPACT returns an actionable audit covering AI opportunities, tools, workflow, automation steps, human tasks, cost considerations and implementation difficulty.</p>
+<div class="offerGrid">
+<div><b>AI QUICK AUDIT</b><span>Short discovery for one process.</span></div>
+<div><b>AI BUSINESS AUDIT</b><span>Detailed business workflow analysis.</span></div>
+<div><b>IMPLEMENTATION</b><span>AIMPACT builds the selected workflow.</span></div>
+<div><b>AUTOMATION RETAINER</b><span>Ongoing monitoring and optimization.</span></div>
+</div>
+<form id="leadForm" class="leadForm">
+<input id="leadName" maxlength="120" placeholder="Name">
+<input id="leadCompany" maxlength="160" placeholder="Company">
+<input id="leadEmail" type="email" maxlength="320" required placeholder="Business email">
+<select id="leadIndustry" aria-label="Industry"><option value="">Industry</option><option>E-commerce</option><option>Fashion</option><option>Retail</option><option>Marketing</option><option>Content</option><option>Other</option></select>
+<input id="leadSize" maxlength="80" placeholder="Company size">
+<textarea id="leadProblem" rows="4" maxlength="4000" required placeholder="Example: Product photography → retouching → product copy → Instagram content takes too much time."></textarea>
+<input id="leadCurrentTools" maxlength="1000" placeholder="Current tools (optional)">
+<input id="leadAutomation" maxlength="1000" placeholder="What would you like to automate? (optional)">
+<input id="leadBudget" maxlength="120" placeholder="Budget range (optional — no price is assumed)">
+<textarea id="leadMessage" rows="3" maxlength="3000" placeholder="Additional context (optional)"></textarea>
+<label class="consent"><input id="leadConsent" type="checkbox" required> I agree that AIMPACT may use this information to respond to this business request.</label>
+<button class="primary" type="submit">REQUEST AI AUDIT →</button><p id="leadStatus" class="status" aria-live="polite"></p>
+</form>
+</section>
+
+<section id="workflow" class="panel"><p class="eyebrow">02 · WORKFLOW</p><h2>Problem → Solution → Delivery.</h2>
+<div class="flow"><span>PROBLEM</span><b>→</b><span>AUDIT</span><b>→</b><span>TOOL</span><b>→</b><span>WORKFLOW</span><b>→</b><span>IMPLEMENT</span><b>→</b><span>RESULT</span></div>
+<p>We measure the before/after where data is available: time, cost, production volume, manual steps and operational friction. No invented ROI.</p>
+<form id="applyForm"><textarea id="applyProblem" rows="4" required placeholder="Describe the process you want to improve."></textarea><button class="primary" type="submit">DESIGN WORKFLOW →</button></form>
+<div id="applyResult"></div>
+</section>
+
+<section id="tools"><div class="sectionHead"><div><p class="eyebrow">03 · INTELLIGENCE</p><h2>VERIFIED AI TOOLS</h2><p>Only evidence-backed tools are shown. Verification is intentionally strict.</p></div><div class="filters"><select id="category" aria-label="Category"><option value="">ALL CATEGORIES</option></select><select id="pricing" aria-label="Pricing"><option value="">ALL PRICING</option><option>FREE</option><option>FREEMIUM</option><option>PAID</option></select></div></div>
+<div class="stats"><div><b id="toolCount">—</b><span>VERIFIED</span></div><div><b id="categoryCount">—</b><span>CATEGORIES</span></div><div><b id="freeCount">—</b><span>FREE / FREEMIUM</span></div></div>
+<div id="grid" class="grid"><div class="loading">Loading verified intelligence…</div></div></section>
+
+<section id="business" class="panel"><p class="eyebrow">04 · BUSINESS</p><h2>One problem is enough to start.</h2><p>AIMPACT is not waiting for a directory to be complete. The company is built around solving real operational problems and turning repeated solutions into products.</p><div class="offerGrid"><div><b>DISCOVERY</b><span>Understand the current process.</span></div><div><b>AUDIT</b><span>Prioritize AI opportunities.</span></div><div><b>IMPLEMENT</b><span>Build the chosen workflow.</span></div><div><b>OPERATE</b><span>Maintain and improve it.</span></div></div></section>
+</main>
+<div id="modal" class="modal"><div class="modalCard"><button id="close" class="close" aria-label="Close">×</button><div id="modalBody"></div></div></div>
+<footer>AIMPACT · AI CURATES THE FUTURE · REAL PROBLEMS / REAL WORKFLOWS / REAL RESULTS</footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="config.js"></script><script src="app.js"></script>
+</body></html>
