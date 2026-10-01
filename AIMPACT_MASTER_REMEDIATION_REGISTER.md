@@ -22,7 +22,7 @@ Date: 2026-10-01
 ## CF-04 — Verification evidence
 - Fix: evidence schema expanded.
 - Test: schema present; evidence remains 0 as no evidence was fabricated.
-- Status: VERIFIED (structure), NOT VERIFIED (tool data)
+- Status: VERIFIED (structure), UNVERIFIED (tool data)
 
 ## CF-05 — Verification automation
 - Root Cause: VERIFIED failure node is Airtable aiGenerateStructuredOutput; recent failures include monthlyConsumptionLimited, webRequestFailureForToolCall, structuredOutputMissingRequiredData.
@@ -30,10 +30,12 @@ Date: 2026-10-01
 - Status: FAILED / BLOCKED
 
 ## CF-06 — Production availability
-- Root Cause: UNVERIFIED.
-- Test: production endpoint still returns Failed to fetch / Cache miss.
-- Incident created: INC-20261001-PROD-001.
-- Status: FAILED / BLOCKED for root-cause resolution
+- Root Cause: VERIFIED — NETLIFY_TEAM_OPERATIONAL_CREDITS_EXHAUSTED.
+- Evidence: Netlify states “Production deploys are paused because your team has used all of its available credits for this billing cycle.” Recent deploy shows “Production: main@d95af86 skipped” and “Skipped due to account credit usage exceeded.”
+- Deployment state: GitHub HEAD d95af865a8913de320845c9fb1e778e9f20269c6; Published Production cf6b8c4; latest HEAD deployment SKIPPED.
+- Operational path: GitHub HEAD → Netlify Production Deploy → Credit Limit → Deploy SKIPPED → Previous Published Deploy remains.
+- Important: no inference is made about the internal health of the currently published deploy.
+- Status: BLOCKED BY ACCOUNT CREDIT LIMIT
 
 ## CF-07 — CEO KPI hardcoding
 - Fix: company_kpi view now exposes DB-derived Customers, Leads, Revenue, Pipeline, Outcomes, Incidents, Security, Production and tool metrics; frontend reads those fields.
@@ -54,9 +56,10 @@ Date: 2026-10-01
 - Status: VERIFIED (recording structure), FAILED (production test)
 
 ## CF-11 — Incident connection
-- Fix: production failure generated incident and pending investigation action.
-- Root cause remains HYPOTHESIS.
-- Status: VERIFIED (incident creation)
+- Incident: INC-20261001-PROD-001.
+- Root Cause: NETLIFY_TEAM_OPERATIONAL_CREDITS_EXHAUSTED.
+- Root cause status: VERIFIED.
+- Status: VERIFIED (incident and root-cause recording)
 
 ## CF-12 — Airtable verification field structure
 - Fix: canonical ID and required verification-data fields added.
@@ -64,7 +67,7 @@ Date: 2026-10-01
 
 ## CF-13 — Sync logging
 - Fix: tool_sync_log created for idempotent sync/result/error/rollback tracking.
-- Status: VERIFIED (structure)
+- Status: VERIFIED (structure); current sync count 0.
 
 ## CF-14 — Change management
 - Fix: change_log created.
