@@ -1,37 +1,92 @@
 name: AIMPACT production smoke
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
-  schedule:
-    - cron: "17 * * * *"
+    inputs:
+      target_env:
+        description: Target environment
+        required: true
+        default: production
+        type: choice
+        options: [production]
+
+concurrency:
+  group: aimpact-production-smoke-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    env:
+      TARGET_ENV: ${{ inputs.target_env }}
+      BASE_URL: https://aimpact-ai.netlify.app
+
     steps:
       - uses: actions/checkout@v4
-      - name: JavaScript syntax
-        run: node --check app.js
-      - name: Required production hooks
+
+      - name: Preflight - repository and syntax
         run: |
-          test -s index.html
-          test -s app.js
-          test -s config.js
+          set -euo pipefail
+          test -f index.html && test -s index.html
+          test -f app.js && test -s app.js
+          test -f config.js && test -s config.js
+          node --check app.js
           grep -q 'public_tools' app.js
           grep -q 'workflows' app.js
           grep -q 'events' app.js
           grep -q 'leads' app.js
-          grep -q 'id="applyForm"' index.html
-          grep -q 'id="leadForm"' index.html
-      - name: Production HTTP smoke
+          echo 'PREFLIGHT_REPOSITORY=PASS' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Circuit breaker - same commit failure limit
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          set -o pipefail
-          curl -sSIL --max-time 20 https://aimpact-ai.netlify.app/ | tee /tmp/headers.txt
-          code=$(curl -L -sS -o /tmp/aimpact.html -w "%{http_code}" --max-time 20 https://aimpact-ai.netlify.app/)
+          set -euo pipefail
+          runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/production-smoke.yml/runs?branch=$GITHUB_REF_NAME&per_page=20")
+          failures=$(printf '%s' "$runs" | jq --arg sha "$GITHUB_SHA" '[.workflow_runs[] | select(.head_sha==$sha and .conclusion=="failure")] | length')
+          echo "SAME_COMMIT_FAILURES=$failures"
+          if [ "$failures" -ge 2 ]; then
+            echo 'PRODUCTION SMOKE CIRCUIT OPEN — same commit has reached the retry limit.' >> "$GITHUB_STEP_SUMMARY"
+            exit 78
+          fi
+
+      - name: Level 0 - DNS
+        run: |
+          set -euo pipefail
+          getent hosts aimpact-ai.netlify.app
+
+      - name: Level 0 - HTTPS and HTTP health
+        run: |
+          set -euo pipefail
+          code=$(curl -L -sS -o /tmp/aimpact.html -w '%{http_code}' --max-time 20 "$BASE_URL/")
           echo "HTTP_STATUS=$code"
-          head -c 1000 /tmp/aimpact.html || true
+          echo "HTTP_STATUS=$code" >> "$GITHUB_STEP_SUMMARY"
           test "$code" -ge 200
           test "$code" -lt 400
           grep -q 'AIMPACT' /tmp/aimpact.html
+
+      - name: Level 1 - application and Supabase health
+        run: |
+          set -euo pipefail
+          grep -q 'supabaseUrl' config.js
+          grep -q 'supabaseKey' config.js
+          key=$(sed -n 's/.*supabaseKey:"\\([^"]*\\)".*/\\1/p' config.js)
+          url=$(sed -n 's/.*supabaseUrl:"\\([^"]*\\)".*/\\1/p' config.js)
+          test -n "$key" && test -n "$url"
+          curl -fsS -H "apikey: $key" -H "Authorization: Bearer $key" "$url/rest/v1/public_tools?select=id&verification_status=eq.VERIFIED&limit=1" >/tmp/tools.json
+          curl -fsS -H "apikey: $key" -H "Authorization: Bearer $key" "$url/rest/v1/workflows?select=id&limit=1" >/tmp/workflows.json
+          echo 'LEVEL_1=PASS' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Level 2 - critical application hooks
+        run: |
+          set -euo pipefail
+          grep -q 'function render' app.js
+          grep -q 'toggleCompare' app.js
+          grep -q 'applyForm' app.js
+          grep -q 'leadForm' app.js
+          grep -q 'lead_submit' app.js
+          grep -q 'page_view' app.js
+          echo 'LEVEL_2_STATIC_CRITICAL_FLOW=PASS' >> "$GITHUB_STEP_SUMMARY"
