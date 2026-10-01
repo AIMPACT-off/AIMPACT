@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "company": "AIMPACT",
   "principal": {
     "name": "Kim Hyung Nam",
@@ -7,14 +7,81 @@
     "final_decision_maker": true
   },
   "decision_classes": {
-    "D0": ["health_check", "retry", "cache_refresh", "reindex", "logging", "alerting", "non_destructive_validation"],
-    "D1": ["approved_workflow_execution", "routine_normalization", "scheduled_distribution", "approved_reverification", "reversible_containment"],
-    "D2": ["material_production_change", "canonical_business_data_change", "customer_impacting_change", "pricing_change", "external_commitment", "destructive_operation", "security_policy_change", "financial_action"],
-    "D3": ["ownership", "governance", "legal_commitment", "billing_plan", "capital_allocation", "strategic_direction", "new_revenue_model", "partnership_commitment", "authority_transfer"]
+    "D0": [
+      "health_check",
+      "retry",
+      "cache_refresh",
+      "reindex",
+      "logging",
+      "alerting",
+      "non_destructive_validation"
+    ],
+    "D1": [
+      "approved_workflow_execution",
+      "routine_normalization",
+      "scheduled_distribution",
+      "approved_reverification",
+      "reversible_containment"
+    ],
+    "D2": [
+      "material_production_change",
+      "canonical_business_data_change",
+      "customer_impacting_change",
+      "pricing_change",
+      "external_commitment",
+      "destructive_operation",
+      "security_policy_change",
+      "financial_action",
+      "public_content_claim_change"
+    ],
+    "D3": [
+      "ownership",
+      "governance",
+      "legal_commitment",
+      "billing_plan",
+      "capital_allocation",
+      "strategic_direction",
+      "new_revenue_model",
+      "partnership_commitment",
+      "authority_transfer"
+    ]
   },
-  "states": ["FACT", "HYPOTHESIS", "VERIFIED", "BLOCKED", "APPROVAL_REQUIRED", "FAILED", "RECOVERING", "LIVE"],
-  "control_loop": ["INTENT", "POLICY_CHECK", "PRECONDITION_CHECK", "EXECUTE", "OBSERVE", "VALIDATE", "LOG", "UPDATE_STATE", "ALERT", "CONTAIN_OR_ROLLBACK", "APPROVAL_IF_REQUIRED"],
-  "error_loop": ["DETECT", "CLASSIFY", "CORRELATE", "ROOT_CAUSE", "CONTAIN", "FIX", "REGRESSION_TEST", "DEPLOY", "VERIFY", "CLOSE", "KNOWLEDGE"],
+  "states": [
+    "FACT",
+    "HYPOTHESIS",
+    "VERIFIED",
+    "BLOCKED",
+    "APPROVAL_REQUIRED",
+    "FAILED",
+    "RECOVERING",
+    "LIVE"
+  ],
+  "control_loop": [
+    "INTENT",
+    "POLICY_CHECK",
+    "PRECONDITION_CHECK",
+    "EXECUTE",
+    "OBSERVE",
+    "VALIDATE",
+    "LOG",
+    "UPDATE_STATE",
+    "ALERT",
+    "CONTAIN_OR_ROLLBACK",
+    "APPROVAL_IF_REQUIRED"
+  ],
+  "error_loop": [
+    "DETECT",
+    "CLASSIFY",
+    "CORRELATE",
+    "ROOT_CAUSE",
+    "CONTAIN",
+    "FIX",
+    "REGRESSION_TEST",
+    "DEPLOY",
+    "VERIFY",
+    "CLOSE",
+    "KNOWLEDGE"
+  ],
   "commercial_truth_rules": {
     "customer_requires_record": true,
     "revenue_requires_transaction": true,
@@ -22,11 +89,34 @@
     "case_study_requires_documented_outcome": true,
     "verified_tool_requires_current_evidence": true
   },
+  "content_truth_rules": {
+    "publish_fact_requires_source": true,
+    "publish_current_claim_requires_current_evidence": true,
+    "unverified_tool_claim_blocked": true,
+    "fabricated_customer_or_result_blocked": true,
+    "hypothesis_must_be_labeled": true,
+    "customer_disclosure_requires_authorization": true
+  },
   "source_of_truth": {
     "code": "github",
     "production_database": "supabase",
     "operations_review": "airtable",
     "runtime": "netlify",
+    "distribution": "metricool"
+  },
+  "cadence": {
+    "hourly": "control_health_and_exception_detection",
+    "daily": "company_execution_review",
+    "weekly": "company_outcome_review",
+    "monthly": "strategy_and_unit_economics_review",
+    "quarterly": "strategic_reset",
+    "annual": "north_star_review"
+  },
+  "media_stack": {
+    "creative": "gpt_image_generation",
+    "image_video": "openart",
+    "video_motion": "runway",
+    "editing": "descript",
     "distribution": "metricool"
   },
   "certification": {
