@@ -1,0 +1,61 @@
+name: AIMPACT Central Control Validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  control-plane:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate central-control policy
+        run: node control-plane/validate-policy.mjs
+
+      - name: Validate required company architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            AIMPACT_CENTRAL_CONTROL_SYSTEM.md
+            AIMPACT_DECISION_AUTHORITY.md
+            AIMPACT_CORE_TECHNOLOGY_AND_MONETIZATION.md
+            AIMPACT_DATA_LINEAGE.md
+            AIMPACT_VERIFICATION_SPEC.md
+            AIMPACT_SYNC_SPEC.md
+          )
+          for f in "${required[@]}"; do
+            test -s "$f" || { echo "Missing required architecture artifact: $f"; exit 1; }
+          done
+
+      - name: Validate frontend JavaScript syntax
+        run: |
+          node --check app.js
+          node --check config.js
+
+      - name: Block browser service-role exposure
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE 'service_role|SUPABASE_SERVICE_ROLE|serviceRoleKey'             --exclude-dir=.git --exclude='*.md' .; then
+            echo "Potential service-role credential exposure detected."
+            exit 1
+          fi
+
+      - name: Validate commercial truth rules
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'revenue_requires_transaction' control-plane/policy.json
+          grep -q 'outcome_requires_measurement' control-plane/policy.json
+          grep -q 'verified_tool_requires_current_evidence' control-plane/policy.json
+          echo "Commercial truth gates present."
