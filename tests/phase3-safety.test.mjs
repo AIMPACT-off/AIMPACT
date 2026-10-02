@@ -42,3 +42,30 @@ test("Supabase RPC adapter fails closed when its backing service is unavailable"
   const db = new SupabaseRpcAdapter({ url: "https://project.supabase.co", serviceRoleKey: "test", fetchImpl: async () => ({ ok: false, status: 500 }) });
   await assert.rejects(() => db.rpc("rpc", {}), e => e instanceof StoreUnavailableError && e.status === 503);
 });
+
+test("Upstash lock renews its lease while the protected operation is active", async () => {
+  const commands = [];
+  const redis = new UpstashRedisAdapter({
+    url: "https://redis.example", token: "test",
+    fetchImpl: async (_url, options) => {
+      const args = JSON.parse(options.body); commands.push(args);
+      return { ok: true, json: async () => ({ result: args[0] === "SET" ? "OK" : 1 }) };
+    }
+  });
+  await redis.withLock("heartbeat-test", async () => new Promise(resolve => setTimeout(resolve, 24)), { ttlMs: 30000, heartbeatMs: 5 });
+  assert.ok(commands.some(args => args[0] === "EVAL" && String(args[1]).includes("pexpire")));
+});
+
+test("Supabase lock calls atomic lease renewal during long operations", async () => {
+  const calls = [];
+  const db = new SupabaseRpcAdapter({
+    url: "https://project.supabase.co", serviceRoleKey: "test",
+    fetchImpl: async (url, options) => {
+      const name = url.split("/").pop(); calls.push(name);
+      return { ok: true, json: async () => name === "aimpact_claim_execution_lock" || name === "aimpact_renew_execution_lock" ? true : true };
+    }
+  });
+  await db.withLock("heartbeat-test", async () => new Promise(resolve => setTimeout(resolve, 24)), { ttlSeconds: 30, heartbeatMs: 5 });
+  assert.ok(calls.includes("aimpact_renew_execution_lock"));
+  assert.ok(calls.includes("aimpact_release_execution_lock"));
+});
