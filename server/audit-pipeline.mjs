@@ -42,8 +42,8 @@ export async function runAuditPipeline({ input, dispatcher, roiOptions = {} }) {
     confidence: 0.5
   });
   const execution = await dispatcher.dispatch({
-    requestId: crypto.randomUUID(),
-    tenantId: "audit-" + sanitized.email.toLowerCase(),
+    requestId: randomUUID(),
+    tenantId: "audit-" + randomUUID(),
     workflowId: decision.workflowId,
     payload: { company: sanitized.company, industry: sanitized.industry, problem: sanitized.problem, currentTools: sanitized.currentTools }
   });
