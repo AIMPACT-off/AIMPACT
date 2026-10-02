@@ -117,3 +117,18 @@ test("SHADOW dispatcher builds payload and never invokes external send", async (
   assert.equal(result.output.externalPayload.prompt, "preview only");
   assert.equal(sent, false);
 });
+
+test("global kill switch aborts an active dispatch and terminates its worker before it starts", async () => {
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const lockStore = { async withLock(_key, operation) { await gate; return { acquired: true, result: await operation() }; } };
+  const dispatcher = createDispatcher({ mode: "MOCK", lockStore });
+  const pending = dispatcher.dispatch(request());
+  for (let i = 0; i < 20 && dispatcher.killSwitch.activeTasks.size === 0; i++) await new Promise(resolve => setImmediate(resolve));
+  assert.equal(dispatcher.killSwitch.activeTasks.size, 1);
+  const activation = await dispatcher.killSwitch.activate("automated-test");
+  assert.equal(activation.abortedTasks, 1);
+  release();
+  await assert.rejects(() => pending, e => e.code === "EXECUTION_ABORTED" && e.status === 503);
+  assert.equal(dispatcher.killSwitch.activeTasks.size, 0);
+});
