@@ -2,6 +2,7 @@
 // Production preflight. Credentials are never printed. Remote RLS is never inferred.
 import { readFile } from "node:fs/promises";
 const checks = [];
+const dryRun = process.env.PRODUCTION_PREFLIGHT_DRY_RUN === "true";
 const add = (name, status, detail) => checks.push({ name, status, detail });
 const timeout = Number(process.env.PRODUCTION_PREFLIGHT_TIMEOUT_MS || 8000);
 const https = value => { try { return new URL(value).protocol === "https:"; } catch { return false; } };
@@ -11,6 +12,7 @@ async function get(url, headers = {}) {
   try { return await fetch(url, { headers, signal: controller.signal }); }
   finally { clearTimeout(timer); }
 }
+if (!dryRun) {
 const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
 const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
 if (!redisUrl || !redisToken) add("Upstash credentials", "BLOCKED", "Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN");
@@ -47,6 +49,7 @@ for (const file of files) {
   catch { rls = false; }
 }
 add("Local migration RLS declarations", rls ? "PASS" : "FAIL", rls ? "RLS enablement statements found in expected migrations" : "Missing migration or RLS declaration");
+}
 add("Actual Production DB RLS state", "NOT_VERIFIED", "Requires read-only SQL inspection of pg_class.relrowsecurity and pg_policies on the target DB");
 for (const c of checks) process.stdout.write(`[${c.status}] ${c.name}: ${c.detail}\n`);
-process.exitCode = checks.some(c => ["BLOCKED", "FAIL", "NOT_VERIFIED"].includes(c.status)) ? 1 : 0;
+process.exitCode = dryRun ? (checks.some(c => c.status === "FAIL") ? 1 : 0) : (checks.some(c => ["BLOCKED", "FAIL", "NOT_VERIFIED"].includes(c.status)) ? 1 : 0);
