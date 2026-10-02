@@ -55,7 +55,7 @@ export async function runAuditPipeline({ input, dispatcher, roiOptions = {} }) {
   const sanitized = validateAuditInput(input);
   const decision = DecisionSchema.parse({
     workflowId: "mock-01",
-    rationale: "Prepare a non-executing diagnostic dry-run for the stated business problem.",
+    rationale: "제출된 업무 문제를 바탕으로 외부 시스템을 변경하지 않는 진단용 모의 실행을 수행합니다.",
     confidence: 0.5
   });
   const execution = await dispatcher.dispatch({
