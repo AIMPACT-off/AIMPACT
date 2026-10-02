@@ -1,0 +1,38 @@
+name: Supabase schema snapshot
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 2 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  schema:
+    if: ${{ secrets.SUPABASE_DB_URL != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Dump schema only
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          mkdir -p supabase
+          supabase db dump --db-url "$SUPABASE_DB_URL" --schema public -f supabase/schema.sql
+      - name: Check snapshot is non-empty
+        run: test -s supabase/schema.sql
+      - name: Commit snapshot
+        run: |
+          if git diff --quiet -- supabase/schema.sql; then
+            echo "Schema unchanged."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/schema.sql
+          git commit -m "chore(db): sync Supabase schema snapshot"
+          git push
