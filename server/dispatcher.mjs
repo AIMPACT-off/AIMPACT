@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { CircuitBreaker } from "../lib/circuit-breaker.mjs";
+import { GlobalKillSwitch, DispatcherTelemetry } from "./control-plane.mjs";
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const DispatchRequestSchema = z.object({
@@ -114,7 +115,10 @@ export class ServerDispatcher {
     lockStore = new InMemoryAtomicLockStore(),
     outcomeLogger = new InMemoryOutcomeLogger(),
     circuitBreaker = new CircuitBreaker({ minSamples: 3, failureRate: 0.66 }),
-    timeoutMs = 3000
+    timeoutMs = 3000,
+    killSwitch = new GlobalKillSwitch(),
+    telemetry = new DispatcherTelemetry(),
+    idempotencyStore = null
   } = {}) {
     if (!["MOCK", "LIVE"].includes(mode)) throw new TypeError("EXECUTION_MODE must be MOCK or LIVE");
     if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 3000) throw new TypeError("timeoutMs must be 1..3000");
@@ -124,6 +128,9 @@ export class ServerDispatcher {
     this.circuitBreaker = circuitBreaker;
     this.timeoutMs = timeoutMs;
     this.idempotency = new Map();
+    this.killSwitch = killSwitch;
+    this.telemetry = telemetry;
+    this.idempotencyStore = idempotencyStore;
   }
 
   async dispatch(raw) {
@@ -144,7 +151,7 @@ export class ServerDispatcher {
     const prior = this.idempotency.get(input.requestId);
     if (prior) {
       if (prior.digest !== digest) throw new DispatcherError(409, "IDEMPOTENCY_KEY_REUSE", "requestId was already used with a different context");
-      return prior.promise;
+      await this.telemetry.emitEvent("IDEMPOTENCY_HIT", { tenantId: input.tenantId, workflowId: input.workflowId });\n      return prior.promise;
     }
 
     const lockKey = input.tenantId + ":" + input.workflowId;
