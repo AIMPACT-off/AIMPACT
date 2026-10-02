@@ -70,7 +70,7 @@ test("records successful and failed outcomes; unknown workflows never run", asyn
 test("LIVE mode is fail-closed without production adapters", async () => {
   const dispatcher = createDispatcher({ mode: "LIVE" });
   await assert.rejects(() => dispatcher.dispatch(request()),
-    e => e.status === 503 && e.code === "LIVE_EXECUTION_NOT_CONFIGURED");
+    e => e.status === 503 && e.code === "CONTROL_PLANE_UNAVAILABLE");
 });
 
 test("in-memory lock is atomic within one Node process", async () => {
