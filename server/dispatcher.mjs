@@ -84,7 +84,7 @@ export class InMemoryOutcomeLogger {
   async record(event) { this.events.push(Object.freeze({ ...event })); }
 }
 
-function runWorker(input, timeoutMs, signal) {
+function runWorker(input, timeoutMs, signal, onStarted = () => {}) {
   return new Promise((resolve, reject) => {
     const worker = new Worker(fileURLToPath(new URL("./mock-worker.mjs", import.meta.url)), { workerData: input });
     let settled = false;
@@ -101,7 +101,7 @@ function runWorker(input, timeoutMs, signal) {
     timer = setTimeout(() => void finish(new DispatcherError(504, "WORKER_TIMEOUT", "Mock worker exceeded its execution deadline")), timeoutMs);
     if (signal?.aborted) { void finish(new DispatcherError(503, "EXECUTION_ABORTED", "Execution was cancelled before worker start")); return; }
     signal?.addEventListener("abort", onAbort, { once: true });
-    worker.once("message", value => void finish(null, value));
+    worker.on("message", value => { if (value?.type === "WORKER_STARTED") { onStarted(); return; } void finish(null, value); });
     worker.once("error", error => void finish(new DispatcherError(500, "WORKER_FAILED", error.message)));
     worker.once("exit", code => { if (code !== 0 && !settled) void finish(new DispatcherError(500, "WORKER_EXITED", "Worker exited with code " + code)); });
   });
@@ -197,7 +197,7 @@ export class ServerDispatcher {
         const startedAt = Date.now();
         try {
           const output = await this.circuitBreaker.execute(
-            () => runWorker(input, this.timeoutMs, taskController.signal), undefined,
+            () => runWorker(input, this.timeoutMs, taskController.signal, () => { void this.telemetry.emitEvent("WORKER_STARTED", { tenantId: input.tenantId, workflowId: input.workflowId }); }), undefined,
             { isIdempotent: false, validate: value => value }
           );
           const durationMs = Date.now() - startedAt;
