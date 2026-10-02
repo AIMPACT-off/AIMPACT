@@ -9,7 +9,8 @@
     "test:pdf-korean-rendering": "node --test tests/audit-pipeline.test.mjs",
     "check:production-env": "node scripts/production-env-checklist.mjs",
     "test:production-preflight": "node --test tests/production-env-checklist.test.mjs",
-    "test:tenant-isolation": "node scripts/test-tenant-isolation.mjs"
+    "test:tenant-isolation": "node scripts/test-tenant-isolation.mjs",
+    "test:audit-dispatcher-handshake": "node --test tests/audit-dispatcher-handshake.test.mjs"
   },
   "dependencies": {
     "zod": "3.25.76",
