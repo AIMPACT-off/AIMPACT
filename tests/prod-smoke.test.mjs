@@ -48,7 +48,7 @@ test("only GET requests are sent and both read-only checks pass", async t => {
     UPSTASH_REDIS_REST_TOKEN: "test-token",
     SUPABASE_URL: url,
     SUPABASE_SERVICE_ROLE_KEY: "test-server-key",
-    PROD_SMOKE_ALLOW_HTTP: "true"
+    NODE_ENV: "test"
   });
   assert.equal(result.code, 0, result.stderr);
   assert.match(result.stdout, /Upstash authenticated PING: PONG/);
