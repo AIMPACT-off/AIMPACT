@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { GlobalKillSwitch, ShadowExecutionEngine, DispatcherTelemetry } from "../server/control-plane.mjs";
+import { GlobalKillSwitch, ShadowExecutionEngine, DispatcherTelemetry, fetchWithExecutionSignal } from "../server/control-plane.mjs";
 import { UpstashRedisAdapter, SupabaseRpcAdapter, StoreUnavailableError } from "../server/persistent-stores.mjs";
 
 test("global kill switch blocks MOCK and LIVE before work", async () => {
@@ -68,4 +68,16 @@ test("Supabase lock calls atomic lease renewal during long operations", async ()
   await db.withLock("heartbeat-test", async () => new Promise(resolve => setTimeout(resolve, 24)), { ttlSeconds: 30, heartbeatMs: 5 });
   assert.ok(calls.includes("aimpact_renew_execution_lock"));
   assert.ok(calls.includes("aimpact_release_execution_lock"));
+});
+
+test("execution AbortSignal is propagated into cooperative external fetch", async () => {
+  const controller = new AbortController();
+  let receivedSignal;
+  const pending = fetchWithExecutionSignal((_url, options) => new Promise((_resolve, reject) => {
+    receivedSignal = options.signal;
+    options.signal.addEventListener("abort", () => reject(options.signal.reason), { once: true });
+  }), "https://provider.example/api", { method: "POST" }, controller.signal);
+  controller.abort(new Error("global-stop"));
+  await assert.rejects(() => pending, /global-stop/);
+  assert.equal(receivedSignal, controller.signal);
 });
