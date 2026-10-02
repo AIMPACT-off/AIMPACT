@@ -22,6 +22,9 @@ jobs:
           node --check lib/tenant-rate-limiter.mjs
           node --check lib/audit-roi.mjs
           node --check lib/audit-anchor.mjs
+          node --check lib/decision-guard.mjs
+          node --check lib/idempotency-saga.mjs
+          node --check lib/audit-input-guard.mjs
           node --check scripts/check-provider-env.mjs
           node --check scripts/test-tenant-isolation.mjs
           node --check scripts/lint-migrations.mjs
