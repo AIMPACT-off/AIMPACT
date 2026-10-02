@@ -1,0 +1,3 @@
+import test from "node:test";import assert from "node:assert/strict";import {routeWithFallback,MODEL_CAPACITY_EXHAUSTED} from "../lib/model-router.mjs";
+test("fallback attempts are capped at two and escalated to human review",async()=>{let calls=0,review;await assert.rejects(()=>routeWithFallback({candidates:["p","s","t","fourth"],maxFallbackDepth:2,prepare:x=>x,invoke:async()=>{calls++;throw Error("down");},onHumanReview:async x=>{review=x;}}),e=>e.code===MODEL_CAPACITY_EXHAUSTED);assert.equal(calls,3);assert.equal(review.attempts,3);});
+test("rejects fallback depth above two",async()=>{await assert.rejects(()=>routeWithFallback({candidates:[1],maxFallbackDepth:3,prepare:x=>x,invoke:async()=>x=>x}),/INVALID_FALLBACK_DEPTH/);});
