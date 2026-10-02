@@ -20,7 +20,7 @@ async function run() {
   const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
   const supabaseUrl = process.env.SUPABASE_URL;
   if (![redisUrl, supabaseUrl].every(value => {
-    try { return new URL(value).protocol === "https:" || process.env.PROD_SMOKE_ALLOW_HTTP === "true"; }
+    try { return new URL(value).protocol === "https:" || process.env.NODE_ENV === "test"; }
     catch { return false; }
   })) {
     throw new Error("Service URLs must be valid HTTPS URLs (HTTP is allowed only for isolated tests).");
