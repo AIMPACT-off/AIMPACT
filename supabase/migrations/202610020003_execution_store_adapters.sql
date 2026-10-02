@@ -30,6 +30,18 @@ begin
   return affected > 0;
 end $$;
 
+create or replace function public.aimpact_renew_execution_lock(p_lock_key text, p_owner uuid, p_ttl_seconds integer)
+returns boolean language plpgsql security definer set search_path = public, pg_temp as $
+declare affected integer;
+begin
+  if p_ttl_seconds < 1 or p_ttl_seconds > 300 then raise exception 'invalid lock ttl'; end if;
+  update public.aimpact_execution_locks
+  set expires_at = now() + make_interval(secs => p_ttl_seconds)
+  where lock_key = p_lock_key and owner_id = p_owner and expires_at > now();
+  get diagnostics affected = row_count;
+  return affected > 0;
+end $;
+
 create or replace function public.aimpact_release_execution_lock(p_lock_key text, p_owner uuid)
 returns boolean language plpgsql security definer set search_path = public, pg_temp as $$
 declare affected integer;
@@ -94,3 +106,6 @@ grant execute on function public.aimpact_complete_idempotency(text, text, jsonb,
 
 revoke all on function public.aimpact_release_idempotency(text, text) from public, anon, authenticated;
 grant execute on function public.aimpact_release_idempotency(text, text) to service_role;
+
+revoke all on function public.aimpact_renew_execution_lock(text, uuid, integer) from public, anon, authenticated;
+grant execute on function public.aimpact_renew_execution_lock(text, uuid, integer) to service_role;
