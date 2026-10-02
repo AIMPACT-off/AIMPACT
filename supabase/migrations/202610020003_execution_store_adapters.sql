@@ -34,7 +34,7 @@ create or replace function public.aimpact_release_execution_lock(p_lock_key text
 returns boolean language plpgsql security definer set search_path = public, pg_temp as $$
 declare affected integer;
 begin
-  delete from public.aimpact_execution_locks where lock_key = p_lock_key and owner_id = p_owner;
+  update public.aimpact_execution_locks set expires_at = now() where lock_key = p_lock_key and owner_id = p_owner;
   get diagnostics affected = row_count;
   return affected > 0;
 end $$;
@@ -75,7 +75,7 @@ create or replace function public.aimpact_release_idempotency(p_idempotency_key 
 returns boolean language plpgsql security definer set search_path = public, pg_temp as $
 declare affected integer;
 begin
-  delete from public.aimpact_idempotency
+  update public.aimpact_idempotency set expires_at = now(), updated_at = now()
   where idempotency_key = p_idempotency_key and context_hash = p_context_hash and state = 'RUNNING';
   get diagnostics affected = row_count;
   return affected > 0;
