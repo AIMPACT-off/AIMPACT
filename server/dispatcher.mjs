@@ -190,7 +190,10 @@ export class ServerDispatcher {
         }
       }
       const lockKey = input.tenantId + ":" + input.workflowId;
-      const taskController = new AbortController();\n      const unregisterTask = this.killSwitch.registerActiveTask(taskController, { tenantId: input.tenantId, workflowId: input.workflowId });\n      try {\n      const locked = await this.lockStore.withLock(lockKey, async () => {
+      const taskController = new AbortController();
+      const unregisterTask = this.killSwitch.registerActiveTask(taskController, { tenantId: input.tenantId, workflowId: input.workflowId });
+      try {
+      const locked = await this.lockStore.withLock(lockKey, async () => {
         const startedAt = Date.now();
         try {
           const output = await this.circuitBreaker.execute(
