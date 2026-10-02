@@ -2,7 +2,7 @@ import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import fontkit from "@pdf-lib/fontkit";
-import { PDFDocument, StandardFonts } from "pdf-lib";
+import { PDFDocument } from "pdf-lib";
 import { validateAuditInput } from "../lib/audit-input-guard.mjs";
 import { calculateAuditRoi } from "../lib/audit-roi.mjs";
 
