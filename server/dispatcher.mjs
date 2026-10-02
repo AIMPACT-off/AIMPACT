@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { CircuitBreaker } from "../lib/circuit-breaker.mjs";
+import { verifyLiveHandshake } from "../lib/live-handshake.mjs";
 import { GlobalKillSwitch, DispatcherTelemetry } from "./control-plane.mjs";
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -117,7 +118,8 @@ export class ServerDispatcher {
     killSwitch = new GlobalKillSwitch(),
     telemetry = new DispatcherTelemetry(),
     idempotencyStore = null,
-    shadowEngine = null
+    shadowEngine = null,
+    liveHandshake = { passphrase: process.env.LIVE_EXECUTION_PASSPHRASE, expectedSha256: process.env.LIVE_EXECUTION_PASSPHRASE_SHA256 }
   } = {}) {
     if (!["MOCK", "SHADOW", "LIVE"].includes(mode)) throw new TypeError("EXECUTION_MODE must be MOCK, SHADOW or LIVE");
     if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 3000) throw new TypeError("timeoutMs must be 1..3000");
@@ -131,6 +133,7 @@ export class ServerDispatcher {
     this.telemetry = telemetry;
     this.idempotencyStore = idempotencyStore;
     this.shadowEngine = shadowEngine;
+    this.liveHandshake = liveHandshake;
   }
 
   async dispatch(raw) {
@@ -146,7 +149,13 @@ export class ServerDispatcher {
       throw new DispatcherError(error.status ?? 503, error.code ?? "EXECUTION_BLOCKED", error.message);
     }
     if (this.mode === "LIVE") {
-      throw new DispatcherError(503, "LIVE_EXECUTION_NOT_CONFIGURED", "LIVE execution is disabled until production adapters and policy gates are verified");
+      const handshake = verifyLiveHandshake(this.liveHandshake);
+      if (!handshake.ok) {
+        await this.telemetry.emitEvent("LIVE_HANDSHAKE_BLOCKED", { code: handshake.code });
+        throw new DispatcherError(503, handshake.code, "LIVE execution handshake is absent or invalid");
+      }
+      // Handshake is necessary but never sufficient: adapters and policy gates remain mandatory.
+      throw new DispatcherError(503, "LIVE_EXECUTION_NOT_CONFIGURED", "Handshake verified; LIVE adapters and production policy gates are not configured");
     }
     if (this.mode === "SHADOW") {
       if (!this.shadowEngine?.execute) throw new DispatcherError(503, "SHADOW_ENGINE_NOT_CONFIGURED", "Shadow execution engine is required");
