@@ -84,12 +84,12 @@ export class InMemoryOutcomeLogger {
   async record(event) { this.events.push(Object.freeze({ ...event })); }
 }
 
-function runWorker(input, timeoutMs) {
+function runWorker(input, timeoutMs, signal) {
   return new Promise((resolve, reject) => {
     const worker = new Worker(fileURLToPath(new URL("./mock-worker.mjs", import.meta.url)), {
       workerData: input
     });
-    let settled = false;
+    let settled = false;\n    const onAbort = () => void finish(new DispatcherError(503, "EXECUTION_ABORTED", "Execution was cancelled by the control plane"));
     const finish = async (error, value) => {
       if (settled) return;
       settled = true;
@@ -97,7 +97,7 @@ function runWorker(input, timeoutMs) {
       await worker.terminate().catch(() => {});
       error ? reject(error) : resolve(value);
     };
-    const timer = setTimeout(() => {
+    if (signal?.aborted) { void finish(new DispatcherError(503, "EXECUTION_ABORTED", "Execution was cancelled before worker start")); return; }\n    signal?.addEventListener("abort", onAbort, { once: true });\n    const timer = setTimeout(() => {
       const error = new DispatcherError(504, "WORKER_TIMEOUT", "Mock worker exceeded its execution deadline");
       void finish(error);
     }, timeoutMs);
@@ -184,11 +184,11 @@ export class ServerDispatcher {
         }
       }
       const lockKey = input.tenantId + ":" + input.workflowId;
-      const locked = await this.lockStore.withLock(lockKey, async () => {
+      const taskController = new AbortController();\n      const unregisterTask = this.killSwitch.registerActiveTask(taskController, { tenantId: input.tenantId, workflowId: input.workflowId });\n      try {\n      const locked = await this.lockStore.withLock(lockKey, async () => {
         const startedAt = Date.now();
         try {
           const output = await this.circuitBreaker.execute(
-            () => runWorker(input, this.timeoutMs), undefined,
+            () => runWorker(input, this.timeoutMs, taskController.signal), undefined,
             { isIdempotent: false, validate: value => value }
           );
           const durationMs = Date.now() - startedAt;
