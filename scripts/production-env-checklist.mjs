@@ -12,6 +12,7 @@ async function get(url, headers = {}) {
   try { return await fetch(url, { headers, signal: controller.signal }); }
   finally { clearTimeout(timer); }
 }
+if (dryRun) add("Production credentials", "SKIPPED", "Dry-run mode: external credential checks and network calls skipped");
 if (!dryRun) {
 const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
 const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
