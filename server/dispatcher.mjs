@@ -137,7 +137,13 @@ export class ServerDispatcher {
     let input;
     try { input = DispatchRequestSchema.parse(raw); }
     catch (error) {
+      await this.telemetry.emitEvent("VALIDATION_FAILED", { status: 422 });
       throw new DispatcherError(422, "VALIDATION_FAILED", error.issues?.map(x => x.message).join("; ") || "Invalid request");
+    }
+    try { await this.killSwitch.assertAllowed(this.mode); }
+    catch (error) {
+      await this.telemetry.emitEvent("KILL_SWITCH_BLOCKED", { code: error.code });
+      throw new DispatcherError(error.status ?? 503, error.code ?? "EXECUTION_BLOCKED", error.message);
     }
     if (this.mode !== "MOCK") {
       throw new DispatcherError(503, "LIVE_EXECUTION_NOT_CONFIGURED", "LIVE execution is disabled until production adapters and policy gates are verified");
@@ -151,40 +157,54 @@ export class ServerDispatcher {
     const prior = this.idempotency.get(input.requestId);
     if (prior) {
       if (prior.digest !== digest) throw new DispatcherError(409, "IDEMPOTENCY_KEY_REUSE", "requestId was already used with a different context");
-      await this.telemetry.emitEvent("IDEMPOTENCY_HIT", { tenantId: input.tenantId, workflowId: input.workflowId });\n      return prior.promise;
+      await this.telemetry.emitEvent("IDEMPOTENCY_HIT", { tenantId: input.tenantId, workflowId: input.workflowId });
+      return prior.promise;
     }
 
-    const lockKey = input.tenantId + ":" + input.workflowId;
-    const promise = this.lockStore.withLock(lockKey, async () => {
-      const startedAt = Date.now();
-      try {
-        const output = await this.circuitBreaker.execute(
-          () => runWorker(input, this.timeoutMs),
-          undefined,
-          { isIdempotent: false, validate: value => value }
-        );
-        await this.outcomeLogger.record({
-          requestId: input.requestId, tenantId: input.tenantId,
-          workflowId: input.workflowId, status: "COMPLETED",
-          durationMs: Date.now() - startedAt, mode: "MOCK"
-        });
-        return { status: 200, requestId: input.requestId, idempotencyKey: idemKey, mode: "MOCK", output };
-      } catch (error) {
-        await this.outcomeLogger.record({
-          requestId: input.requestId, tenantId: input.tenantId,
-          workflowId: input.workflowId, status: "FAILED",
-          durationMs: Date.now() - startedAt, mode: "MOCK", errorCode: error.code ?? "EXECUTION_FAILED"
-        });
-        throw error;
+    const promise = (async () => {
+      if (this.idempotencyStore) {
+        let claimed;
+        try { claimed = await this.idempotencyStore.claimIdempotency(idemKey, digest); }
+        catch (error) { throw new DispatcherError(503, "EXECUTION_STORE_UNAVAILABLE", error.message); }
+        if (!claimed) {
+          const saved = await this.idempotencyStore.readIdempotency(idemKey);
+          if (saved?.contextHash !== digest) throw new DispatcherError(409, "IDEMPOTENCY_KEY_REUSE", "Idempotency context mismatch");
+          if (saved?.state === "COMPLETED") return saved.result;
+          throw new DispatcherError(409, "WORKFLOW_ALREADY_RUNNING", "A durable execution claim is already active");
+        }
       }
-    }).then(result => {
-      if (!result.acquired) throw new DispatcherError(409, "WORKFLOW_ALREADY_RUNNING", "An execution for this tenant/workflow is already running");
-      return result.result;
-    });
+      const lockKey = input.tenantId + ":" + input.workflowId;
+      const locked = await this.lockStore.withLock(lockKey, async () => {
+        const startedAt = Date.now();
+        try {
+          const output = await this.circuitBreaker.execute(
+            () => runWorker(input, this.timeoutMs), undefined,
+            { isIdempotent: false, validate: value => value }
+          );
+          const durationMs = Date.now() - startedAt;
+          await this.outcomeLogger.record({ requestId: input.requestId, tenantId: input.tenantId, workflowId: input.workflowId, status: "COMPLETED", durationMs, mode: "MOCK" });
+          await this.telemetry.emitEvent("EXECUTION_COMPLETED", { tenantId: input.tenantId, workflowId: input.workflowId, durationMs, mode: "MOCK" });
+          return { status: 200, requestId: input.requestId, idempotencyKey: idemKey, mode: "MOCK", output };
+        } catch (error) {
+          const durationMs = Date.now() - startedAt;
+          await this.outcomeLogger.record({ requestId: input.requestId, tenantId: input.tenantId, workflowId: input.workflowId, status: "FAILED", durationMs, mode: "MOCK", errorCode: error.code ?? "EXECUTION_FAILED" });
+          if (error.code === "WORKER_TIMEOUT") await this.telemetry.emitEvent("WORKER_TIMEOUT", { tenantId: input.tenantId, workflowId: input.workflowId, durationMs });
+          throw error;
+        }
+      });
+      if (!locked.acquired) {
+        await this.telemetry.emitEvent("LOCK_CONFLICT", { tenantId: input.tenantId, workflowId: input.workflowId });
+        throw new DispatcherError(409, "WORKFLOW_ALREADY_RUNNING", "An execution for this tenant/workflow is already running");
+      }
+      return locked.result;
+    })();
 
     this.idempotency.set(input.requestId, { digest, promise });
-    try { return await promise; }
-    catch (error) {
+    try {
+      const result = await promise;
+      if (this.idempotencyStore) await this.idempotencyStore.completeIdempotency(idemKey, digest, result);
+      return result;
+    } catch (error) {
       this.idempotency.delete(input.requestId);
       throw error;
     }
