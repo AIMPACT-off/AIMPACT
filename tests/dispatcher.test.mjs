@@ -118,17 +118,18 @@ test("SHADOW dispatcher builds payload and never invokes external send", async (
   assert.equal(sent, false);
 });
 
-test("global kill switch aborts an active dispatch and terminates its worker before it starts", async () => {
-  let release;
-  const gate = new Promise(resolve => { release = resolve; });
-  const lockStore = { async withLock(_key, operation) { await gate; return { acquired: true, result: await operation() }; } };
-  const dispatcher = createDispatcher({ mode: "MOCK", lockStore });
-  const pending = dispatcher.dispatch(request());
-  for (let i = 0; i < 20 && dispatcher.killSwitch.activeTasks.size === 0; i++) await new Promise(resolve => setImmediate(resolve));
+test("global kill switch terminates an already-running Worker Thread", async () => {
+  const dispatcher = createDispatcher({ mode: "MOCK", timeoutMs: 3000 });
+  let startedResolve;
+  const started = new Promise(resolve => { startedResolve = resolve; });
+  dispatcher.telemetry.on("execution", event => { if (event.type === "WORKER_STARTED") startedResolve(); });
+  const pending = dispatcher.dispatch(request({ payload: { __mockDelayMs: 1800 } }));
+  await started;
   assert.equal(dispatcher.killSwitch.activeTasks.size, 1);
-  const activation = await dispatcher.killSwitch.activate("automated-test");
-  assert.equal(activation.abortedTasks, 1);
-  release();
+  const before = Date.now();
+  const activation = await dispatcher.killSwitch.activate("in-flight-worker-test");
   await assert.rejects(() => pending, e => e.code === "EXECUTION_ABORTED" && e.status === 503);
+  assert.ok(Date.now() - before < 1000, "local worker cancellation should complete within one second");
+  assert.equal(activation.abortedTasks, 1);
   assert.equal(dispatcher.killSwitch.activeTasks.size, 0);
 });
