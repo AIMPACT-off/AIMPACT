@@ -1,9 +1,9 @@
 name: Phase 1 unit tests
 on:
   push:
-    paths: ["lib/**","scripts/**","tests/**",".github/workflows/phase1-tests.yml","supabase/migrations/**"]
+    paths: ["package.json","server/**","lib/**","scripts/**","tests/**",".github/workflows/phase1-tests.yml","supabase/migrations/**"]
   pull_request:
-    paths: ["lib/**","scripts/**","tests/**",".github/workflows/phase1-tests.yml","supabase/migrations/**"]
+    paths: ["package.json","server/**","lib/**","scripts/**","tests/**",".github/workflows/phase1-tests.yml","supabase/migrations/**"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -15,8 +15,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
       - name: Syntax check
         run: |
+          node --check server/dispatcher.mjs
+          node --check server/mock-worker.mjs
           node --check lib/circuit-breaker.mjs
           node --check lib/model-router.mjs
           node --check lib/tenant-rate-limiter.mjs
@@ -30,5 +34,7 @@ jobs:
           node --check scripts/lint-migrations.mjs
       - name: Migration safety lint
         run: node scripts/lint-migrations.mjs
-      - name: Unit tests
-        run: node --test tests/*.test.mjs
+      - name: Dispatcher integration tests
+        run: npm run test:dispatcher
+      - name: Full unit tests
+        run: npm test
