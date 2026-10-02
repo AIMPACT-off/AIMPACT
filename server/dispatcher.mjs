@@ -150,9 +150,17 @@ export class ServerDispatcher {
     }
     if (this.mode === "SHADOW") {
       if (!this.shadowEngine?.execute) throw new DispatcherError(503, "SHADOW_ENGINE_NOT_CONFIGURED", "Shadow execution engine is required");
-      const output = await this.shadowEngine.execute(input);
-      await this.telemetry.emitEvent("SHADOW_EXECUTION", { tenantId: input.tenantId, workflowId: input.workflowId, sent: false });
-      return { status: 200, requestId: input.requestId, mode: "SHADOW", output };
+      const controller = new AbortController();
+      const unregister = this.killSwitch.registerActiveTask(controller, { tenantId: input.tenantId, workflowId: input.workflowId });
+      try {
+        const output = await this.shadowEngine.execute(input, { signal: controller.signal });
+        controller.signal.throwIfAborted();
+        await this.telemetry.emitEvent("SHADOW_EXECUTION", { tenantId: input.tenantId, workflowId: input.workflowId, sent: false });
+        return { status: 200, requestId: input.requestId, mode: "SHADOW", output };
+      } catch (error) {
+        if (controller.signal.aborted) throw new DispatcherError(503, "EXECUTION_ABORTED", "Shadow execution was cancelled by the control plane");
+        throw error;
+      } finally { unregister(); }
     }
     if (!/^mock-0[1-8]$/.test(input.workflowId)) {
       throw new DispatcherError(404, "WORKFLOW_NOT_REGISTERED", "Only the eight explicitly synthetic MOCK workflows are available");
