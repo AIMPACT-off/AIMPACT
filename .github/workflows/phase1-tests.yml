@@ -1,19 +1,12 @@
 name: Phase 1 unit tests
-
 on:
   push:
-    paths:
-      - "lib/**"
-      - "tests/**"
-      - "scripts/**"
-      - ".github/workflows/phase1-tests.yml"
+    paths: ["lib/**","scripts/**","tests/**",".github/workflows/phase1-tests.yml","supabase/migrations/**"]
   pull_request:
-    paths:
-      - "lib/**"
-      - "tests/**"
-      - "scripts/**"
-      - ".github/workflows/phase1-tests.yml"
-
+    paths: ["lib/**","scripts/**","tests/**",".github/workflows/phase1-tests.yml","supabase/migrations/**"]
+  workflow_dispatch:
+permissions:
+  contents: read
 jobs:
   node-tests:
     runs-on: ubuntu-latest
@@ -25,7 +18,14 @@ jobs:
       - name: Syntax check
         run: |
           node --check lib/circuit-breaker.mjs
+          node --check lib/model-router.mjs
+          node --check lib/tenant-rate-limiter.mjs
+          node --check lib/audit-roi.mjs
+          node --check lib/audit-anchor.mjs
           node --check scripts/check-provider-env.mjs
           node --check scripts/test-tenant-isolation.mjs
+          node --check scripts/lint-migrations.mjs
+      - name: Migration safety lint
+        run: node scripts/lint-migrations.mjs
       - name: Unit tests
         run: node --test tests/*.test.mjs
