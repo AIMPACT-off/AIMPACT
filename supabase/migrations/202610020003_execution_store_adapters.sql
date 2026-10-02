@@ -18,7 +18,7 @@ revoke all on public.aimpact_execution_locks, public.aimpact_idempotency from an
 grant select, insert, update, delete on public.aimpact_execution_locks, public.aimpact_idempotency to service_role;
 
 create or replace function public.aimpact_claim_execution_lock(p_lock_key text, p_owner uuid, p_ttl_seconds integer)
-returns boolean language plpgsql security definer set search_path = public, pg_temp as $$$
+returns boolean language plpgsql security definer set search_path = public, pg_temp as $
 declare affected integer;
 begin
   if p_ttl_seconds < 1 or p_ttl_seconds > 300 then raise exception 'invalid lock ttl'; end if;
@@ -43,7 +43,7 @@ begin
 end $$;
 
 create or replace function public.aimpact_release_execution_lock(p_lock_key text, p_owner uuid)
-returns boolean language plpgsql security definer set search_path = public, pg_temp as $$$
+returns boolean language plpgsql security definer set search_path = public, pg_temp as $
 declare affected integer;
 begin
   update public.aimpact_execution_locks set expires_at = now() where lock_key = p_lock_key and owner_id = p_owner;
@@ -52,7 +52,7 @@ begin
 end $$;
 
 create or replace function public.aimpact_claim_idempotency(p_idempotency_key text, p_context_hash text, p_ttl_seconds integer)
-returns boolean language plpgsql security definer set search_path = public, pg_temp as $$$
+returns boolean language plpgsql security definer set search_path = public, pg_temp as $
 declare affected integer;
 begin
   if p_ttl_seconds < 1 or p_ttl_seconds > 604800 then raise exception 'invalid idempotency ttl'; end if;
@@ -66,13 +66,13 @@ begin
 end $$;
 
 create or replace function public.aimpact_read_idempotency(p_idempotency_key text)
-returns jsonb language sql security definer set search_path = public, pg_temp as $$$
+returns jsonb language sql security definer set search_path = public, pg_temp as $
   select jsonb_build_object('contextHash', context_hash, 'state', state, 'result', result)
   from public.aimpact_idempotency where idempotency_key = p_idempotency_key and expires_at > now()
 $$;
 
 create or replace function public.aimpact_complete_idempotency(p_idempotency_key text, p_context_hash text, p_result jsonb, p_ttl_seconds integer)
-returns boolean language plpgsql security definer set search_path = public, pg_temp as $$$
+returns boolean language plpgsql security definer set search_path = public, pg_temp as $
 declare affected integer;
 begin
   update public.aimpact_idempotency set state = 'COMPLETED', result = p_result,
