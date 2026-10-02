@@ -1,0 +1,4 @@
+import test from "node:test"; import assert from "node:assert/strict";
+import {createIdempotencyKey,runSaga} from "../lib/idempotency-saga.mjs";
+test("idempotency key binds UUIDv4 to context hash",()=>{const a=createIdempotencyKey({tenant:"a"});assert.match(a.key,/^[0-9a-f-]{36}\\.[0-9a-f]{64}$/);assert.notEqual(a.contextHash,createIdempotencyKey({tenant:"b"}).contextHash)});
+test("saga compensates completed steps in reverse order",async()=>{const calls=[];await assert.rejects(()=>runSaga([{name:"one",execute:async()=>{calls.push("1");return 1},compensate:async()=>calls.push("c1")},{name:"two",execute:async()=>{calls.push("2");return 2},compensate:async()=>calls.push("c2")},{name:"three",execute:async()=>{throw Error("boom")},compensate:async()=>{}}]));assert.deepEqual(calls,["1","2","c2","c1"])});
