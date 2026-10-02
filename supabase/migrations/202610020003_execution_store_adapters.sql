@@ -19,7 +19,7 @@ grant select, insert, update, delete on public.aimpact_execution_locks, public.a
 
 create or replace function public.aimpact_claim_execution_lock(p_lock_key text, p_owner uuid, p_ttl_seconds integer)
 returns boolean language plpgsql security definer set search_path = public, pg_temp as $$
-declare claimed boolean;
+declare affected integer;
 begin
   if p_ttl_seconds < 1 or p_ttl_seconds > 300 then raise exception 'invalid lock ttl'; end if;
   insert into public.aimpact_execution_locks(lock_key, owner_id, expires_at)
@@ -32,7 +32,7 @@ end $$;
 
 create or replace function public.aimpact_release_execution_lock(p_lock_key text, p_owner uuid)
 returns boolean language plpgsql security definer set search_path = public, pg_temp as $$
-declare removed boolean;
+declare affected integer;
 begin
   delete from public.aimpact_execution_locks where lock_key = p_lock_key and owner_id = p_owner;
   get diagnostics removed = row_count;
@@ -61,14 +61,14 @@ $$;
 
 create or replace function public.aimpact_complete_idempotency(p_idempotency_key text, p_context_hash text, p_result jsonb, p_ttl_seconds integer)
 returns boolean language plpgsql security definer set search_path = public, pg_temp as $$
-declare changed boolean;
+declare affected integer;
 begin
   update public.aimpact_idempotency set state = 'COMPLETED', result = p_result,
     expires_at = now() + make_interval(secs => p_ttl_seconds), updated_at = now()
   where idempotency_key = p_idempotency_key and context_hash = p_context_hash and expires_at > now();
   get diagnostics changed = row_count;
   if not changed then raise exception 'idempotency claim missing or context mismatch'; end if;
-  return changed;
+  return true;
 end $$;
 
 revoke all on function public.aimpact_claim_execution_lock(text, uuid, integer) from public, anon, authenticated;
