@@ -52,5 +52,7 @@ jobs:
         run: npm run test:pdf-korean-rendering
       - name: Production preflight dry-run
         run: npm run test:production-preflight
+      - name: Production smoke test safety tests
+        run: npm run test:prod-smoke
       - name: Full unit tests
         run: npm test
