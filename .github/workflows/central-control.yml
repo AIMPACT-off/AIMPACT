@@ -46,8 +46,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RInE 'service_role|SUPABASE_SERVICE_ROLE|serviceRoleKey'             --exclude-dir=.git --exclude='*.md' .; then
-            echo "Potential service-role credential exposure detected."
+          if grep -nE 'service_role|SUPABASE_SERVICE_ROLE|serviceRoleKey' app.js config.js index.html 2>/dev/null; then
+            echo "Potential service-role credential exposure detected in browser-delivered files."
             exit 1
           fi
 
