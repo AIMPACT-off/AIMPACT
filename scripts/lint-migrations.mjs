@@ -1,0 +1,4 @@
+import fs from "node:fs";import path from "node:path";
+const dir="supabase/migrations";const files=fs.existsSync(dir)?fs.readdirSync(dir).filter(x=>x.endsWith(".sql")):[];const checks=[/\bDROP\s+(TABLE|COLUMN|SCHEMA|TYPE|INDEX)\b/i,/\bTRUNCATE\b/i,/\bALTER\s+COLUMN\s+[^;]*\bTYPE\b/i,/\bDELETE\s+FROM\b/i];let bad=false;
+for(const file of files){const s=fs.readFileSync(path.join(dir,file),"utf8");for(const re of checks){const flags=re.flags.includes("g")?re.flags:re.flags+"g";for(const m of s.matchAll(new RegExp(re.source,flags))){const line=s.slice(0,m.index).split("\n").length;console.error(file+":"+line+": destructive SQL requires explicit review: "+m[0]);bad=true;}}}
+if(bad){console.error("Migration safety lint blocked this build.");process.exit(1);}console.log("Migration safety lint passed ("+files.length+" files).");
