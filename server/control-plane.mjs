@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 
 export class GlobalKillSwitch {
-  constructor({ controlPlane, env = process.env, maxControlAgeMs = 1000, now = () => Date.now() }) {
+  constructor({ controlPlane, env = process.env, maxControlAgeMs = 1000, now = () => Date.now() } = {}) {
     this.controlPlane = controlPlane; this.env = env; this.maxControlAgeMs = maxControlAgeMs; this.now = now;
   }
   async assertAllowed(mode) {
