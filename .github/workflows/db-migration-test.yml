@@ -20,11 +20,11 @@ jobs:
         run: |
           if [ ! -f supabase/config.toml ]; then supabase init; fi
       - name: Start disposable local stack
-        run: supabase start
+        run: supabase start --exclude studio,edge-runtime,logflare,vector,analytics,supavisor,imgproxy,inbucket,storage-api,rest,realtime,auth
       - name: Apply all migrations from clean database
         run: supabase db reset
       - name: Verify audit chain objects
-        run: supabase db query --local "select to_regclass('public.audit_logs'), to_regprocedure('public.verify_audit_log_chain()');"
+        run: supabase db query --local "select to_regclass('public.audit_logs'), to_regprocedure('public.verify_audit_log_chain()'), to_regprocedure('public.aimpact_renew_execution_lock(text,uuid,integer)'), to_regprocedure('public.aimpact_claim_execution_lock(text,uuid,integer)');"
       - name: Exercise rollback in disposable database
         run: supabase db query --local --file supabase/rollback/202610020002_audit_hash_chain.rollback.sql
       - name: Re-apply migrations from clean state
