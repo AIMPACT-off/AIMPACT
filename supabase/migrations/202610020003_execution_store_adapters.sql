@@ -26,8 +26,8 @@ begin
   values (p_lock_key, p_owner, now() + make_interval(secs => p_ttl_seconds))
   on conflict (lock_key) do update set owner_id = excluded.owner_id, expires_at = excluded.expires_at, created_at = now()
   where public.aimpact_execution_locks.expires_at < now();
-  get diagnostics claimed = row_count;
-  return claimed;
+  get diagnostics affected = row_count;
+  return affected > 0;
 end $$;
 
 create or replace function public.aimpact_release_execution_lock(p_lock_key text, p_owner uuid)
@@ -35,13 +35,13 @@ returns boolean language plpgsql security definer set search_path = public, pg_t
 declare affected integer;
 begin
   delete from public.aimpact_execution_locks where lock_key = p_lock_key and owner_id = p_owner;
-  get diagnostics removed = row_count;
-  return removed;
+  get diagnostics affected = row_count;
+  return affected > 0;
 end $$;
 
 create or replace function public.aimpact_claim_idempotency(p_idempotency_key text, p_context_hash text, p_ttl_seconds integer)
 returns boolean language plpgsql security definer set search_path = public, pg_temp as $$
-declare claimed boolean;
+declare affected integer;
 begin
   if p_ttl_seconds < 1 or p_ttl_seconds > 604800 then raise exception 'invalid idempotency ttl'; end if;
   insert into public.aimpact_idempotency(idempotency_key, context_hash, state, expires_at)
@@ -66,8 +66,8 @@ begin
   update public.aimpact_idempotency set state = 'COMPLETED', result = p_result,
     expires_at = now() + make_interval(secs => p_ttl_seconds), updated_at = now()
   where idempotency_key = p_idempotency_key and context_hash = p_context_hash and expires_at > now();
-  get diagnostics changed = row_count;
-  if not changed then raise exception 'idempotency claim missing or context mismatch'; end if;
+  get diagnostics affected = row_count;
+  if affected = 0 then raise exception 'idempotency claim missing or context mismatch'; end if;
   return true;
 end $$;
 
