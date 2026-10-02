@@ -1,10 +1,10 @@
 import { EventEmitter } from "node:events";
 
-export class GlobalKillSwitch {
+import { randomUUID } from "node:crypto";\n\nexport class GlobalKillSwitch {
   constructor({ controlPlane, env = process.env, maxControlAgeMs = 1000, now = () => Date.now() } = {}) {
-    this.controlPlane = controlPlane; this.env = env; this.maxControlAgeMs = maxControlAgeMs; this.now = now;
+    this.controlPlane = controlPlane; this.env = env; this.maxControlAgeMs = maxControlAgeMs; this.now = now; this.activeTasks = new Map(); this.activated = false;
   }
-  async assertAllowed(mode) {
+  registerActiveTask(controller, metadata = {}) {\n    if (this.activated || this.env.AIMPACT_GLOBAL_KILL_SWITCH === "true") { controller.abort(new Error("Global kill switch active")); return () => {}; }\n    const id = randomUUID(); this.activeTasks.set(id, { controller, metadata });\n    return () => this.activeTasks.delete(id);\n  }\n  async activate(reason = "operator") {\n    this.activated = true; this.env.AIMPACT_GLOBAL_KILL_SWITCH = "true";\n    const started = Date.now();\n    for (const { controller } of this.activeTasks.values()) controller.abort(new Error("Global kill switch activated: " + reason));\n    return { abortedTasks: this.activeTasks.size, elapsedMs: Date.now() - started };\n  }\n  async assertAllowed(mode) {\n    if (this.activated) { const error = new Error("Global execution kill switch is active"); error.status = 503; error.code = "GLOBAL_KILL_SWITCH_ACTIVE"; throw error; }
     if (this.env.AIMPACT_GLOBAL_KILL_SWITCH === "true") {
       const error = new Error("Global execution kill switch is active"); error.status = 503; error.code = "GLOBAL_KILL_SWITCH_ACTIVE"; throw error;
     }
@@ -27,7 +27,7 @@ export class ShadowExecutionEngine {
     this.buildExternalPayload = buildExternalPayload; this.record = record;
   }
   async execute(input) {
-    const externalPayload = await this.buildExternalPayload(input);
+    const externalPayload = await this.buildExternalPayload(input, { signal: input.signal });
     const result = { mode: "SHADOW", sent: false, externalPayload };
     await this.record({ type: "SHADOW_EXECUTION", sent: false, workflowId: input.workflowId });
     return result;
