@@ -44,6 +44,8 @@ jobs:
         run: node --test tests/live-handshake.test.mjs
       - name: Tenant isolation CLI safety test
         run: node --test tests/tenant-isolation-cli.test.mjs
+      - name: Audit Bot dispatcher handshake contract
+        run: npm run test:audit-dispatcher-handshake
       - name: Audit Bot E2E and Phase 3 safety tests
         run: npm run test:audit-e2e
       - name: Korean PDF font embedding test
