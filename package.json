@@ -7,6 +7,7 @@
     "test:dispatcher": "node --test tests/dispatcher.test.mjs"
   },
   "dependencies": {
-    "zod": "3.25.76"
+    "zod": "3.25.76",
+    "pdf-lib": "1.17.1"
   }
 }
