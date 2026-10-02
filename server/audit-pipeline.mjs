@@ -20,6 +20,12 @@ export async function generateAuditPdf({ company, decision, execution, roi }) {
   const font = await pdf.embedFont(fontBytes, { subset: true });
   let page = pdf.addPage([595, 842]);
   const margin = 48, maxWidth = 499, fontSize = 10.5, lineHeight = 19;
+  let y = 790;
+  const drawLine = line => {
+    if (y < 60) { page = pdf.addPage([595, 842]); y = 790; }
+    page.drawText(line, { x: margin, y, size: fontSize, font });
+    y -= lineHeight;
+  };
   const lines = [
     "AIMPACT | 기업 AI 진단 보고서",
     "기업명: " + company,
@@ -30,21 +36,16 @@ export async function generateAuditPdf({ company, decision, execution, roi }) {
     "월간 순절감 예상액: " + roi.monthlyNetSavings,
     "산정 안내: " + roi.disclaimer
   ];
-  let y = 790;
   for (const sourceLine of lines) {
     let line = "";
     for (const character of Array.from(String(sourceLine))) {
       const candidate = line + character;
       if (line && font.widthOfTextAtSize(candidate, fontSize) > maxWidth) {
-        if (y < 65) { page.drawText(line, { x: margin, y, size: fontSize, font }); y -= lineHeight; }
-        else page.drawText(line, { x: margin, y, size: fontSize, font });
-        y -= lineHeight;
-        line = character;
+        drawLine(line); line = character;
       } else line = candidate;
     }
-    if (y < 65) { const next = pdf.addPage([595, 842]); y = 790; page = next; }
-    page.drawText(line, { x: margin, y, size: fontSize, font });
-    y -= lineHeight + 8;
+    if (line) drawLine(line);
+    y -= 8;
   }
   return await pdf.save();
 }
