@@ -86,26 +86,24 @@ export class InMemoryOutcomeLogger {
 
 function runWorker(input, timeoutMs, signal) {
   return new Promise((resolve, reject) => {
-    const worker = new Worker(fileURLToPath(new URL("./mock-worker.mjs", import.meta.url)), {
-      workerData: input
-    });
-    let settled = false;\n    const onAbort = () => void finish(new DispatcherError(503, "EXECUTION_ABORTED", "Execution was cancelled by the control plane"));
+    const worker = new Worker(fileURLToPath(new URL("./mock-worker.mjs", import.meta.url)), { workerData: input });
+    let settled = false;
+    let timer;
+    const onAbort = () => void finish(new DispatcherError(503, "EXECUTION_ABORTED", "Execution was cancelled by the control plane"));
     const finish = async (error, value) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
       await worker.terminate().catch(() => {});
       error ? reject(error) : resolve(value);
     };
-    if (signal?.aborted) { void finish(new DispatcherError(503, "EXECUTION_ABORTED", "Execution was cancelled before worker start")); return; }\n    signal?.addEventListener("abort", onAbort, { once: true });\n    const timer = setTimeout(() => {
-      const error = new DispatcherError(504, "WORKER_TIMEOUT", "Mock worker exceeded its execution deadline");
-      void finish(error);
-    }, timeoutMs);
+    timer = setTimeout(() => void finish(new DispatcherError(504, "WORKER_TIMEOUT", "Mock worker exceeded its execution deadline")), timeoutMs);
+    if (signal?.aborted) { void finish(new DispatcherError(503, "EXECUTION_ABORTED", "Execution was cancelled before worker start")); return; }
+    signal?.addEventListener("abort", onAbort, { once: true });
     worker.once("message", value => void finish(null, value));
     worker.once("error", error => void finish(new DispatcherError(500, "WORKER_FAILED", error.message)));
-    worker.once("exit", code => {
-      if (code !== 0 && !settled) void finish(new DispatcherError(500, "WORKER_EXITED", "Worker exited with code " + code));
-    });
+    worker.once("exit", code => { if (code !== 0 && !settled) void finish(new DispatcherError(500, "WORKER_EXITED", "Worker exited with code " + code)); });
   });
 }
 
