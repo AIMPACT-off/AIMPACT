@@ -49,8 +49,8 @@ begin
   on conflict (idempotency_key) do update set context_hash = excluded.context_hash, state = 'RUNNING', result = null,
     expires_at = excluded.expires_at, updated_at = now()
   where public.aimpact_idempotency.expires_at < now();
-  get diagnostics claimed = row_count;
-  return claimed;
+  get diagnostics affected = row_count;
+  return affected > 0;
 end $$;
 
 create or replace function public.aimpact_read_idempotency(p_idempotency_key text)
