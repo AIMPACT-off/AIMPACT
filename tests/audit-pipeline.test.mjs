@@ -14,6 +14,7 @@ test("Audit Bot input flows through validation, decision, MOCK dispatch, ROI and
   assert.equal(result.execution.output.status, "DRY_RUN_COMPLETED");
   assert.equal(result.roi.confidence, "LOW_EVIDENCE");
   assert.equal(result.report.contentType, "application/pdf");
+  assert.equal(Buffer.from(result.report.bytes).includes(Buffer.from("NotoSansKR")), true);
   assert.ok(result.report.byteLength > 500);
   assert.equal(Buffer.from(result.report.bytes).subarray(0, 4).toString(), "%PDF");
 });
