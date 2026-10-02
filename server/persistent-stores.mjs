@@ -88,7 +88,7 @@ export class SupabaseRpcAdapter {
     const heartbeat = setInterval(() => {
       void this.rpc("aimpact_renew_execution_lock", { p_lock_key: key, p_owner: owner, p_ttl_seconds: ttlSeconds })
         .then(ok => { if (ok !== true) throw new Error("Supabase lock ownership lost"); })
-        .catch(error => { heartbeatError = error; });
+        .catch(error => { heartbeatError = error; onLockLost?.(error); });
     }, heartbeatMs);
     heartbeat.unref?.();
     try {
