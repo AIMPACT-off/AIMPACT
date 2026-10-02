@@ -43,5 +43,7 @@ jobs:
         run: npm run test:audit-e2e
       - name: Korean PDF font embedding test
         run: npm run test:pdf-korean-rendering
+      - name: Production preflight dry-run
+        run: npm run test:production-preflight
       - name: Full unit tests
         run: npm test
