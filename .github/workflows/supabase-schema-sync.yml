@@ -10,22 +10,31 @@ permissions:
 
 jobs:
   schema:
-    if: ${{ secrets.SUPABASE_DB_URL != '' }}
     runs-on: ubuntu-latest
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
     steps:
+      - name: Require database connection secret
+        if: env.SUPABASE_DB_URL == ''
+        run: |
+          echo "::warning::SUPABASE_DB_URL is not configured; schema snapshot skipped."
+          exit 0
       - uses: actions/checkout@v4
+        if: env.SUPABASE_DB_URL != ''
       - uses: supabase/setup-cli@v1
+        if: env.SUPABASE_DB_URL != ''
         with:
           version: latest
       - name: Dump schema only
-        env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        if: env.SUPABASE_DB_URL != ''
         run: |
           mkdir -p supabase
           supabase db dump --db-url "$SUPABASE_DB_URL" --schema public -f supabase/schema.sql
       - name: Check snapshot is non-empty
+        if: env.SUPABASE_DB_URL != ''
         run: test -s supabase/schema.sql
       - name: Commit snapshot
+        if: env.SUPABASE_DB_URL != ''
         run: |
           if git diff --quiet -- supabase/schema.sql; then
             echo "Schema unchanged."
