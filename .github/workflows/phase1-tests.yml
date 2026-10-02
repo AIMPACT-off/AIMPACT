@@ -24,6 +24,7 @@ jobs:
           node --check server/persistent-stores.mjs
           node --check server/control-plane.mjs
           node --check server/audit-pipeline.mjs
+          node --check lib/live-handshake.mjs
           node --check lib/circuit-breaker.mjs
           node --check lib/model-router.mjs
           node --check lib/tenant-rate-limiter.mjs
@@ -39,6 +40,10 @@ jobs:
         run: node scripts/lint-migrations.mjs
       - name: Dispatcher integration tests
         run: npm run test:dispatcher
+      - name: LIVE handshake tests
+        run: node --test tests/live-handshake.test.mjs
+      - name: Tenant isolation CLI safety test
+        run: node --test tests/tenant-isolation-cli.test.mjs
       - name: Audit Bot E2E and Phase 3 safety tests
         run: npm run test:audit-e2e
       - name: Korean PDF font embedding test
