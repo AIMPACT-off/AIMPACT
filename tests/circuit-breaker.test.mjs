@@ -29,3 +29,14 @@ test("open circuit routes to fallback; half-open permits a single probe", async 
   assert.equal(b.canRequest(), true);
   assert.equal(b.canRequest(), false);
 });
+
+test("successful half-open probe closes despite stale failed samples", () => {
+  let t = 0;
+  const b = new CircuitBreaker({ minSamples: 1, failureRate: 0, cooldownMs: 10, now: () => t });
+  b.record({ ok: false, durationMs: 1 });
+  assert.equal(b.state, "OPEN");
+  t = 11;
+  assert.equal(b.canRequest(), true);
+  b.record({ ok: true, durationMs: 1 });
+  assert.equal(b.state, "CLOSED");
+});
