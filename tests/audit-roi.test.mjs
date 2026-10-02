@@ -1,0 +1,3 @@
+import test from "node:test";import assert from "node:assert/strict";import {calculateAuditRoi} from "../lib/audit-roi.mjs";
+test("cold start never claims measured AIMPACT outcomes",()=>{const r=calculateAuditRoi({loadedHourlyCost:30,assumptions:{hoursSavedPerMonth:10}});assert.equal(r.source,"CUSTOMER_ASSUMPTION");assert.equal(r.confidence,"LOW_EVIDENCE");assert.match(r.disclaimer,/Estimate only/);});
+test("measured phase requires at least five outcome records",()=>{const rows=[1,2,3,4,5].map(hoursSaved=>({hoursSaved}));const r=calculateAuditRoi({loadedHourlyCost:20,outcomes:rows});assert.equal(r.source,"AIMPACT_MEASURED_OUTCOMES");assert.equal(r.sampleCount,5);assert.equal(r.monthlyHoursSaved,3);});
