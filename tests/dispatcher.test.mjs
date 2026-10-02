@@ -133,3 +133,18 @@ test("global kill switch terminates an already-running Worker Thread", async () 
   assert.equal(activation.abortedTasks, 1);
   assert.equal(dispatcher.killSwitch.activeTasks.size, 0);
 });
+
+test("global kill switch aborts an active SHADOW payload build", async () => {
+  const { ShadowExecutionEngine } = await import("../server/control-plane.mjs");
+  const engine = new ShadowExecutionEngine({
+    buildExternalPayload: (_input, { signal }) => new Promise((_resolve, reject) => {
+      signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+    })
+  });
+  const dispatcher = createDispatcher({ mode: "SHADOW", shadowEngine: engine });
+  const pending = dispatcher.dispatch(request());
+  for (let i = 0; i < 20 && dispatcher.killSwitch.activeTasks.size === 0; i++) await new Promise(resolve => setImmediate(resolve));
+  await dispatcher.killSwitch.activate("shadow-abort-test");
+  await assert.rejects(() => pending, e => e.code === "EXECUTION_ABORTED" && e.status === 503);
+  assert.equal(dispatcher.killSwitch.activeTasks.size, 0);
+});
