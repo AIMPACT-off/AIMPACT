@@ -25,7 +25,7 @@ export class UpstashRedisAdapter {
       return body.result;
     } catch (error) { throw new StoreUnavailableError(error.message); }
   }
-  async withLock(key, operation, { ttlMs = 30000, signal, heartbeatMs = 10000 } = {}) {
+  async withLock(key, operation, { ttlMs = 30000, signal, heartbeatMs = 10000, onLockLost } = {}) {
     const lockKey = this.namespace + ":lock:" + key, owner = randomUUID();
     const claimed = await this.command("SET", lockKey, owner, "NX", "PX", String(ttlMs));
     if (claimed !== "OK") return { acquired: false };
@@ -33,7 +33,7 @@ export class UpstashRedisAdapter {
     const heartbeat = setInterval(() => {
       void this.command("EVAL", "if redis.call('get',KEYS[1])==ARGV[1] then return redis.call('pexpire',KEYS[1],ARGV[2]) else return 0 end", "1", lockKey, owner, String(ttlMs))
         .then(ok => { if (Number(ok) !== 1) throw new Error("Redis lock ownership lost"); })
-        .catch(error => { heartbeatError = error; });
+        .catch(error => { heartbeatError = error; onLockLost?.(error); });
     }, heartbeatMs);
     heartbeat.unref?.();
     try {
@@ -80,7 +80,7 @@ export class SupabaseRpcAdapter {
       return await response.json();
     } catch (error) { throw new StoreUnavailableError(error.message); }
   }
-  async withLock(key, operation, { ttlSeconds = 30, signal, heartbeatMs = 10000 } = {}) {
+  async withLock(key, operation, { ttlSeconds = 30, signal, heartbeatMs = 10000, onLockLost } = {}) {
     const owner = randomUUID();
     const claimed = await this.rpc("aimpact_claim_execution_lock", { p_lock_key: key, p_owner: owner, p_ttl_seconds: ttlSeconds });
     if (claimed !== true) return { acquired: false };
