@@ -39,7 +39,6 @@ else {
 }
 const files = [
   "supabase/migrations/202610020001_phase1_execution_outcomes_audit.sql",
-  "supabase/migrations/202610020002_audit_hash_chain.sql",
   "supabase/migrations/202610020003_execution_store_adapters.sql"
 ];
 let rls = true;
