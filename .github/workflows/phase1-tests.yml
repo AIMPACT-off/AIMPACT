@@ -1,0 +1,31 @@
+name: Phase 1 unit tests
+
+on:
+  push:
+    paths:
+      - "lib/**"
+      - "tests/**"
+      - "scripts/**"
+      - ".github/workflows/phase1-tests.yml"
+  pull_request:
+    paths:
+      - "lib/**"
+      - "tests/**"
+      - "scripts/**"
+      - ".github/workflows/phase1-tests.yml"
+
+jobs:
+  node-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax check
+        run: |
+          node --check lib/circuit-breaker.mjs
+          node --check scripts/check-provider-env.mjs
+          node --check scripts/test-tenant-isolation.mjs
+      - name: Unit tests
+        run: node --test tests/*.test.mjs
