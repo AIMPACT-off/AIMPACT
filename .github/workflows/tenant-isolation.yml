@@ -1,0 +1,25 @@
+name: Tenant isolation tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "scripts/test-tenant-isolation.mjs"
+      - ".github/workflows/tenant-isolation.yml"
+
+jobs:
+  rls-negative-tests:
+    if: ${{ secrets.SUPABASE_URL != '' && secrets.SUPABASE_ANON_KEY != '' && secrets.TENANT_A_JWT != '' && secrets.RLS_TEST_CASES != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run cross-tenant negative tests
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          TENANT_A_JWT: ${{ secrets.TENANT_A_JWT }}
+          RLS_TEST_CASES: ${{ secrets.RLS_TEST_CASES }}
+        run: node scripts/test-tenant-isolation.mjs
