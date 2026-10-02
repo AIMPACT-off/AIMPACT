@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { GlobalKillSwitch } from "../server/control-plane.mjs";
 import {
   createDispatcher, DispatcherError, InMemoryAtomicLockStore,
   InMemoryOutcomeLogger, PostgresAdvisoryLockStore
@@ -70,7 +71,7 @@ test("records successful and failed outcomes; unknown workflows never run", asyn
 test("LIVE mode is fail-closed without production adapters", async () => {
   const dispatcher = createDispatcher({ mode: "LIVE" });
   await assert.rejects(() => dispatcher.dispatch(request()),
-    e => e.status === 503 && e.code === "LIVE_EXECUTION_NOT_CONFIGURED");
+    e => e.status === 503 && e.code === "CONTROL_PLANE_UNAVAILABLE");
 });
 
 test("in-memory lock is atomic within one Node process", async () => {
@@ -101,4 +102,54 @@ test("Postgres advisory lock uses transaction-scoped try-lock and releases conne
   assert.ok(calls.some(x => x.includes("pg_try_advisory_xact_lock")));
   assert.ok(calls.includes("COMMIT"));
   assert.equal(calls.at(-1), "RELEASE");
+});
+
+test("SHADOW dispatcher builds payload and never invokes external send", async () => {
+  let sent = false;
+  const { ShadowExecutionEngine } = await import("../server/control-plane.mjs");
+  const shadowEngine = new ShadowExecutionEngine({
+    buildExternalPayload: async input => ({ prompt: input.payload.prompt }),
+    record: async event => assert.equal(event.sent, false)
+  });
+  const dispatcher = createDispatcher({ mode: "SHADOW", shadowEngine });
+  const result = await dispatcher.dispatch(request({ payload: { prompt: "preview only" } }));
+  assert.equal(result.mode, "SHADOW");
+  assert.equal(result.output.sent, false);
+  assert.equal(result.output.externalPayload.prompt, "preview only");
+  assert.equal(sent, false);
+});
+
+test("global kill switch terminates an already-running Worker Thread", async () => {
+  const dispatcher = createDispatcher({ mode: "MOCK", timeoutMs: 3000, killSwitch: new GlobalKillSwitch({ env: {} }) });
+  let startedResolve;
+  const started = new Promise(resolve => { startedResolve = resolve; });
+  dispatcher.telemetry.on("execution", event => { if (event.type === "WORKER_STARTED") startedResolve(); });
+  const pending = dispatcher.dispatch(request({ payload: { __mockDelayMs: 1800 } }));
+  await started;
+  assert.equal(dispatcher.killSwitch.activeTasks.size, 1);
+  const before = Date.now();
+  const activation = await dispatcher.killSwitch.activate("in-flight-worker-test");
+  await assert.rejects(() => pending, e => e.code === "EXECUTION_ABORTED" && e.status === 503);
+  assert.ok(Date.now() - before < 1000, "local worker cancellation should complete within one second");
+  assert.equal(activation.abortedTasks, 1);
+  assert.equal(dispatcher.killSwitch.activeTasks.size, 0);
+});
+
+test("global kill switch aborts an active SHADOW payload build", async () => {
+  const { ShadowExecutionEngine } = await import("../server/control-plane.mjs");
+  let startedResolve;
+  const started = new Promise(resolve => { startedResolve = resolve; });
+  const engine = new ShadowExecutionEngine({
+    buildExternalPayload: (_input, { signal }) => {
+      startedResolve();
+      return new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }));
+    }
+  });
+  const dispatcher = createDispatcher({ mode: "SHADOW", shadowEngine: engine, killSwitch: new GlobalKillSwitch({ env: {} }) });
+  const pending = dispatcher.dispatch(request());
+  await started;
+  assert.equal(dispatcher.killSwitch.activeTasks.size, 1);
+  await dispatcher.killSwitch.activate("shadow-abort-test");
+  await assert.rejects(() => pending, e => e.code === "EXECUTION_ABORTED" && e.status === 503);
+  assert.equal(dispatcher.killSwitch.activeTasks.size, 0);
 });
