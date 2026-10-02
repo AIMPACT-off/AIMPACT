@@ -46,6 +46,10 @@ export class UpstashRedisAdapter {
   async completeIdempotency(key, contextHash, result, ttlSeconds = 86400) {
     await this.command("SET", this.namespace + ":idem:" + key, JSON.stringify({ contextHash, state: "COMPLETED", result }), "EX", String(ttlSeconds));
   }
+  async releaseIdempotency(key, contextHash) {
+    const redisKey = this.namespace + ":idem:" + key;
+    await this.command("EVAL", "local v=redis.call('get',KEYS[1]); if not v then return 0 end; local d=cjson.decode(v); if d.contextHash==ARGV[1] and d.state=='RUNNING' then return redis.call('del',KEYS[1]) end; return 0", "1", redisKey, contextHash);
+  }
 }
 
 export class SupabaseRpcAdapter {
@@ -82,5 +86,8 @@ export class SupabaseRpcAdapter {
     await this.rpc("aimpact_complete_idempotency", {
       p_idempotency_key: key, p_context_hash: contextHash, p_result: result, p_ttl_seconds: ttlSeconds
     });
+  }
+  async releaseIdempotency(key, contextHash) {
+    await this.rpc("aimpact_release_idempotency", { p_idempotency_key: key, p_context_hash: contextHash });
   }
 }
