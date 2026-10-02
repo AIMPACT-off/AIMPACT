@@ -21,6 +21,9 @@ jobs:
         run: |
           node --check server/dispatcher.mjs
           node --check server/mock-worker.mjs
+          node --check server/persistent-stores.mjs
+          node --check server/control-plane.mjs
+          node --check server/audit-pipeline.mjs
           node --check lib/circuit-breaker.mjs
           node --check lib/model-router.mjs
           node --check lib/tenant-rate-limiter.mjs
@@ -36,5 +39,7 @@ jobs:
         run: node scripts/lint-migrations.mjs
       - name: Dispatcher integration tests
         run: npm run test:dispatcher
+      - name: Audit Bot E2E and Phase 3 safety tests
+        run: npm run test:audit-e2e
       - name: Full unit tests
         run: npm test
