@@ -71,6 +71,16 @@ begin
   return true;
 end $$;
 
+create or replace function public.aimpact_release_idempotency(p_idempotency_key text, p_context_hash text)
+returns boolean language plpgsql security definer set search_path = public, pg_temp as $
+declare affected integer;
+begin
+  delete from public.aimpact_idempotency
+  where idempotency_key = p_idempotency_key and context_hash = p_context_hash and state = 'RUNNING';
+  get diagnostics affected = row_count;
+  return affected > 0;
+end $;
+
 revoke all on function public.aimpact_claim_execution_lock(text, uuid, integer) from public, anon, authenticated;
 revoke all on function public.aimpact_release_execution_lock(text, uuid) from public, anon, authenticated;
 revoke all on function public.aimpact_claim_idempotency(text, text, integer) from public, anon, authenticated;
@@ -81,3 +91,6 @@ grant execute on function public.aimpact_release_execution_lock(text, uuid) to s
 grant execute on function public.aimpact_claim_idempotency(text, text, integer) to service_role;
 grant execute on function public.aimpact_read_idempotency(text) to service_role;
 grant execute on function public.aimpact_complete_idempotency(text, text, jsonb, integer) to service_role;
+
+revoke all on function public.aimpact_release_idempotency(text, text) from public, anon, authenticated;
+grant execute on function public.aimpact_release_idempotency(text, text) to service_role;
