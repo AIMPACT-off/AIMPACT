@@ -102,3 +102,18 @@ test("Postgres advisory lock uses transaction-scoped try-lock and releases conne
   assert.ok(calls.includes("COMMIT"));
   assert.equal(calls.at(-1), "RELEASE");
 });
+
+test("SHADOW dispatcher builds payload and never invokes external send", async () => {
+  let sent = false;
+  const { ShadowExecutionEngine } = await import("../server/control-plane.mjs");
+  const shadowEngine = new ShadowExecutionEngine({
+    buildExternalPayload: async input => ({ prompt: input.payload.prompt }),
+    record: async event => assert.equal(event.sent, false)
+  });
+  const dispatcher = createDispatcher({ mode: "SHADOW", shadowEngine });
+  const result = await dispatcher.dispatch(request({ payload: { prompt: "preview only" } }));
+  assert.equal(result.mode, "SHADOW");
+  assert.equal(result.output.sent, false);
+  assert.equal(result.output.externalPayload.prompt, "preview only");
+  assert.equal(sent, false);
+});
