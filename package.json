@@ -6,7 +6,8 @@
     "test": "node --test tests/*.test.mjs",
     "test:dispatcher": "node --test tests/dispatcher.test.mjs",
     "test:audit-e2e": "node --test tests/audit-pipeline.test.mjs tests/phase3-safety.test.mjs",
-    "test:pdf-korean-rendering": "node --test tests/audit-pipeline.test.mjs"
+    "test:pdf-korean-rendering": "node --test tests/audit-pipeline.test.mjs",
+    "check:production-env": "node scripts/production-env-checklist.mjs"
   },
   "dependencies": {
     "zod": "3.25.76",
