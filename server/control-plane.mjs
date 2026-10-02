@@ -12,7 +12,7 @@ export class GlobalKillSwitch {
     return () => this.activeTasks.delete(id);
   }
   async activate(reason = "operator") {
-    this.activated = true; this.env.AIMPACT_GLOBAL_KILL_SWITCH = "true";
+    this.activated = true;
     const started = Date.now();
     for (const { controller } of this.activeTasks.values()) controller.abort(new Error("Global kill switch activated: " + reason));
     return { abortedTasks: this.activeTasks.size, elapsedMs: Date.now() - started };
