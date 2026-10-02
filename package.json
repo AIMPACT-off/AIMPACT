@@ -11,7 +11,8 @@
     "test:production-preflight": "node --test tests/production-env-checklist.test.mjs",
     "test:tenant-isolation": "node scripts/test-tenant-isolation.mjs",
     "test:audit-dispatcher-handshake": "node --test tests/audit-dispatcher-handshake.test.mjs",
-    "test:prod-smoke": "node --test tests/prod-smoke.test.mjs"
+    "test:prod-smoke": "node --test tests/prod-smoke.test.mjs",
+    "test:enterprise-readiness": "node --test tests/enterprise-readiness.test.mjs"
   },
   "dependencies": {
     "zod": "3.25.76",
