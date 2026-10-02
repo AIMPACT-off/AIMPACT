@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { GlobalKillSwitch } from "../server/control-plane.mjs";
 import {
   createDispatcher, DispatcherError, InMemoryAtomicLockStore,
   InMemoryOutcomeLogger, PostgresAdvisoryLockStore
@@ -119,7 +120,7 @@ test("SHADOW dispatcher builds payload and never invokes external send", async (
 });
 
 test("global kill switch terminates an already-running Worker Thread", async () => {
-  const dispatcher = createDispatcher({ mode: "MOCK", timeoutMs: 3000 });
+  const dispatcher = createDispatcher({ mode: "MOCK", timeoutMs: 3000, killSwitch: new GlobalKillSwitch({ env: {} }) });
   let startedResolve;
   const started = new Promise(resolve => { startedResolve = resolve; });
   dispatcher.telemetry.on("execution", event => { if (event.type === "WORKER_STARTED") startedResolve(); });
@@ -144,7 +145,7 @@ test("global kill switch aborts an active SHADOW payload build", async () => {
       return new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }));
     }
   });
-  const dispatcher = createDispatcher({ mode: "SHADOW", shadowEngine: engine });
+  const dispatcher = createDispatcher({ mode: "SHADOW", shadowEngine: engine, killSwitch: new GlobalKillSwitch({ env: {} }) });
   const pending = dispatcher.dispatch(request());
   await started;
   assert.equal(dispatcher.killSwitch.activeTasks.size, 1);
