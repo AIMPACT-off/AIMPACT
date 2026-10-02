@@ -210,12 +210,13 @@ export class ServerDispatcher {
           if (error.code === "WORKER_TIMEOUT") await this.telemetry.emitEvent("WORKER_TIMEOUT", { tenantId: input.tenantId, workflowId: input.workflowId, durationMs });
           throw error;
         }
-      });
+      }, { signal: taskController.signal, ttlSeconds: 30, ttlMs: 30000, heartbeatMs: 10000, onLockLost: error => taskController.abort(error) });
       if (!locked.acquired) {
         await this.telemetry.emitEvent("LOCK_CONFLICT", { tenantId: input.tenantId, workflowId: input.workflowId });
         throw new DispatcherError(409, "WORKFLOW_ALREADY_RUNNING", "An execution for this tenant/workflow is already running");
       }
       return locked.result;
+      } finally { unregisterTask(); }
     })();
 
     this.idempotency.set(input.requestId, { digest, promise });
