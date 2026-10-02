@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { randomUUID } from "node:crypto";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { validateAuditInput } from "../lib/audit-input-guard.mjs";
 import { calculateAuditRoi } from "../lib/audit-roi.mjs";
