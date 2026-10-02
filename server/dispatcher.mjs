@@ -161,11 +161,13 @@ export class ServerDispatcher {
       return prior.promise;
     }
 
+    let durableClaimed = false;
     const promise = (async () => {
       if (this.idempotencyStore) {
         let claimed;
         try { claimed = await this.idempotencyStore.claimIdempotency(idemKey, digest); }
         catch (error) { throw new DispatcherError(503, "EXECUTION_STORE_UNAVAILABLE", error.message); }
+        if (claimed) durableClaimed = true;
         if (!claimed) {
           const saved = await this.idempotencyStore.readIdempotency(idemKey);
           if (saved?.contextHash !== digest) throw new DispatcherError(409, "IDEMPOTENCY_KEY_REUSE", "Idempotency context mismatch");
@@ -202,10 +204,16 @@ export class ServerDispatcher {
     this.idempotency.set(input.requestId, { digest, promise });
     try {
       const result = await promise;
-      if (this.idempotencyStore) await this.idempotencyStore.completeIdempotency(idemKey, digest, result);
+      if (this.idempotencyStore) {
+        await this.idempotencyStore.completeIdempotency(idemKey, digest, result);
+        durableClaimed = false;
+      }
       return result;
     } catch (error) {
       this.idempotency.delete(input.requestId);
+      if (durableClaimed && this.idempotencyStore?.releaseIdempotency) {
+        await this.idempotencyStore.releaseIdempotency(idemKey, digest).catch(() => {});
+      }
       throw error;
     }
   }
