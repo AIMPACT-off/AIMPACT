@@ -25,13 +25,24 @@ export class UpstashRedisAdapter {
       return body.result;
     } catch (error) { throw new StoreUnavailableError(error.message); }
   }
-  async withLock(key, operation, { ttlMs = 30000 } = {}) {
+  async withLock(key, operation, { ttlMs = 30000, signal, heartbeatMs = 10000 } = {}) {
     const lockKey = this.namespace + ":lock:" + key, owner = randomUUID();
     const claimed = await this.command("SET", lockKey, owner, "NX", "PX", String(ttlMs));
     if (claimed !== "OK") return { acquired: false };
-    try { return { acquired: true, result: await operation() }; }
-    finally {
-      await this.command("EVAL", "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end", "1", lockKey, owner);
+    let heartbeatError = null;
+    const heartbeat = setInterval(() => {
+      void this.command("EVAL", "if redis.call('get',KEYS[1])==ARGV[1] then return redis.call('pexpire',KEYS[1],ARGV[2]) else return 0 end", "1", lockKey, owner, String(ttlMs))
+        .then(ok => { if (Number(ok) !== 1) throw new Error("Redis lock ownership lost"); })
+        .catch(error => { heartbeatError = error; });
+    }, heartbeatMs);
+    heartbeat.unref?.();
+    try {
+      const result = await operation();
+      if (heartbeatError) throw new StoreUnavailableError(heartbeatError.message);
+      return { acquired: true, result };
+    } finally {
+      clearInterval(heartbeat);
+      await this.command("EVAL", "if redis.call('get',KEYS[1])==ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end", "1", lockKey, owner);
     }
   }
   async claimIdempotency(key, contextHash, ttlSeconds = 86400) {
@@ -69,12 +80,25 @@ export class SupabaseRpcAdapter {
       return await response.json();
     } catch (error) { throw new StoreUnavailableError(error.message); }
   }
-  async withLock(key, operation, { ttlSeconds = 30 } = {}) {
+  async withLock(key, operation, { ttlSeconds = 30, signal, heartbeatMs = 10000 } = {}) {
     const owner = randomUUID();
     const claimed = await this.rpc("aimpact_claim_execution_lock", { p_lock_key: key, p_owner: owner, p_ttl_seconds: ttlSeconds });
     if (claimed !== true) return { acquired: false };
-    try { return { acquired: true, result: await operation() }; }
-    finally { await this.rpc("aimpact_release_execution_lock", { p_lock_key: key, p_owner: owner }); }
+    let heartbeatError = null;
+    const heartbeat = setInterval(() => {
+      void this.rpc("aimpact_renew_execution_lock", { p_lock_key: key, p_owner: owner, p_ttl_seconds: ttlSeconds })
+        .then(ok => { if (ok !== true) throw new Error("Supabase lock ownership lost"); })
+        .catch(error => { heartbeatError = error; });
+    }, heartbeatMs);
+    heartbeat.unref?.();
+    try {
+      const result = await operation();
+      if (heartbeatError) throw new StoreUnavailableError(heartbeatError.message);
+      return { acquired: true, result };
+    } finally {
+      clearInterval(heartbeat);
+      await this.rpc("aimpact_release_execution_lock", { p_lock_key: key, p_owner: owner });
+    }
   }
   async claimIdempotency(key, contextHash, ttlSeconds = 86400) {
     return await this.rpc("aimpact_claim_idempotency", { p_idempotency_key: key, p_context_hash: contextHash, p_ttl_seconds: ttlSeconds }) === true;
