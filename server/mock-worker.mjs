@@ -9,6 +9,10 @@ if (!WORKFLOWS.has(workerData?.workflowId)) {
   throw new Error("MOCK_WORKFLOW_NOT_REGISTERED");
 }
 
+parentPort.postMessage({ type: "WORKER_STARTED" });
+const delayMs = Number(workerData?.payload?.__mockDelayMs ?? 0);
+if (Number.isFinite(delayMs) && delayMs > 0) await new Promise(resolve => setTimeout(resolve, Math.min(delayMs, 2500)));
+
 const result = {
   workflowId: workerData.workflowId,
   tenantId: workerData.tenantId,
