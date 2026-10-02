@@ -118,9 +118,10 @@ export class ServerDispatcher {
     timeoutMs = 3000,
     killSwitch = new GlobalKillSwitch(),
     telemetry = new DispatcherTelemetry(),
-    idempotencyStore = null
+    idempotencyStore = null,
+    shadowEngine = null
   } = {}) {
-    if (!["MOCK", "LIVE"].includes(mode)) throw new TypeError("EXECUTION_MODE must be MOCK or LIVE");
+    if (!["MOCK", "SHADOW", "LIVE"].includes(mode)) throw new TypeError("EXECUTION_MODE must be MOCK, SHADOW or LIVE");
     if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 3000) throw new TypeError("timeoutMs must be 1..3000");
     this.mode = mode;
     this.lockStore = lockStore;
@@ -131,6 +132,7 @@ export class ServerDispatcher {
     this.killSwitch = killSwitch;
     this.telemetry = telemetry;
     this.idempotencyStore = idempotencyStore;
+    this.shadowEngine = shadowEngine;
   }
 
   async dispatch(raw) {
@@ -145,8 +147,14 @@ export class ServerDispatcher {
       await this.telemetry.emitEvent("KILL_SWITCH_BLOCKED", { code: error.code });
       throw new DispatcherError(error.status ?? 503, error.code ?? "EXECUTION_BLOCKED", error.message);
     }
-    if (this.mode !== "MOCK") {
+    if (this.mode === "LIVE") {
       throw new DispatcherError(503, "LIVE_EXECUTION_NOT_CONFIGURED", "LIVE execution is disabled until production adapters and policy gates are verified");
+    }
+    if (this.mode === "SHADOW") {
+      if (!this.shadowEngine?.execute) throw new DispatcherError(503, "SHADOW_ENGINE_NOT_CONFIGURED", "Shadow execution engine is required");
+      const output = await this.shadowEngine.execute(input);
+      await this.telemetry.emitEvent("SHADOW_EXECUTION", { tenantId: input.tenantId, workflowId: input.workflowId, sent: false });
+      return { status: 200, requestId: input.requestId, mode: "SHADOW", output };
     }
     if (!/^mock-0[1-8]$/.test(input.workflowId)) {
       throw new DispatcherError(404, "WORKFLOW_NOT_REGISTERED", "Only the eight explicitly synthetic MOCK workflows are available");
