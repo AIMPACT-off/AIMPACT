@@ -15,13 +15,37 @@ if (!Array.isArray(cases) || !cases.length) fail("At least one RLS test case is 
 const root = new URL(base);
 if (root.protocol !== "https:" && root.hostname !== "localhost") fail("SUPABASE_URL must use HTTPS");
 let failed = false;
-async function read(url, token) {
-  const response = await fetch(url, { method: "GET", headers: { apikey: anon, Authorization: `Bearer ${token}`, Accept: "application/json" }, signal: AbortSignal.timeout(10000) });
-  let body = null; try { body = await response.json(); } catch {}
-  return { status: response.status, rows: Array.isArray(body) ? body.length : null };
+async function request(url, token, method, body) {
+  const headers = {
+    apikey: anon,
+    Authorization: `Bearer ${token}`,
+    Accept: "application/json",
+    Prefer: "return=representation"
+  };
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const response = await fetch(url, {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(10000)
+  });
+  let parsed = null; try { parsed = await response.json(); } catch {}
+  return { status: response.status, rows: Array.isArray(parsed) ? parsed.length : null, body: parsed };
+}
+function blocked(response) {
+  return response.status === 401 || response.status === 403 ||
+    (response.status === 200 && response.rows === 0);
+}
+function expectedUnchanged(body, expected) {
+  if (!expected || typeof expected !== "object") return true;
+  if (!Array.isArray(body)) return false;
+  return body.some(row => Object.entries(expected).every(([key, value]) => row?.[key] === value));
 }
 for (const item of cases) {
-  if (!item || typeof item.name !== "string" || typeof item.url !== "string") { console.error("Invalid test case: expected {name,url}"); failed = true; continue; }
+  if (!item || typeof item.name !== "string" || typeof item.url !== "string" || !item.updateUrl || !item.deleteUrl) {
+    console.error("Invalid test case: expected {name,url,updateUrl,deleteUrl}");
+    failed = true; continue;
+  }
   let target; try { target = new URL(item.url, root); } catch { console.error("Invalid URL:", item.name); failed = true; continue; }
   if (target.origin !== root.origin || (target.protocol !== "https:" && target.hostname !== "localhost") || !target.searchParams.has("select")) { console.error("Unsafe test URL rejected:", item.name); failed = true; continue; }
   try {
