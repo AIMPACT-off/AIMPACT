@@ -21,5 +21,6 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           TENANT_A_JWT: ${{ secrets.TENANT_A_JWT }}
+          TENANT_B_JWT: ${{ secrets.TENANT_B_JWT }}
           RLS_TEST_CASES: ${{ secrets.RLS_TEST_CASES }}
         run: node scripts/test-tenant-isolation.mjs
