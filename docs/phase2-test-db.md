@@ -31,6 +31,22 @@ Evidence is written to `artifacts/phase2-test-evidence/` by default. Set `TEST_E
 - Capture database fixture rows in the JSON evidence package.
 - When optional API variables are present, call the deployed review function and record Tenant A (200), Tenant B (403), and invalid-context (401) request/response evidence.
 
+## Real Supabase Auth JWT audit
+
+The companion script `scripts/phase2-auth-jwt-audit.mjs` provisions two disposable Auth users through the Supabase Admin API, signs both in through the password grant to obtain real access JWTs, creates isolated Tenant A/B fixtures, and queries PostgREST using each user's JWT (never the service-role key) to verify membership, tenant, approved-report, and unapproved-report RLS behavior. It also attempts an authenticated membership mutation and requires denial.
+
+Run only against a disposable TEST project after confirming the target:
+
+```sh
+export TEST_SUPABASE_URL='https://<disposable-project>.supabase.co'
+export TEST_SUPABASE_ANON_KEY='…'
+export TEST_SUPABASE_SERVICE_ROLE_KEY='…'
+export TEST_DB_DISPOSABLE=YES
+node scripts/phase2-auth-jwt-audit.mjs
+```
+
+Keep keys in a local shell or secure CI secret store; never paste them into chat or commit them. The script rejects non-HTTPS and production-like hosts, emits status/count evidence without tokens or credentials, and attempts fixture cleanup. Inspect the TEST project for residual fixtures if a run fails. A successful run is the first runtime evidence for real Supabase JWT-to-membership RLS behavior; it does not prove a production deployment, tenant-owner bootstrap API, invitations, or end-to-end signup UX.
+
 ## Evidence interpretation and limits
 
 - A successful GitHub Actions run against its disposable local Supabase stack proves that workflow's migration/audit exercise only. It is not a PASS for a separately provisioned TEST database. Record these as separate evidence sources.
