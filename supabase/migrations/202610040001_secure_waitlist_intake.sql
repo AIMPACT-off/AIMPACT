@@ -21,7 +21,7 @@ create table if not exists public.waitlist_submissions (
 
 alter table public.waitlist_submissions enable row level security;
 revoke all on table public.waitlist_submissions from anon, authenticated;
-grant insert, select, update, delete on table public.waitlist_submissions to service_role;
+grant insert on table public.waitlist_submissions to service_role;
 
 create table if not exists public.waitlist_rate_limits (
   key_hash text primary key,
