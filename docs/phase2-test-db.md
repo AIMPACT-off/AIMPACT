@@ -24,7 +24,7 @@ Evidence is written to `artifacts/phase2-test-evidence/` by default. Set `TEST_E
 
 - Apply migrations `202610040002` through `202610040006` sequentially with `ON_ERROR_STOP`.
 - Verify the Auth-linked `tenants` / `tenant_memberships` schema, RLS enablement, authenticated grants, approved-report policy function, and service-role-only bootstrap/intake RPC grants through PostgreSQL catalog checks.
-- Exercise `create_diagnosis_intake_atomic` twice with the same idempotency key; require the same submission/job IDs and exactly one row of each.
+- Exercise `create_diagnosis_intake_atomic` twice with the same idempotency key; require the same submission/job IDs and exactly one row of each. Force a queue-job constraint failure and require the submission insert to roll back (`0|0` residual rows).
 - Confirm tenant bootstrap and atomic intake functions cannot be executed by `authenticated`; owner bootstrap runtime still requires real Auth users and is covered separately.
 - Verify composite tenant foreign keys, browser-role denial, and cross-tenant FK rejection.
 - Launch two independent `psql` worker claims concurrently and require exactly one to claim the same queued job.
