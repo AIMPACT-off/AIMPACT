@@ -16,6 +16,29 @@ export default async function handler(request){
   if(JSON.stringify(body).length>MAX)return fail("BODY_TOO_LARGE",413);
   const url=process.env.SUPABASE_URL?.replace(/\/$/,""),key=process.env.SUPABASE_SERVICE_ROLE_KEY;
   if(!url||!key)return fail("SUPABASE_SERVER_CONFIG_REQUIRED",503);
+
+  // Re-check active membership at submission time. A signed context alone
+  // must not preserve access after an administrator revokes membership.
+  try{
+    const params=new URLSearchParams({
+      tenant_id:"eq."+ctx.tenant_id,
+      user_id:"eq."+ctx.subject,
+      status:"eq.active",
+      select:"tenant_id,user_id,role",
+      limit:"1"
+    });
+    const membership=await fetch(url+"/rest/v1/tenant_memberships?"+params,{
+      headers:{apikey:key,Authorization:"Bearer "+key}
+    });
+    if(!membership.ok)return fail("TENANT_MEMBERSHIP_RECHECK_FAILED",503);
+    const rows=await membership.json();
+    if(!Array.isArray(rows)||rows.length!==1||rows[0].tenant_id!==ctx.tenant_id||rows[0].user_id!==ctx.subject){
+      return fail("ACTIVE_TENANT_MEMBERSHIP_REQUIRED",403);
+    }
+  }catch{
+    return fail("TENANT_MEMBERSHIP_RECHECK_UNAVAILABLE",503);
+  }
+
   const idem=request.headers.get("idempotency-key")||randomUUID();
   const rpcPayload={
     p_tenant_id:ctx.tenant_id,
