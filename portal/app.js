@@ -18,6 +18,7 @@ const DRAFT_KEY="aimpact:diagnosis-draft:v1";
 const DRAFT_TTL_MS=30*60*1000;
 let draftSaveTimer=null;
 let submissionKey=null;
+let submissionFingerprint=null;
 let submitting=false;
 function diagnosisForm(){return document.getElementById("diagnosisForm");}
 function currentAnswers(){
@@ -283,6 +284,7 @@ async function signOut(){
   authReady=false;
   clearDraft();
   submissionKey=null;
+  submissionFingerprint=null;
   setWorkspaceLocked(true);
   tenantSelect.innerHTML='<option value="">Sign in to load workspaces</option>';
   note(authNote,"Signed out. Customer data is locked.");
@@ -307,7 +309,8 @@ document.getElementById("diagnosisForm").addEventListener("submit",async event=>
   submitting=true;
   const submitButton=diagnosisForm().querySelector('button[type="submit"]');
   setBusy(submitButton,true,"SUBMITTING…");
-  if(!submissionKey)submissionKey=crypto.randomUUID();
+  const fingerprint=JSON.stringify(answers);
+  if(!submissionKey||submissionFingerprint!==fingerprint){submissionKey=crypto.randomUUID();submissionFingerprint=fingerprint;}
   note(noteElement,"Submitting securely to your verified workspace…");
   try{
     const response=await safeFetch("/.netlify/functions/diagnosis-intake",{
@@ -326,6 +329,7 @@ document.getElementById("diagnosisForm").addEventListener("submit",async event=>
     event.currentTarget.reset();
     clearDraft();
     submissionKey=null;
+    submissionFingerprint=null;
   }catch(error){
     note(noteElement,friendlyError(error.message)+" Your entries remain available for retry. The same request key will be reused.","blocked");
   }finally{
@@ -346,7 +350,7 @@ async function boot(){
   supabaseClient.auth.onAuthStateChange((_event,newSession)=>{
     session=newSession;
     if(newSession)queueMicrotask(()=>refreshSession().catch(error=>note(authNote,friendlyError(error.message),"error")));
-    else{authReady=false;tenantContext=null;clearDraft();submissionKey=null;setWorkspaceLocked(true);}
+    else{authReady=false;tenantContext=null;clearDraft();submissionKey=null;submissionFingerprint=null;setWorkspaceLocked(true);}
   });
   try{await refreshSession();}catch(error){setWorkspaceLocked(true);note(authNote,"Session check failed: "+error.message,"error");}
 }
