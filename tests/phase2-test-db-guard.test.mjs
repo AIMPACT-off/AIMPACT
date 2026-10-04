@@ -14,7 +14,7 @@ test("Phase 2 integration runner is fail-closed and TEST-only", () => {
   assert.match(source, /diagnosis_dead_letters/);
   assert.match(source, /record_diagnosis_review/);
   assert.match(source, /account_membership/);
-  assert.match(source, /phase2-test-api\\.mjs/);
+  assert.match(source, /phase2-test-api[.]mjs/);
   assert.match(source, /api_requests/);
 });
 
