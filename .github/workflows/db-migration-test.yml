@@ -20,7 +20,7 @@ jobs:
         run: |
           if [ ! -f supabase/config.toml ]; then supabase init; fi
       - name: Start disposable local stack
-        run: supabase start --exclude studio,edge-runtime,logflare,vector,analytics,supavisor,imgproxy,inbucket,storage-api,rest,realtime,auth
+        run: supabase start --exclude studio,edge-runtime,logflare,vector,supavisor,imgproxy,storage-api,realtime,postgrest,kong,mailpit,postgres-meta
       - name: Apply all migrations from clean database
         run: supabase db reset
       - name: Run Phase 2 database, idempotency and rollback checks
