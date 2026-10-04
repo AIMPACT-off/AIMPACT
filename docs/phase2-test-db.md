@@ -35,7 +35,7 @@ Evidence is written to `artifacts/phase2-test-evidence/` by default. Set `TEST_E
 
 ## Real Supabase Auth JWT audit
 
-The companion script `scripts/phase2-auth-jwt-audit.mjs` provisions two disposable Auth users through the Supabase Admin API, signs both in through the password grant to obtain real access JWTs, creates isolated Tenant A/B fixtures, and queries PostgREST using each user's JWT (never the service-role key) to verify membership, tenant, approved-report, and unapproved-report RLS behavior. It also attempts an authenticated membership mutation and requires denial.
+The companion script `scripts/phase2-auth-jwt-audit.mjs` provisions two disposable Auth users through the Supabase Admin API, signs both in through the password grant to obtain real access JWTs, exercises the `tenant-bootstrap.mjs` handler to create/replay an Owner tenant and reject a foreign user's slug claim, then queries PostgREST using each user's JWT (never the service-role key) to verify membership, tenant, approved-report, and unapproved-report RLS behavior. It also attempts an authenticated membership mutation and requires denial.
 
 Run only against a disposable TEST project after confirming the target:
 
