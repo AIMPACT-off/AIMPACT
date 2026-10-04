@@ -56,7 +56,7 @@ Migration `202610040006_tenant_bootstrap_atomic_intake.sql` adds two SECURITY DE
 - `create_tenant_with_owner` creates the tenant and its active `owner` membership in one transaction. A same-owner/same-slug retry is idempotent; a conflicting owner or incomplete prior binding fails closed.
 - `create_diagnosis_intake_atomic` creates or resolves the idempotent diagnosis submission and its queue job in one transaction. Replays return the same submission/job identifiers, preventing orphan submissions and duplicate queue jobs.
 
-The intake Netlify Function now calls only this atomic RPC and returns identifiers, not the raw customer answer payload. The owner bootstrap RPC is a database primitive, **not yet a public signup/bootstrap API**. Its trusted server caller must first validate the Supabase Auth JWT and derive the owner ID from the verified JWT subject; clients must never supply an arbitrary owner ID directly. Real Owner bootstrap/API runtime remains unverified until implemented and tested.
+The intake Netlify Function now calls only this atomic RPC and returns identifiers, not the raw customer answer payload. The Netlify Function `netlify/functions/tenant-bootstrap.mjs` now validates the bearer token by calling Supabase Auth `/auth/v1/user`, requires a confirmed email or phone, derives the owner ID from that verified response, and invokes the service-role-only RPC. It does not accept a client-supplied owner ID. The endpoint and RPC are source-implemented, but real Auth/API runtime, abuse-rate limiting, and onboarding UX remain unverified; keep the feature disabled until TEST verification and explicit activation.
 
 ## Evidence interpretation and limits
 
