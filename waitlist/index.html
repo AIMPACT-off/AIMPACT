@@ -117,20 +117,21 @@ form.addEventListener("submit", async (event) => {
   }
 
   const payload = {
-    companyName: document.getElementById("company").value.trim(),
+    company: document.getElementById("company").value.trim(),
     name: document.getElementById("name").value.trim(),
-    contactEmail: document.getElementById("email").value.trim(),
+    email: document.getElementById("email").value.trim(),
     website: document.getElementById("website").value.trim(),
     problem: document.getElementById("problem").value.trim(),
-    preferredContact: document.getElementById("channel").value,
-    consent: document.getElementById("consent").checked
+    channel: document.getElementById("channel").value,
+    consent: document.getElementById("consent").checked,
+    notice_version: "2026-10-04"
   };
 
   button.disabled = true;
   button.textContent = "SUBMITTING…";
 
   try {
-    const response = await fetch("/.netlify/functions/audit-request", {
+    const response = await fetch("/.netlify/functions/waitlist-intake", {
       method: "POST",
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify(payload)
