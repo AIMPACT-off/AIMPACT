@@ -1,39 +1,23 @@
-# AIMPACT Phase 2 — Product Portal V1
+# AIMPACT Phase 2 Execution — V1.1
 
-Status: BUILD ARTIFACT / NOT PRODUCTION READY
+BUILD ARTIFACT ONLY. TEST/PRODUCTION verification remains separate.
 
-This branch creates the first executable B2B client-portal surface while keeping backend activation fail-closed.
+Implemented:
+- Queue worker executable loop with PostgreSQL SKIP LOCKED claim.
+- Bounded attempts and retry/failure transition.
+- Review-first policy and fail-closed review endpoint.
+- Diagnosis intake API contract with signed trusted tenant context.
+- Browser cannot supply tenant_id or reviewer_id as authority.
 
-## Product flow
+Hard gates:
+- Queue worker requires DATABASE_URL and remains non-provider until AI execution is configured.
+- Diagnosis ingest requires DIAGNOSIS_INGEST_ENABLED=true plus a valid HMAC-signed tenant context.
+- Review API requires Authorization but remains 503 until canonical auth.uid() -> tenant membership is verified.
+- No production activation, merge, or live billing.
 
-OVERVIEW → DIAGNOSIS → REPORTS → WORKFLOWS → ROI → BILLING
-
-## Security boundary
-
-- Browser never receives a Supabase service-role key.
-- Customer report data is not embedded in the static application.
-- The portal calls `/.netlify/functions/diagnosis-portal`.
-- The API remains disabled until server-side authentication, tenant membership and database integration are verified.
-- No production merge or billing activation is performed by this branch.
-
-## Build vs verification
-
-BUILD COMPLETE means the UI/API contract exists in source control.
-
-It does not mean:
-- Supabase migration applied
-- tenant isolation verified
-- authenticated customer access verified
-- AI provider connected
-- Stripe live billing connected
-- production deployed
-
-## Next integration gates
-
-1. Apply PR #21 data contract in disposable TEST Supabase.
-2. Validate PR #22 queue/DLQ concurrency.
-3. Validate PR #23 atomic review.
-4. Establish canonical auth.uid() → tenant membership mapping.
-5. Implement authenticated server-side portal API.
-6. Verify customer can read APPROVED reports only.
-7. Connect billing entitlement after payment verification.
+NOT VERIFIED:
+- Supabase migration execution
+- Queue concurrency / stale lease / DLQ persistence
+- API 202 + actual TEST DB record
+- tenant isolation
+- authenticated customer access
