@@ -49,23 +49,12 @@
 <div><b>IMPLEMENTATION</b><span>AIMPACT builds the selected workflow.</span></div>
 <div><b>AUTOMATION RETAINER</b><span>Ongoing monitoring and optimization.</span></div>
 </div>
-<form id="leadForm" class="leadForm">
-<input id="leadName" maxlength="120" placeholder="Name">
-<input id="leadCompany" maxlength="160" placeholder="Company">
-<input id="leadEmail" type="email" maxlength="320" required placeholder="Business email">
-<select id="leadIndustry" aria-label="Industry"><option value="">Industry</option><option>E-commerce</option><option>Fashion</option><option>Retail</option><option>Marketing</option><option>Content</option><option>Other</option></select>
-<input id="leadSize" maxlength="80" placeholder="Company size">
-<textarea id="leadProblem" rows="4" maxlength="4000" required placeholder="Example: Product photography → retouching → product copy → Instagram content takes too much time."></textarea>
-<input id="leadCurrentTools" maxlength="1000" placeholder="Current tools (optional)">
-<textarea id="leadCurrentProcess" rows="3" maxlength="2000" placeholder="Current process (optional)"></textarea>
-<input id="leadAutomation" maxlength="1000" placeholder="What would you like to automate? (optional)">
-<input id="leadAiUsage" maxlength="1000" placeholder="Current AI usage (optional)">
-<input id="leadTimeline" maxlength="120" placeholder="Timeline (optional)">
-<input id="leadBudget" maxlength="120" placeholder="Budget range (optional — no price is assumed)">
-<textarea id="leadMessage" rows="3" maxlength="3000" placeholder="Additional context (optional)"></textarea>
-<label class="consent"><input id="leadConsent" type="checkbox" required> I agree that AIMPACT may use this information to respond to this business request.</label>
-<button class="primary" type="submit">REQUEST AI AUDIT →</button><p id="leadStatus" class="status" aria-live="polite"></p>
-</form>
+<div class="leadForm intakePaused" role="status" aria-live="polite">
+<h3>AI AUDIT INTAKE TEMPORARILY PAUSED</h3>
+<p>AIMPACT is completing business-identity, privacy-notice, database-access and deletion-process verification before accepting business enquiries through this form.</p>
+<p><b>No information is collected or transmitted through this section at this time.</b></p>
+<a class="primary" href="/waitlist/">VIEW EARLY ACCESS INFORMATION →</a>
+</div>
 </section>
 
 <section id="workflow" class="panel"><p class="eyebrow">02 · WORKFLOW</p><h2>Problem → Solution → Delivery.</h2>
