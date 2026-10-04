@@ -16,8 +16,6 @@ set -euo pipefail
 : "${TEST_DATABASE_URL:?TEST_DATABASE_URL is required}"
 : "${TEST_SERVICE_KEY:?TEST_SERVICE_KEY is required (presence check only)}"
 : "${TEST_API_URL:?TEST_API_URL is required (TEST/staging only)}"
-: "${TEST_SERVICE_KEY:?TEST_SERVICE_KEY is required}"
-: "${TEST_API_URL:?TEST_API_URL is required (configured TEST/staging endpoint)}"
 
 case "${TEST_DATABASE_URL}" in
   *aimpact-ai.netlify.app*|*prod*|*production*)
@@ -136,5 +134,5 @@ if [[ -n "${TEST_SERVICE_KEY:-}" ]]; then
     "SELECT id, company_name, contact_name, work_email, consent, consent_notice_version, created_at FROM public.waitlist_submissions WHERE work_email = '${email}' ORDER BY created_at DESC LIMIT 1;"
 fi
 
-echo "RESULT: FULL TEST PIPELINE VERIFIED." infrastructure checks completed; intake remains fail-closed."
+echo "RESULT: FULL TEST PIPELINE VERIFIED."
 echo "WAITLIST_INTAKE_ENABLED was NOT changed."
