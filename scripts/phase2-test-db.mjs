@@ -187,8 +187,14 @@ try {
   const statusAfterFailure = psql(`select report_status from public.diagnosis_reports where tenant_id='${A}' and id='${report}'`, "report status after forced failure");
   assert(beforeFailure === afterFailure && statusAfterFailure === "APPROVED", "failed report update must roll back inserted review row");
   evidence.checks.review_failure_rollback = { status: "PASS", sqlstate: "23514", review_rows_before: Number(beforeFailure), review_rows_after: Number(afterFailure), report_status: statusAfterFailure };
+  evidence.db_rows = {
+    job: psql(`select to_jsonb(j)::text from public.diagnosis_jobs j where id in ('${jobRace}','${jobDlq}') order by id`, 'evidence job rows'),
+    dead_letters: psql(`select to_jsonb(d)::text from public.diagnosis_dead_letters d where job_id='${jobDlq}'`, 'evidence DLQ row'),
+    report: psql(`select to_jsonb(r)::text from public.diagnosis_reports r where id='${report}'`, 'evidence report row'),
+    reviews: psql(`select coalesce(json_agg(to_jsonb(v) order by created_at,id),'[]'::json)::text from public.diagnosis_reviews v where report_id='${report}'`, 'evidence review rows')
+  };
   evidence.checks.account_membership = "NOT_VERIFIED — current schema has no authenticated user-to-tenant membership model";
-  evidence.checks.real_api_auth = "NOT_RUN — requires staging API URL and real authenticated user JWTs; HMAC context alone is insufficient";
+  evidence.checks.real_api_auth = "NOT_RUN — requires a TEST/staging API endpoint and signed-context credentials; HMAC context alone is not account membership";
   evidence.result = "PASS_FOR_DATABASE_CHECKS_WITH_EXPLICIT_AUTH_LIMITATIONS";
 } catch (error) {
   evidence.result = "FAIL";
