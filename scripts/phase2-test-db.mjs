@@ -128,9 +128,9 @@ try {
   `, "browser privilege check");
   assert(browser === "false|false|false", "browser roles must not read reports/reviews or execute review RPC");
   evidence.checks.tenant_fk_and_browser_denial = "PASS";
-  const mismatch = spawnSync("psql", [dbUrl,"-X","-v","ON_ERROR_STOP=1","-At","-c",
+  const mismatch = spawnSync("psql", [dbUrl,"-X","-v","ON_ERROR_STOP=1","-v","VERBOSITY=verbose","-At","-c",
     `insert into public.diagnosis_jobs (tenant_id,submission_id) values ('${B}','${subA}')`], {encoding:"utf8"});
-  const mismatchSqlstate = mismatch.stderr.match(/ERROR:\\s+(\\d{5}):/)?.[1];
+  const mismatchSqlstate = mismatch.stderr.match(/ERROR:\s+(\d{5}):/)?.[1];
   assert(mismatch.status !== 0 && mismatchSqlstate === "23503", "cross-tenant composite FK must reject with SQLSTATE 23503");
   evidence.checks.cross_tenant_fk_rejection = { status: "PASS", sqlstate: mismatchSqlstate };
   const claimSql = worker => `select id from public.claim_diagnosis_jobs('${worker}',1,300)`;
@@ -181,10 +181,10 @@ try {
   // A constraint failure after the review INSERT must roll back that INSERT as well.
   psql("alter table public.diagnosis_reports add constraint phase2_test_block_approved check (report_status <> 'APPROVED') not valid", "install temporary rollback probe");
   const beforeFailure = psql(`select count(*) from public.diagnosis_reviews where tenant_id='${A}' and report_id='${report}'`, "review count before forced failure");
-  const forced = spawnSync("psql", [dbUrl,"-X","-v","ON_ERROR_STOP=1","-At","-c",
+  const forced = spawnSync("psql", [dbUrl,"-X","-v","ON_ERROR_STOP=1","-v","VERBOSITY=verbose","-At","-c",
     `select public.record_diagnosis_review('${A}','${report}','${reviewer}','APPROVED','forced constraint failure')`], {encoding:"utf8"});
   psql("alter table public.diagnosis_reports drop constraint phase2_test_block_approved", "remove temporary rollback probe");
-  const forcedSqlstate = forced.stderr.match(/ERROR:\\s+(\\d{5}):/)?.[1];
+  const forcedSqlstate = forced.stderr.match(/ERROR:\s+(\d{5}):/)?.[1];
   assert(forced.status !== 0 && forcedSqlstate === "23514", "forced report update must fail with SQLSTATE 23514");
   const afterFailure = psql(`select count(*) from public.diagnosis_reviews where tenant_id='${A}' and report_id='${report}'`, "review count after forced failure");
   const statusAfterFailure = psql(`select report_status from public.diagnosis_reports where tenant_id='${A}' and id='${report}'`, "report status after forced failure");
