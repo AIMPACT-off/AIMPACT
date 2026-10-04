@@ -64,7 +64,7 @@ export async function handler(event) {
   const hmacSecret = process.env.RATE_LIMIT_HMAC_SECRET;
   if (!supabaseUrl || !serviceKey || !hmacSecret) return fail(503, "Intake is not configured.", allowedOrigin);
 
-  const ip = event.headers?.["x-nf-client-connection-ip"] || event.headers?.["x-forwarded-for"]?.split(",")[0]?.trim() || "unknown";
+  const ip = event.headers?.["x-nf-client-connection-ip"] || "unknown";
   if (ip === "unknown") return fail(503, "Request metadata unavailable.", allowedOrigin);
   const ipHash = createHmac("sha256", hmacSecret).update(ip).digest("hex");
   const root = supabaseUrl.replace(/\/$/, "");
