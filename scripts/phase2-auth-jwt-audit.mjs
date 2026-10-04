@@ -61,8 +61,9 @@ try {
   const jwtA = await signIn(users[0]);
   const jwtB = await signIn(users[1]);
   const tenantA = await insert("tenants", { name:"JWT Audit A", slug:`jwt-a-${run.slice(0,8)}`, created_by:userA.id });
+  tenants.push(tenantA.id);
   const tenantB = await insert("tenants", { name:"JWT Audit B", slug:`jwt-b-${run.slice(0,8)}`, created_by:userB.id });
-  tenants.push(tenantA.id, tenantB.id);
+  tenants.push(tenantB.id);
   await insert("tenant_memberships", { tenant_id:tenantA.id, user_id:userA.id, role:"owner", status:"active" });
   await insert("tenant_memberships", { tenant_id:tenantB.id, user_id:userB.id, role:"owner", status:"active" });
 
