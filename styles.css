@@ -27,3 +27,8 @@ textarea,input{font:inherit}
 @media(max-width:700px){.detailGrid{grid-template-columns:1fr}.resultTool{grid-template-columns:1fr auto}.resultTool span{grid-column:1/-1}.compareHead,.compareLine{grid-template-columns:110px repeat(3,minmax(140px,1fr))}}
 
 .controlTower{border-top:1px solid currentColor}.controlGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:24px}.controlGrid>div{border:1px solid rgba(127,127,127,.35);padding:18px;display:flex;flex-direction:column;gap:8px}.controlGrid b{font-size:11px;letter-spacing:.08em}.controlGrid span{font-size:15px}@media(max-width:700px){.controlGrid{grid-template-columns:1fr}}
+
+.intakePaused{max-width:900px;border:1px solid #555;padding:28px;margin-top:28px;color:inherit}
+.intakePaused h3{font-size:13px;letter-spacing:.14em;margin:0 0 12px}
+.intakePaused p{font-size:13px;line-height:1.7;color:inherit;opacity:.78}
+.intakePaused a.primary{display:inline-block;margin-top:12px;padding:14px 18px;background:#fff;color:#111;text-decoration:none;font-size:10px;font-weight:700;letter-spacing:.1em}
