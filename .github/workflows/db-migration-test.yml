@@ -23,6 +23,11 @@ jobs:
         run: supabase start --exclude studio,edge-runtime,logflare,vector,analytics,supavisor,imgproxy,inbucket,storage-api,rest,realtime,auth
       - name: Apply all migrations from clean database
         run: supabase db reset
+      - name: Run Phase 2 database, idempotency and rollback checks
+        run: |
+          DB_URL="$(supabase status -o env | sed -n 's/^DB_URL=//p' | tr -d '"')"
+          test -n "$DB_URL"
+          TEST_DATABASE_URL="$DB_URL" TEST_DB_DISPOSABLE=YES npm run test:phase2-db
       - name: Verify audit chain objects
         run: supabase db query --local "select to_regclass('public.audit_logs'), to_regprocedure('public.verify_audit_log_chain()'), to_regprocedure('public.aimpact_renew_execution_lock(text,uuid,integer)'), to_regprocedure('public.aimpact_claim_execution_lock(text,uuid,integer)');"
       - name: Exercise rollback in disposable database
