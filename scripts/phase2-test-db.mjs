@@ -130,8 +130,9 @@ try {
   evidence.checks.tenant_fk_and_browser_denial = "PASS";
   const mismatch = spawnSync("psql", [dbUrl,"-X","-v","ON_ERROR_STOP=1","-At","-c",
     `insert into public.diagnosis_jobs (tenant_id,submission_id) values ('${B}','${subA}')`], {encoding:"utf8"});
-  assert(mismatch.status !== 0 && /23503|foreign key/i.test(mismatch.stderr), "cross-tenant composite FK must reject mismatch");
-  evidence.checks.cross_tenant_fk_rejection = "PASS (SQLSTATE 23503 expected)";
+  const mismatchSqlstate = mismatch.stderr.match(/ERROR:\\s+(\\d{5}):/)?.[1];
+  assert(mismatch.status !== 0 && mismatchSqlstate === "23503", "cross-tenant composite FK must reject with SQLSTATE 23503");
+  evidence.checks.cross_tenant_fk_rejection = { status: "PASS", sqlstate: mismatchSqlstate };
   const claimSql = worker => `select id from public.claim_diagnosis_jobs('${worker}',1,300)`;
   const claims = await Promise.all([
     psqlAsync(claimSql("phase2-worker-A"), "worker A concurrent claim"),
@@ -183,11 +184,12 @@ try {
   const forced = spawnSync("psql", [dbUrl,"-X","-v","ON_ERROR_STOP=1","-At","-c",
     `select public.record_diagnosis_review('${A}','${report}','${reviewer}','APPROVED','forced constraint failure')`], {encoding:"utf8"});
   psql("alter table public.diagnosis_reports drop constraint phase2_test_block_approved", "remove temporary rollback probe");
-  assert(forced.status !== 0 && /23514|check constraint/i.test(forced.stderr), "forced report update must fail with check_violation");
+  const forcedSqlstate = forced.stderr.match(/ERROR:\\s+(\\d{5}):/)?.[1];
+  assert(forced.status !== 0 && forcedSqlstate === "23514", "forced report update must fail with SQLSTATE 23514");
   const afterFailure = psql(`select count(*) from public.diagnosis_reviews where tenant_id='${A}' and report_id='${report}'`, "review count after forced failure");
   const statusAfterFailure = psql(`select report_status from public.diagnosis_reports where tenant_id='${A}' and id='${report}'`, "report status after forced failure");
   assert(beforeFailure === afterFailure && statusAfterFailure === "APPROVED", "failed report update must roll back inserted review row");
-  evidence.checks.review_failure_rollback = { status: "PASS", sqlstate: "23514", review_rows_before: Number(beforeFailure), review_rows_after: Number(afterFailure), report_status: statusAfterFailure };
+  evidence.checks.review_failure_rollback = { status: "PASS", sqlstate: forcedSqlstate, review_rows_before: Number(beforeFailure), review_rows_after: Number(afterFailure), report_status: statusAfterFailure };
   evidence.db_rows = {
     job: psql(`select to_jsonb(j)::text from public.diagnosis_jobs j where id in ('${jobRace}','${jobDlq}') order by id`, 'evidence job rows'),
     dead_letters: psql(`select to_jsonb(d)::text from public.diagnosis_dead_letters d where job_id='${jobDlq}'`, 'evidence DLQ row'),
