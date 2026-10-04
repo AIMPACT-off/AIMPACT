@@ -28,6 +28,7 @@ const migrations = [
   "supabase/migrations/202610040002_ai_diagnosis_data_contract.sql",
   "supabase/migrations/202610040003_diagnosis_queue_retry_dlq.sql",
   "supabase/migrations/202610040004_review_first_access_control.sql",
+  "supabase/migrations/202610040005_auth_tenant_membership.sql",
 ];
 for (const file of migrations) {
   if (!fs.existsSync(file)) throw new Error(`FAIL-CLOSED: missing migration ${file}`);
@@ -43,7 +44,7 @@ const evidence = {
   checks: {},
   limitations: [
     "HMAC tenant-context issuance is not proof of authenticated account membership.",
-    "No tenant membership table/policy is defined by the current canonical migrations.",
+    "Membership schema/policies are created by migration 005, but authenticated JWT membership behavior is not proven by service-role fixture tests.",
     "API identity/authorization checks require a real staging API and authenticated user JWTs; they are not inferred from service-role DB tests."
   ]
 };
@@ -128,6 +129,22 @@ try {
   `, "browser privilege check");
   assert(browser === "false|false|false", "browser roles must not read reports/reviews or execute review RPC");
   evidence.checks.tenant_fk_and_browser_denial = "PASS";
+  const membershipCatalog = psql(`
+    select
+      to_regclass('public.tenants') is not null,
+      to_regclass('public.tenant_memberships') is not null,
+      (select relrowsecurity from pg_class where oid='public.tenant_memberships'::regclass),
+      has_table_privilege('authenticated','public.tenant_memberships','select'),
+      has_table_privilege('authenticated','public.tenant_memberships','insert'),
+      has_table_privilege('authenticated','public.diagnosis_reports','select'),
+      has_function_privilege('authenticated','public.can_read_approved_diagnosis_report(uuid,uuid)','execute')
+  `, "membership schema catalog check");
+  assert(membershipCatalog === "t|t|t|t|f|t|t", "membership tables, RLS and restricted authenticated grants must exist");
+  evidence.checks.membership_schema_and_report_policy = {
+    status: "PASS",
+    catalog: membershipCatalog,
+    limitation: "Catalog/privilege structure only; no authenticated JWT subject membership test was run."
+  };
   const mismatch = spawnSync("psql", [dbUrl,"-X","-v","ON_ERROR_STOP=1","-v","VERBOSITY=verbose","-At","-c",
     `insert into public.diagnosis_jobs (tenant_id,submission_id) values ('${B}','${subA}')`], {encoding:"utf8"});
   const mismatchSqlstate = mismatch.stderr.match(/ERROR:\s+(\d{5}):/)?.[1];
@@ -212,8 +229,8 @@ try {
   } else {
     evidence.checks.api_tenant_scope = "NOT_RUN — set TEST_API_URL and TENANT_CONTEXT_HMAC_SECRET for TEST/staging API probe";
   }
-  evidence.checks.account_membership = "NOT_VERIFIED — signed HMAC subject is synthetic and no authenticated user-to-tenant membership lookup exists";
-  evidence.checks.real_api_auth = "NOT_VERIFIED — API probe tests HMAC tenant scoping only, not real account membership";
+  evidence.checks.account_membership = "NOT_VERIFIED — migration 005 defines the Auth membership model, but authenticated JWT subject-to-tenant behavior has not been exercised against TEST";
+  evidence.checks.real_api_auth = "NOT_VERIFIED — API probe tests HMAC tenant scoping only; real Supabase Auth JWT and membership enforcement remain untested";
   evidence.result = "PASS_FOR_DATABASE_CHECKS_WITH_EXPLICIT_AUTH_LIMITATIONS";
 } catch (error) {
   evidence.result = "FAIL";
