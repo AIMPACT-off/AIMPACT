@@ -196,8 +196,24 @@ try {
     report: psql(`select to_jsonb(r)::text from public.diagnosis_reports r where id='${report}'`, 'evidence report row'),
     reviews: psql(`select coalesce(json_agg(to_jsonb(v) order by created_at,id),'[]'::json)::text from public.diagnosis_reviews v where report_id='${report}'`, 'evidence review rows')
   };
-  evidence.checks.account_membership = "NOT_VERIFIED — current schema has no authenticated user-to-tenant membership model";
-  evidence.checks.real_api_auth = "NOT_RUN — requires a TEST/staging API endpoint and signed-context credentials; HMAC context alone is not account membership";
+  if (process.env.TEST_API_URL && process.env.TENANT_CONTEXT_HMAC_SECRET) {
+    const apiEvidenceFile = path.join(evidenceDir, "phase2-api-" + evidence.run_id + ".json");
+    const apiRun = spawnSync(process.execPath, ["scripts/phase2-test-api.mjs"], {
+      encoding: "utf8",
+      env: { ...process.env, TEST_DB_DISPOSABLE: "YES", TEST_TENANT_A_ID: A, TEST_TENANT_B_ID: B, TEST_REPORT_ID: report, TEST_API_EVIDENCE_FILE: apiEvidenceFile }
+    });
+    if (apiRun.error) throw apiRun.error;
+    let apiResult;
+    try { apiResult = JSON.parse(apiRun.stdout); } catch { throw new Error("API evidence probe returned invalid JSON: " + (apiRun.stderr || "")); }
+    evidence.api_requests = apiResult.requests;
+    evidence.api_evidence_file = apiResult.evidence_file;
+    evidence.checks.api_tenant_scope = apiResult.result;
+    if (apiRun.status !== 0) throw new Error("TEST API probe failed: " + (apiResult.result || "unknown"));
+  } else {
+    evidence.checks.api_tenant_scope = "NOT_RUN — set TEST_API_URL and TENANT_CONTEXT_HMAC_SECRET for TEST/staging API probe";
+  }
+  evidence.checks.account_membership = "NOT_VERIFIED — signed HMAC subject is synthetic and no authenticated user-to-tenant membership lookup exists";
+  evidence.checks.real_api_auth = "NOT_VERIFIED — API probe tests HMAC tenant scoping only, not real account membership";
   evidence.result = "PASS_FOR_DATABASE_CHECKS_WITH_EXPLICIT_AUTH_LIMITATIONS";
 } catch (error) {
   evidence.result = "FAIL";
