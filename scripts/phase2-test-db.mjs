@@ -205,6 +205,10 @@ try {
   const mismatchSqlstate = mismatch.stderr.match(/ERROR:\s+(\d{5}):/)?.[1];
   assert(mismatch.status !== 0 && mismatchSqlstate === "23503", "cross-tenant composite FK must reject with SQLSTATE 23503");
   evidence.checks.cross_tenant_fk_rejection = { status: "PASS", sqlstate: mismatchSqlstate };
+  // Keep the concurrent-claim probe isolated to the single jobRace fixture.
+  // The atomic-idempotency probe above intentionally created its own pending job.
+  psql(`update public.diagnosis_jobs set status='COMPLETED', completed_at=clock_timestamp(), updated_at=clock_timestamp()
+    where tenant_id='${A}' and id='${atomicParts[1]}' and status='PENDING'`, "isolate concurrent claim fixture");
   const claimSql = worker => `select id from public.claim_diagnosis_jobs('${worker}',1,300)`;
   const claims = await Promise.all([
     psqlAsync(claimSql("phase2-worker-A"), "worker A concurrent claim"),
