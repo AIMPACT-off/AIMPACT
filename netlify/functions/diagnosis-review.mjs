@@ -8,10 +8,19 @@ async function approvedReport(url,key,tenantId,reportId){
   const reportRes=await fetch(url+"/rest/v1/diagnosis_reports?"+params,{headers:{apikey:key,Authorization:"Bearer "+key}});
   if(!reportRes.ok)return {error:"REPORT_QUERY_FAILED"};
   const reports=await reportRes.json();if(!reports.length)return {error:"REPORT_NOT_APPROVED"};
-  const reviewParams=new URLSearchParams({tenant_id:"eq."+tenantId,report_id:"eq."+reports[0].id,decision:"eq.APPROVED",select:"id,report_id,decision"});
+  const reviewParams=new URLSearchParams({
+    tenant_id:"eq."+tenantId,
+    report_id:"eq."+reports[0].id,
+    select:"id,report_id,decision,created_at",
+    order:"created_at.desc",
+    limit:"1"
+  });
   const reviewRes=await fetch(url+"/rest/v1/diagnosis_reviews?"+reviewParams,{headers:{apikey:key,Authorization:"Bearer "+key}});
   if(!reviewRes.ok)return {error:"REVIEW_QUERY_FAILED"};
-  const reviews=await reviewRes.json();return reviews.length?{report:reports[0],review:reviews[0]}:{error:"REVIEW_NOT_APPROVED"};
+  const reviews=await reviewRes.json();
+  return reviews.length && reviews[0].decision==="APPROVED"
+    ? {report:reports[0],review:reviews[0]}
+    : {error:"REVIEW_NOT_APPROVED"};
 }
 
 export default async function handler(request){
