@@ -10,7 +10,7 @@ test("unified Phase 2 integration runner is TEST-only and fail-closed", () => {
   assert.match(source, /202610040002_ai_diagnosis_data_contract/);
   assert.match(source, /202610040003_diagnosis_queue_retry_dlq/);
   assert.match(source, /202610040004_review_first_access_control/);
-  assert.match(source, /Promise\\.all/);
+  assert.match(source, /Promise[.]all/);
   assert.match(source, /diagnosis_dead_letters/);
   assert.match(source, /record_diagnosis_review/);
 });
