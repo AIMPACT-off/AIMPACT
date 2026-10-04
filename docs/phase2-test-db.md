@@ -34,5 +34,6 @@ Evidence is written to `artifacts/phase2-test-evidence/` by default. Set `TEST_E
 
 - Database service-role tests do not prove authenticated account membership.
 - Current canonical migrations do not define a trusted user-to-tenant membership table/policy. A valid HMAC tenant-context token is not proof that its subject belongs to that tenant.
-- Real HTTP API evidence is not collected by this DB runner. It remains `NOT_RUN` until a separate TEST/staging API and a trusted identity/membership contract are available.
+- If `TEST_API_URL` and `TENANT_CONTEXT_HMAC_SECRET` are configured, the optional probe collects real HTTP request/response bodies for signed-context scoping. If absent, the API probe is `NOT_RUN`.
+- Even when the optional API probe passes, authenticated account membership remains unverified: the test uses synthetic HMAC contexts and the current handler does not perform a trusted membership lookup.
 - No production migration, deployment, merge, or feature activation is performed.
