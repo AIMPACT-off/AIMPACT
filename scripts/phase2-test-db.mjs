@@ -305,5 +305,5 @@ try {
   evidence.finished_at = new Date().toISOString();
   const out = path.join(evidenceDir, `phase2-test-${evidence.run_id}.json`);
   fs.writeFileSync(out, JSON.stringify(evidence, null, 2) + "\n", { mode: 0o600 });
-  process.stdout.write(JSON.stringify({ result: evidence.result || "INCOMPLETE", evidence_file: out, checks: evidence.checks }, null, 2) + "\n");
+  process.stdout.write(JSON.stringify({ result: evidence.result || "INCOMPLETE", error: evidence.error || null, evidence_file: out, checks: evidence.checks }, null, 2) + "\n");
 }
