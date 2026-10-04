@@ -100,6 +100,9 @@ test("diagnosis intake submits once to atomic RPC and never returns raw answers"
   let call;
   globalThis.fetch=async(url,options)=>{
     call={url:String(url),options};
+    if(String(url).includes("/tenant_memberships?")){
+      return new Response(JSON.stringify([{tenant_id:"tenant-a",user_id:"auth-user-a",role:"owner"}]),{status:200});
+    }
     return new Response(JSON.stringify({submission_id:"submission-1",job_id:"job-1",duplicate:false,queued:true}),{status:200});
   };
   try{
