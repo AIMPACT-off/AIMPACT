@@ -7,6 +7,7 @@ const authNote=document.getElementById("authNote");
 const tenantSelect=document.getElementById("tenantSelect");
 const connectTenant=document.getElementById("connectTenant");
 const signoutButton=document.getElementById("signoutButton");
+const signoutTop=document.getElementById("signoutTop");
 const config=window.AIMPACT_CONFIG||{};
 let supabaseClient=null;
 let session=null;
@@ -37,8 +38,10 @@ function setWorkspaceLocked(locked){
     tenantSelect.disabled=true;
     connectTenant.disabled=true;
     signoutButton.hidden=true;
+    if(signoutTop)signoutTop.hidden=true;
   }else{
     signoutButton.hidden=false;
+    if(signoutTop)signoutTop.hidden=false;
   }
 }
 
@@ -188,13 +191,15 @@ document.getElementById("tenantForm").addEventListener("submit",async event=>{
   }catch(error){note(authNote,"Workspace creation blocked: "+error.message,"error");}
 });
 
-signoutButton.addEventListener("click",async()=>{
+async function signOut(){
   await supabaseClient.auth.signOut();
   session=null;
   setWorkspaceLocked(true);
   tenantSelect.innerHTML='<option value="">Sign in to load workspaces</option>';
   note(authNote,"Signed out. Customer data is locked.");
-});
+}
+signoutButton.addEventListener("click",signOut);
+if(signoutTop)signoutTop.addEventListener("click",signOut);
 
 document.getElementById("diagnosisForm").addEventListener("submit",async event=>{
   event.preventDefault();
