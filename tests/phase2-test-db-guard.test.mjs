@@ -14,10 +14,21 @@ test("Phase 2 integration runner is fail-closed and TEST-only", () => {
   assert.match(source, /diagnosis_dead_letters/);
   assert.match(source, /record_diagnosis_review/);
   assert.match(source, /account_membership/);
+  assert.match(source, /phase2-test-api\\.mjs/);
+  assert.match(source, /api_requests/);
 });
 
 test("Phase 2 integration runner does not represent HMAC as tenant membership", () => {
   const source = fs.readFileSync("scripts/phase2-test-db.mjs", "utf8");
   assert.match(source, /HMAC tenant-context issuance is not proof/);
   assert.match(source, /NOT_VERIFIED/);
+});
+
+test("optional HTTP probe records signed-context scope without claiming membership", () => {
+  const source = fs.readFileSync("scripts/phase2-test-api.mjs", "utf8");
+  assert.match(source, /tenant_a_same_tenant/);
+  assert.match(source, /tenant_b_cross_tenant/);
+  assert.match(source, /invalid_context/);
+  assert.match(source, /synthetic HMAC-signed tenant context only/);
+  assert.match(source, /PASS_SIGNED_TENANT_CONTEXT_SCOPE_ONLY/);
 });
