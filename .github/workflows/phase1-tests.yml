@@ -39,6 +39,7 @@ jobs:
           node --check scripts/phase2-auth-jwt-audit.mjs
           node --check scripts/phase2-test-db.mjs
           node --check netlify/functions/diagnosis-intake.mjs
+          node --check netlify/functions/tenant-bootstrap.mjs
       - name: Migration safety lint
         run: node scripts/lint-migrations.mjs
       - name: Dispatcher integration tests
