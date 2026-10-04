@@ -5,7 +5,7 @@ import diagnosisIntake from "../netlify/functions/diagnosis-intake.mjs";
 import { signTenantContext } from "../phase2/auth/tenant-context.mjs";
 
 const originalFetch=globalThis.fetch;
-const envKeys=["SUPABASE_URL","SUPABASE_ANON_KEY","SUPABASE_SERVICE_ROLE_KEY","DIAGNOSIS_INGEST_ENABLED","TENANT_CONTEXT_HMAC_SECRET"];
+const envKeys=["SUPABASE_URL","SUPABASE_ANON_KEY","SUPABASE_SERVICE_ROLE_KEY","DIAGNOSIS_INGEST_ENABLED","TENANT_CONTEXT_HMAC_SECRET","TENANT_BOOTSTRAP_ENABLED"];
 const originalEnv=Object.fromEntries(envKeys.map(k=>[k,process.env[k]]));
 function restore(){
   globalThis.fetch=originalFetch;
@@ -18,7 +18,21 @@ function configure(){
   process.env.SUPABASE_URL="https://test-project.supabase.co";
   process.env.SUPABASE_ANON_KEY="anon-test-key";
   process.env.SUPABASE_SERVICE_ROLE_KEY="service-test-key";
+  process.env.TENANT_BOOTSTRAP_ENABLED="true";
 }
+
+test("tenant bootstrap is disabled unless explicitly enabled",async()=>{
+  process.env.TENANT_BOOTSTRAP_ENABLED="false";
+  let calls=0;
+  globalThis.fetch=async()=>{calls++;throw new Error("must not call");};
+  try{
+    const response=await tenantBootstrap(new Request("https://aimpact.test/.netlify/functions/tenant-bootstrap",{
+      method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name:"Acme",slug:"acme-co"})
+    }));
+    assert.equal(response.status,503);
+    assert.equal(calls,0);
+  }finally{restore();}
+});
 
 test("tenant bootstrap rejects missing bearer JWT before contacting Supabase",async()=>{
   configure();
