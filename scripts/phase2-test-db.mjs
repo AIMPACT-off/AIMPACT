@@ -181,6 +181,25 @@ try {
     replay: atomicSecond,
     submission_rows_and_job_rows: atomicCounts
   };
+  const forcedAtomicKey = "phase2-atomic-rollback-" + evidence.run_id;
+  psql("alter table public.diagnosis_jobs add constraint phase2_test_block_intake_job check (status <> 'PENDING') not valid", "install atomic intake rollback probe");
+  const forcedAtomic = spawnSync("psql", [dbUrl,"-X","-v","ON_ERROR_STOP=1","-v","VERBOSITY=verbose","-At","-c",
+    `select public.create_diagnosis_intake_atomic('${A}','${forcedAtomicKey}','1.0.0','{"rollback_test":true}'::jsonb,'phase2-test-v1',now(),null)`], {encoding:"utf8"});
+  psql("alter table public.diagnosis_jobs drop constraint phase2_test_block_intake_job", "remove atomic intake rollback probe");
+  const forcedAtomicSqlstate = forcedAtomic.stderr.match(/ERROR:\\s+(\\d{5}):/)?.[1];
+  assert(forcedAtomic.status !== 0 && forcedAtomicSqlstate === "23514", "forced queue-job constraint failure must abort atomic intake");
+  const atomicRollbackCounts = psql(`
+    select
+      (select count(*) from public.diagnosis_submissions where tenant_id='${A}' and idempotency_key='${forcedAtomicKey}') || '|' ||
+      (select count(*) from public.diagnosis_jobs j join public.diagnosis_submissions s on s.tenant_id=j.tenant_id and s.id=j.submission_id
+       where s.tenant_id='${A}' and s.idempotency_key='${forcedAtomicKey}')
+  `, "atomic intake rollback row count");
+  assert(atomicRollbackCounts === "0|0", "failed queue-job insert must roll back the new diagnosis submission");
+  evidence.checks.atomic_intake_failure_rollback = {
+    status: "PASS",
+    sqlstate: forcedAtomicSqlstate,
+    submission_rows_and_job_rows_after_failure: atomicRollbackCounts
+  };
   const mismatch = spawnSync("psql", [dbUrl,"-X","-v","ON_ERROR_STOP=1","-v","VERBOSITY=verbose","-At","-c",
     `insert into public.diagnosis_jobs (tenant_id,submission_id) values ('${B}','${subA}')`], {encoding:"utf8"});
   const mismatchSqlstate = mismatch.stderr.match(/ERROR:\s+(\d{5}):/)?.[1];
