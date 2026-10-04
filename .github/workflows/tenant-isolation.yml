@@ -24,3 +24,18 @@ jobs:
           TENANT_B_JWT: ${{ secrets.TENANT_B_JWT }}
           RLS_TEST_CASES: ${{ secrets.RLS_TEST_CASES }}
         run: node scripts/test-tenant-isolation.mjs
+
+  real-auth-jwt-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run real Supabase Auth JWT audit
+        env:
+          TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+          TEST_SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
+          TEST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+          TEST_DB_DISPOSABLE: ${{ secrets.TEST_DB_DISPOSABLE }}
+        run: node scripts/phase2-auth-jwt-audit.mjs
