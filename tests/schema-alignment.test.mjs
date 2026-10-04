@@ -11,6 +11,8 @@ test("canonical diagnosis schema and worker state machine are aligned", async ()
   assert.match(migration,/available_at timestamptz/);
   assert.match(migration,/locked_at timestamptz/);
   assert.match(migration,/last_error_code text/);
+  assert.match(migration,/unique \(tenant_id, job_id\)/);
+  assert.match(migration,/unique \(tenant_id, id\)/);
   assert.match(queue,/claim_diagnosis_jobs/);
   assert.match(queue,/status = 'PENDING'/);
   assert.match(worker,/claim_diagnosis_jobs/);
