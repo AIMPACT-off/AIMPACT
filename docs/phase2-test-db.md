@@ -1,6 +1,6 @@
 # Phase 2 disposable TEST database verification
 
-This runner is a destructive integration test for a disposable TEST database. It applies the five canonical Phase 2 migrations in order, creates deterministic Tenant A/B fixtures, exercises queue/review behavior, removes its fixtures, and writes a JSON evidence file.
+This runner is a destructive integration test for a disposable TEST database. It applies the six canonical Phase 2 migrations in order, creates deterministic Tenant A/B fixtures, exercises queue/review behavior, removes its fixtures, and writes a JSON evidence file.
 
 ## Preconditions
 
@@ -22,8 +22,10 @@ Evidence is written to `artifacts/phase2-test-evidence/` by default. Set `TEST_E
 
 ## Covered checks
 
-- Apply migrations `202610040002` through `202610040005` sequentially with `ON_ERROR_STOP`.
-- Verify the Auth-linked `tenants` / `tenant_memberships` schema, RLS enablement, authenticated grants, and approved-report policy function through PostgreSQL catalog checks.
+- Apply migrations `202610040002` through `202610040006` sequentially with `ON_ERROR_STOP`.
+- Verify the Auth-linked `tenants` / `tenant_memberships` schema, RLS enablement, authenticated grants, approved-report policy function, and service-role-only bootstrap/intake RPC grants through PostgreSQL catalog checks.
+- Exercise `create_diagnosis_intake_atomic` twice with the same idempotency key; require the same submission/job IDs and exactly one row of each.
+- Confirm tenant bootstrap and atomic intake functions cannot be executed by `authenticated`; owner bootstrap runtime still requires real Auth users and is covered separately.
 - Verify composite tenant foreign keys, browser-role denial, and cross-tenant FK rejection.
 - Launch two independent `psql` worker claims concurrently and require exactly one to claim the same queued job.
 - Claim a one-attempt job, fail it, and require `FAILED` plus exactly one `diagnosis_dead_letters` row.
@@ -45,7 +47,16 @@ export TEST_DB_DISPOSABLE=YES
 node scripts/phase2-auth-jwt-audit.mjs
 ```
 
-Keep keys in a local shell or secure CI secret store; never paste them into chat or commit them. The script rejects non-HTTPS and production-like hosts, emits status/count evidence without tokens or credentials, and attempts fixture cleanup. Inspect the TEST project for residual fixtures if a run fails. A successful run is the first runtime evidence for real Supabase JWT-to-membership RLS behavior; it does not prove a production deployment, tenant-owner bootstrap API, invitations, or end-to-end signup UX.
+Keep keys in a local shell or secure CI secret store; never paste them into chat or commit them. The script rejects non-HTTPS and production-like hosts, emits status/count evidence without tokens or credentials, and attempts fixture cleanup. Inspect the TEST project for residual fixtures if a run fails. A successful run is the first runtime evidence for real Supabase JWT-to-membership RLS behavior; it does not prove a production deployment, tenant-owner HTTP API, invitations, or end-to-end signup UX.
+
+## Tenant bootstrap and atomic diagnosis intake
+
+Migration `202610040006_tenant_bootstrap_atomic_intake.sql` adds two SECURITY DEFINER RPCs, both executable only by `service_role`:
+
+- `create_tenant_with_owner` creates the tenant and its active `owner` membership in one transaction. A same-owner/same-slug retry is idempotent; a conflicting owner or incomplete prior binding fails closed.
+- `create_diagnosis_intake_atomic` creates or resolves the idempotent diagnosis submission and its queue job in one transaction. Replays return the same submission/job identifiers, preventing orphan submissions and duplicate queue jobs.
+
+The intake Netlify Function now calls only this atomic RPC and returns identifiers, not the raw customer answer payload. The owner bootstrap RPC is a database primitive, **not yet a public signup/bootstrap API**. Its trusted server caller must first validate the Supabase Auth JWT and derive the owner ID from the verified JWT subject; clients must never supply an arbitrary owner ID directly. Real Owner bootstrap/API runtime remains unverified until implemented and tested.
 
 ## Evidence interpretation and limits
 
