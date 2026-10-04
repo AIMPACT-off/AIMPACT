@@ -87,7 +87,13 @@ let fixturesCreated = false;
 try {
   psql("select current_database() || '|' || current_user", "database identity");
   for (const file of migrations) {
-    psql(`\\i '${file}'`, "migration " + file);
+    const applied = spawnSync("psql", [dbUrl, "-X", "-v", "ON_ERROR_STOP=1", "-f", file], {
+      encoding: "utf8", env: { ...process.env, PGPASSWORD: process.env.PGPASSWORD || "" }
+    });
+    if (applied.error) throw applied.error;
+    if (applied.status !== 0) {
+      throw new Error(`migration ${file} failed (exit ${applied.status}): ${(applied.stderr || "").replace(/postgres(?:ql)?:\\/\\/[^\\s]+/gi, "[REDACTED_DB_URL]")}`);
+    }
     evidence.migrations.push({ file, applied: true });
   }
   const identity = psql("select current_database() || '|' || current_user", "database identity");
@@ -99,7 +105,7 @@ try {
       ('${subA}','${A}','phase2-test-tenant-a-0001','v1','{"test":true}','test-v1',now()),
       ('${subB}','${B}','phase2-test-tenant-b-0001','v1','{"test":true}','test-v1',now());
     insert into public.diagnosis_jobs (id,tenant_id,submission_id,max_attempts)
-    values ('${jobRace}','${A}','${subA}',3), ('${jobDlq}','${A}','${subA}',1);
+    values ('${jobRace}','${A}','${subA}',3);
     insert into public.diagnosis_reports
       (id,tenant_id,job_id,model_provider,model_name,prompt_version,output_schema_version,
        problem_statement,problem_category,confidence)
@@ -134,6 +140,10 @@ try {
   const winners = claims.filter(Boolean);
   assert(winners.length === 1 && winners[0] === jobRace, "exactly one of two workers must claim the same queued job");
   evidence.checks.concurrent_claim = { status: "PASS", worker_a_claim: claims[0] || null, worker_b_claim: claims[1] || null, claimed_job: winners[0] };
+  psql(`insert into public.diagnosis_jobs (id,tenant_id,submission_id,max_attempts)
+    values ('${jobDlq}','${A}','${subA}',1)`, "DLQ job fixture");
+  const dlqClaim = psql(`select id from public.claim_diagnosis_jobs('phase2-dlq-worker',1,300)`, "claim DLQ fixture");
+  assert(dlqClaim === jobDlq, "DLQ fixture must be claimed by its worker before failure");
   const failResult = psql(`
     select (public.fail_diagnosis_job(
       '${A}','${jobDlq}','phase2-dlq-worker','TEST_MAX_ATTEMPTS','forced terminal failure', '{"summary":"fixture"}'
