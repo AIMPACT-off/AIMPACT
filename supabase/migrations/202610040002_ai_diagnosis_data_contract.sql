@@ -36,6 +36,7 @@ create table if not exists public.diagnosis_jobs (
   updated_at timestamptz not null default now(),
   completed_at timestamptz,
   unique (tenant_id, submission_id),
+  unique (tenant_id, id),
   foreign key (tenant_id, submission_id)
     references public.diagnosis_submissions (tenant_id, id) on delete cascade
 );
