@@ -33,7 +33,7 @@ alter table public.tenants enable row level security;
 alter table public.tenant_memberships enable row level security;
 
 revoke all on public.tenants, public.tenant_memberships from public, anon, authenticated;
-grant select on public.tenants, public.tenant_memberships to authenticated;
+grant select on public.tenants, public.tenant_memberships, public.diagnosis_reports to authenticated;
 grant all on public.tenants, public.tenant_memberships to service_role;
 
 create or replace function public.is_active_tenant_member(p_tenant_id uuid)
