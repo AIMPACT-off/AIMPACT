@@ -66,6 +66,7 @@ try {
   process.env.SUPABASE_URL = base;
   process.env.SUPABASE_ANON_KEY = anon;
   process.env.SUPABASE_SERVICE_ROLE_KEY = service;
+  process.env.TENANT_BOOTSTRAP_ENABLED = "true";
   const ownerSlug = `jwt-owner-${run.slice(0,8)}`;
   async function bootstrap(jwt, slug) {
     return tenantBootstrap(new Request("http://localhost/.netlify/functions/tenant-bootstrap", {
