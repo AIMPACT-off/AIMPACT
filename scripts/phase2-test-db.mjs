@@ -92,7 +92,7 @@ try {
     });
     if (applied.error) throw applied.error;
     if (applied.status !== 0) {
-      throw new Error(`migration ${file} failed (exit ${applied.status}): ${(applied.stderr || "").replace(/postgres(?:ql)?:\\/\\/[^\\s]+/gi, "[REDACTED_DB_URL]")}`);
+      throw new Error(`migration ${file} failed (exit ${applied.status}): ${(applied.stderr || "").replace(/postgres(?:ql)?:\/\/[^\s]+/gi, "[REDACTED_DB_URL]")}`);
     }
     evidence.migrations.push({ file, applied: true });
   }
@@ -152,7 +152,6 @@ try {
   const dlqCount = psql(`select count(*) from public.diagnosis_dead_letters where tenant_id='${A}' and job_id='${jobDlq}'`, "DLQ row check");
   assert(failResult === "FAILED" && dlqCount === "1", "max-attempt failure must mark job FAILED and create exactly one DLQ row");
   evidence.checks.retry_and_dlq = { status: "PASS", terminal_job_status: failResult, dead_letter_rows: Number(dlqCount) };
-  const initialReviews = psql(`select count(*) from public.diagnosis_reviews where tenant_id='${A}' and report_id='${report}'`, "review baseline");
   psql(`select public.record_diagnosis_review('${A}','${report}','${reviewer}','REJECTED','first decision')`, "first review");
   psql(`select public.record_diagnosis_review('${A}','${report}','${reviewer}','APPROVED','latest decision')`, "latest review");
   const latest = psql(`
