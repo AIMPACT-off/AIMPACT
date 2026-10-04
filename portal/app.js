@@ -14,6 +14,49 @@ let session=null;
 let tenantContext=null;
 let authReady=false;
 let requestController=null;
+const DRAFT_KEY="aimpact:diagnosis-draft:v1";
+const DRAFT_TTL_MS=30*60*1000;
+let draftSaveTimer=null;
+let submissionKey=null;
+let submitting=false;
+function diagnosisForm(){return document.getElementById("diagnosisForm");}
+function currentAnswers(){
+  const data=new FormData(diagnosisForm());
+  return Object.fromEntries(["outcome","current_workflow","bottleneck","systems","success_measure"].map(key=>[key,String(data.get(key)||"")]));
+}
+function clearDraft(){
+  if(draftSaveTimer)clearTimeout(draftSaveTimer);
+  draftSaveTimer=null;
+  try{sessionStorage.removeItem(DRAFT_KEY);}catch{}
+}
+function saveDraft(){
+  if(!session||!tenantContext||!authReady||submitting)return;
+  const answers=currentAnswers();
+  if(!Object.values(answers).some(value=>value.trim())){clearDraft();return;}
+  const payload={version:1,userId:session.user.id,tenantId:tenantSelect.value||"",savedAt:Date.now(),answers};
+  try{sessionStorage.setItem(DRAFT_KEY,JSON.stringify(payload));}
+  catch{note(document.getElementById("formnote"),"Temporary save is unavailable in this browser. Keep this tab open until submission.","blocked");}
+}
+function scheduleDraftSave(){
+  if(draftSaveTimer)clearTimeout(draftSaveTimer);
+  draftSaveTimer=setTimeout(saveDraft,500);
+}
+function restoreDraft(){
+  try{
+    const raw=sessionStorage.getItem(DRAFT_KEY);
+    if(!raw)return;
+    const draft=JSON.parse(raw);
+    const valid=draft?.version===1&&draft.userId===session?.user?.id&&draft.tenantId===(tenantSelect.value||"")&&Number.isFinite(draft.savedAt)&&Date.now()-draft.savedAt<=DRAFT_TTL_MS&&draft.answers&&typeof draft.answers==="object";
+    if(!valid){clearDraft();return;}
+    for(const [name,value] of Object.entries(draft.answers)){
+      const field=diagnosisForm().elements.namedItem(name);
+      if(field&&typeof value==="string")field.value=value;
+    }
+    note(document.getElementById("formnote"),"Your unsent draft was restored in this tab. It expires after 30 minutes.","success");
+  }catch{clearDraft();}
+}
+diagnosisForm().addEventListener("input",scheduleDraftSave);
+diagnosisForm().addEventListener("change",scheduleDraftSave);
 
 async function safeFetch(url,options={},timeoutMs=12000){
   const controller=new AbortController();
@@ -106,6 +149,7 @@ async function loadMemberships(){
     connectTenant.disabled=true;
     setWorkspaceLocked(false);
     document.getElementById("tenant").textContent=data.tenant.id;
+    restoreDraft();
     note(authNote,"Workspace membership verified. Secure tenant session is active.","success");
     return;
   }
@@ -155,6 +199,7 @@ async function connectSelectedTenant(){
   authReady=true;
   setWorkspaceLocked(false);
   document.getElementById("tenant").textContent=data.tenant.id;
+  restoreDraft();
   note(authNote,"Selected workspace verified. Secure tenant session is active.","success");
 }
 
@@ -236,6 +281,8 @@ async function signOut(){
   await supabaseClient.auth.signOut();
   session=null;
   authReady=false;
+  clearDraft();
+  submissionKey=null;
   setWorkspaceLocked(true);
   tenantSelect.innerHTML='<option value="">Sign in to load workspaces</option>';
   note(authNote,"Signed out. Customer data is locked.");
@@ -256,6 +303,11 @@ document.getElementById("diagnosisForm").addEventListener("submit",async event=>
     success_measure:String(form.get("success_measure")||"").trim()
   };
   if(Object.values(answers).some(value=>!value)){note(noteElement,"Complete every diagnosis field before submitting.","blocked");return;}
+  if(submitting)return;
+  submitting=true;
+  const submitButton=diagnosisForm().querySelector('button[type="submit"]');
+  setBusy(submitButton,true,"SUBMITTING…");
+  if(!submissionKey)submissionKey=crypto.randomUUID();
   note(noteElement,"Submitting securely to your verified workspace…");
   try{
     const response=await safeFetch("/.netlify/functions/diagnosis-intake",{
@@ -264,7 +316,7 @@ document.getElementById("diagnosisForm").addEventListener("submit",async event=>
         "Content-Type":"application/json",
         "Accept":"application/json",
         "X-AIMPACT-Tenant-Context":tenantContext,
-        "Idempotency-Key":crypto.randomUUID()
+        "Idempotency-Key":submissionKey
       },
       body:JSON.stringify({schema_version:"1.0.0",answers})
     });
@@ -272,8 +324,13 @@ document.getElementById("diagnosisForm").addEventListener("submit",async event=>
     if(!response.ok)throw new Error(data.code||"INGEST_REJECTED");
     note(noteElement,"Diagnosis accepted and queued. Reference: "+data.submission_id,"accepted");
     event.currentTarget.reset();
+    clearDraft();
+    submissionKey=null;
   }catch(error){
-    note(noteElement,friendlyError(error.message)+" No diagnosis was accepted; your entries remain on this page.","blocked");
+    note(noteElement,friendlyError(error.message)+" Your entries remain available for retry. The same request key will be reused.","blocked");
+  }finally{
+    submitting=false;
+    setBusy(submitButton,false);
   }
 });
 
@@ -289,7 +346,7 @@ async function boot(){
   supabaseClient.auth.onAuthStateChange((_event,newSession)=>{
     session=newSession;
     if(newSession)queueMicrotask(()=>refreshSession().catch(error=>note(authNote,friendlyError(error.message),"error")));
-    else{authReady=false;tenantContext=null;setWorkspaceLocked(true);}
+    else{authReady=false;tenantContext=null;clearDraft();submissionKey=null;setWorkspaceLocked(true);}
   });
   try{await refreshSession();}catch(error){setWorkspaceLocked(true);note(authNote,"Session check failed: "+error.message,"error");}
 }
