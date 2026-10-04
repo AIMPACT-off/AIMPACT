@@ -29,6 +29,7 @@ const migrations = [
   "supabase/migrations/202610040003_diagnosis_queue_retry_dlq.sql",
   "supabase/migrations/202610040004_review_first_access_control.sql",
   "supabase/migrations/202610040005_auth_tenant_membership.sql",
+  "supabase/migrations/202610040006_tenant_bootstrap_atomic_intake.sql",
 ];
 for (const file of migrations) {
   if (!fs.existsSync(file)) throw new Error(`FAIL-CLOSED: missing migration ${file}`);
@@ -144,6 +145,41 @@ try {
     status: "PASS",
     catalog: membershipCatalog,
     limitation: "Catalog/privilege structure only; no authenticated JWT subject membership test was run."
+  };
+  const rpcPrivileges = psql(`
+    select
+      has_function_privilege('authenticated','public.create_tenant_with_owner(text,text,uuid)','execute')::text || '|' ||
+      has_function_privilege('service_role','public.create_tenant_with_owner(text,text,uuid)','execute')::text || '|' ||
+      has_function_privilege('authenticated','public.create_diagnosis_intake_atomic(uuid,text,text,jsonb,text,timestamp with time zone,uuid)','execute')::text || '|' ||
+      has_function_privilege('service_role','public.create_diagnosis_intake_atomic(uuid,text,text,jsonb,text,timestamp with time zone,uuid)','execute')::text
+  `, "trusted RPC privilege check");
+  assert(rpcPrivileges === "false|true|false|true", "bootstrap and atomic intake RPCs must be service_role-only");
+  evidence.checks.trusted_rpc_privileges = { status: "PASS", catalog: rpcPrivileges };
+  const atomicKey = "phase2-atomic-test-" + evidence.run_id;
+  const atomicSql = `
+    select
+      (r->>'submission_id') || '|' || (r->>'job_id') || '|' || (r->>'duplicate')
+    from (select public.create_diagnosis_intake_atomic(
+      '${A}', '${atomicKey}', '1.0.0', '{"atomic_test":true}'::jsonb,
+      'phase2-test-v1', now(), null
+    ) as r) x
+  `;
+  const atomicFirst = psql(atomicSql, "atomic intake first call");
+  const atomicSecond = psql(atomicSql, "atomic intake idempotent replay");
+  const atomicParts = atomicFirst.split("|");
+  assert(atomicParts.length === 3 && atomicParts[2] === "false", "first atomic intake call must create submission and job");
+  assert(atomicSecond === atomicParts[0] + "|" + atomicParts[1] + "|true", "idempotent replay must return the same submission and job");
+  const atomicCounts = psql(`
+    select
+      (select count(*) from public.diagnosis_submissions where tenant_id='${A}' and idempotency_key='${atomicKey}') || '|' ||
+      (select count(*) from public.diagnosis_jobs where tenant_id='${A}' and submission_id='${atomicParts[0]}')
+  `, "atomic intake row count");
+  assert(atomicCounts === "1|1", "atomic intake must create exactly one submission and one queue job");
+  evidence.checks.atomic_intake_idempotency = {
+    status: "PASS",
+    first_call: atomicFirst,
+    replay: atomicSecond,
+    submission_rows_and_job_rows: atomicCounts
   };
   const mismatch = spawnSync("psql", [dbUrl,"-X","-v","ON_ERROR_STOP=1","-v","VERBOSITY=verbose","-At","-c",
     `insert into public.diagnosis_jobs (tenant_id,submission_id) values ('${B}','${subA}')`], {encoding:"utf8"});
