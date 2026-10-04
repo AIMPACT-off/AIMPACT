@@ -14,6 +14,8 @@ set -euo pipefail
 # This harness does NOT set WAITLIST_INTAKE_ENABLED and does NOT deploy/merge.
 
 : "${TEST_DATABASE_URL:?TEST_DATABASE_URL is required}"
+: "${TEST_SERVICE_KEY:?TEST_SERVICE_KEY is required (presence check only)}"
+: "${TEST_API_URL:?TEST_API_URL is required (TEST/staging only)}"
 : "${TEST_SERVICE_KEY:?TEST_SERVICE_KEY is required}"
 : "${TEST_API_URL:?TEST_API_URL is required (configured TEST/staging endpoint)}"
 
@@ -86,8 +88,12 @@ SQL
 
 echo "[4/6] Verifying service_role INSERT grant exists"
 psql "${TEST_DATABASE_URL}" -v ON_ERROR_STOP=1 <<'SQL'
-SELECT has_table_privilege('service_role', 'public.waitlist_submissions', 'INSERT')
-  AS service_role_insert_granted;
+DO $
+BEGIN
+  IF NOT has_table_privilege('service_role', 'public.waitlist_submissions', 'INSERT') THEN
+    RAISE EXCEPTION 'SECURITY FAIL: service_role INSERT grant missing';
+  END IF;
+END $;
 SQL
 
 if [[ -n "${TEST_SERVICE_KEY:-}" ]]; then
@@ -124,8 +130,11 @@ if [[ -n "${TEST_SERVICE_KEY:-}" ]]; then
   }
 
   echo "[6/6] Querying the inserted TEST record"
+  record_count="$(psql "${TEST_DATABASE_URL}" -At -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM public.waitlist_submissions WHERE work_email = '${email}';")"
+  [[ "${record_count}" == "1" ]] || { echo "FAIL: expected exactly one TEST DB record; got ${record_count}." >&2; exit 31; }
   psql "${TEST_DATABASE_URL}" -v ON_ERROR_STOP=1 -c \
-    "SELECT id, company_name, contact_name, work_email, consent_notice_version, created_at FROM public.waitlist_submissions WHERE work_email = '${email}' ORDER BY created_at DESC LIMIT 1;"
+    "SELECT id, company_name, contact_name, work_email, consent, consent_notice_version, created_at FROM public.waitlist_submissions WHERE work_email = '${email}' ORDER BY created_at DESC LIMIT 1;"
+fi
 
-echo "RESULT: infrastructure checks completed; intake remains fail-closed."
+echo "RESULT: FULL TEST PIPELINE VERIFIED." infrastructure checks completed; intake remains fail-closed."
 echo "WAITLIST_INTAKE_ENABLED was NOT changed."
