@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AIMPACT — Client Portal</title>
+<meta name="description" content="AIMPACT B2B AI operations client portal.">
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">AIMPACT<span>AI × BUSINESS × GROWTH</span></div>
+    <nav>
+      <button class="nav active" data-view="overview">OVERVIEW</button>
+      <button class="nav" data-view="diagnosis">DIAGNOSIS</button>
+      <button class="nav" data-view="reports">REPORTS</button>
+      <button class="nav" data-view="workflows">WORKFLOWS</button>
+      <button class="nav" data-view="roi">ROI</button>
+      <button class="nav" data-view="billing">BILLING</button>
+    </nav>
+    <div class="tenant">
+      <small>TENANT</small>
+      <strong id="tenant">Not authenticated</strong>
+      <em id="connection">BACKEND LOCKED</em>
+    </div>
+  </aside>
+
+  <main>
+    <header class="topbar">
+      <div><small id="crumb">AIMPACT / OVERVIEW</small><h1 id="heading">Business Command Center</h1></div>
+      <span class="status" id="status">FAIL-CLOSED</span>
+    </header>
+
+    <section class="view active" id="overview">
+      <p class="eyebrow">CLIENT PORTAL V1</p>
+      <h2>Turn business problems<br>into measurable action.</h2>
+      <p class="lead">Your AIMPACT workspace for diagnosis, approved reports, workflow implementation and outcome tracking.</p>
+      <div class="grid four">
+        <article class="card"><small>DIAGNOSIS</small><b id="metricDiagnosis">—</b><span>awaiting authenticated data</span></article>
+        <article class="card"><small>APPROVED REPORTS</small><b id="metricReports">—</b><span>customer-visible only after review</span></article>
+        <article class="card"><small>ACTIVE WORKFLOWS</small><b id="metricWorkflows">—</b><span>server-backed data required</span></article>
+        <article class="card"><small>ROI</small><b id="metricRoi">—</b><span>verified inputs only</span></article>
+      </div>
+      <div class="panel gate">
+        <strong>SECURITY GATE</strong>
+        <p>The portal shell is executable, but the customer data API is intentionally closed. No invented customer metrics are shown.</p>
+        <button class="button primary" data-view-target="diagnosis">START DIAGNOSIS</button>
+      </div>
+    </section>
+
+    <section class="view" id="diagnosis">
+      <p class="eyebrow">01 · DIAGNOSIS</p>
+      <h2>One problem.<br>Full business context.</h2>
+      <div class="panel">
+        <form id="diagnosisForm">
+          <label>DESIRED OUTCOME<textarea name="outcome" required placeholder="What business result should improve?"></textarea></label>
+          <label>CURRENT WORKFLOW<textarea name="current_workflow" required placeholder="Describe the process from start to finish."></textarea></label>
+          <label>BOTTLENECK<textarea name="bottleneck" required placeholder="Where is the largest delay, error or manual burden?"></textarea></label>
+          <label>SYSTEMS<input name="systems" required placeholder="e.g. Shopify, Notion, Excel, Slack"></label>
+          <label>SUCCESS MEASURE<input name="success_measure" required placeholder="How will you know the pilot worked?"></label>
+          <button class="button primary" type="submit">SUBMIT DIAGNOSIS →</button>
+          <p class="formnote" id="formnote">Submission is locked until authenticated tenant API integration is verified.</p>
+        </form>
+      </div>
+    </section>
+
+    <section class="view" id="reports">
+      <p class="eyebrow">02 · REPORTS</p>
+      <h2>Approved intelligence.</h2>
+      <div class="panel empty"><b>NO REPORT DATA LOADED</b><p>Reports will appear here only after the server verifies tenant membership and the review status is APPROVED.</p></div>
+    </section>
+
+    <section class="view" id="workflows">
+      <p class="eyebrow">03 · WORKFLOWS</p>
+      <h2>Implementation control.</h2>
+      <div class="grid three">
+        <article class="card"><small>DISCOVER</small><b>Map</b><span>Process and inputs</span></article>
+        <article class="card"><small>VERIFY</small><b>Approve</b><span>Human review gate</span></article>
+        <article class="card"><small>APPLY</small><b>Operate</b><span>Workflow execution</span></article>
+      </div>
+      <div class="panel gate"><strong>QUEUE ENGINE</strong><p>PR #22 remains a draft until PostgreSQL concurrency and retry/DLQ tests pass in TEST.</p></div>
+    </section>
+
+    <section class="view" id="roi">
+      <p class="eyebrow">04 · ROI</p>
+      <h2>Measure the outcome.</h2>
+      <div class="panel empty"><b>ROI DATA NOT AVAILABLE</b><p>AIMPACT will calculate ROI only from customer-provided or independently verified measurements. No synthetic savings are displayed.</p></div>
+    </section>
+
+    <section class="view" id="billing">
+      <p class="eyebrow">05 · BILLING</p>
+      <h2>Commercial control.</h2>
+      <div class="grid three">
+        <article class="card"><small>ENTITLEMENT</small><b>LOCKED</b><span>Awaiting authenticated billing state</span></article>
+        <article class="card"><small>PAYMENT</small><b>TEST</b><span>Live credentials remain off</span></article>
+        <article class="card"><small>RENEWAL</small><b>—</b><span>No production subscription loaded</span></article>
+      </div>
+    </section>
+
+    <footer>AIMPACT · BUILD V1 · CUSTOMER DATA FAIL-CLOSED · PRODUCTION NOT ACTIVATED</footer>
+  </main>
+</div>
+<script src="./app.js"></script>
+</body>
+</html>
