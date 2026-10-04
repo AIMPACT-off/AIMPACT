@@ -154,6 +154,7 @@ try {
   evidence.checks.retry_and_dlq = { status: "PASS", terminal_job_status: failResult, dead_letter_rows: Number(dlqCount) };
   psql(`select public.record_diagnosis_review('${A}','${report}','${reviewer}','REJECTED','first decision')`, "first review");
   psql(`select public.record_diagnosis_review('${A}','${report}','${reviewer}','APPROVED','latest decision')`, "latest review");
+  psql("select pg_sleep(0.02)", "separate review timestamps");
   const latest = psql(`
     select rv.decision || '|' || rp.report_status
     from public.diagnosis_reports rp
