@@ -76,8 +76,13 @@ try {
     prompt_version:"jwt-audit", output_schema_version:"1.0.0", problem_statement:"approved fixture",
     problem_category:"test", confidence:0.9, report_status:"PENDING_REVIEW"
   });
+  const subPending = await insert("diagnosis_submissions", {
+    tenant_id:tenantA.id, idempotency_key:`jwt-pending-${run}`, schema_version:"1.0.0",
+    raw_answers:{ fixture:true, pending:true }, consent_notice_version:"jwt-audit", consented_at:new Date().toISOString(), submitted_by:userA.id
+  });
+  const jobPending = await insert("diagnosis_jobs", { tenant_id:tenantA.id, submission_id:subPending.id });
   const pending = await insert("diagnosis_reports", {
-    tenant_id:tenantA.id, job_id:jobA.id, model_provider:"test", model_name:"fixture",
+    tenant_id:tenantA.id, job_id:jobPending.id, model_provider:"test", model_name:"fixture",
     prompt_version:"jwt-audit-pending", output_schema_version:"1.0.0", problem_statement:"pending fixture",
     problem_category:"test", confidence:0.5, report_status:"PENDING_REVIEW"
   });
@@ -128,6 +133,9 @@ try {
   evidence.error = String(error.message || error);
   process.exitCode = 1;
 } finally {
+  if (tenants.length) {
+    try { await request(`/rest/v1/diagnosis_submissions?tenant_id=in.(${tenants.join(",")})`,{method:"DELETE"}); } catch {}
+  }
   for (const tenantId of tenants) {
     try { await request(`/rest/v1/tenants?id=eq.${tenantId}`,{method:"DELETE"}); } catch {}
   }
