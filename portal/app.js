@@ -27,18 +27,16 @@ function show(id){
 nav.forEach(b=>b.addEventListener("click",()=>show(b.dataset.view)));
 document.querySelectorAll("[data-view-target]").forEach(b=>b.addEventListener("click",()=>show(b.dataset.viewTarget)));
 
-function setWorkspaceLocked(locked){
-  authPanel.hidden=!locked;
+function setWorkspaceLocked(locked,{showAuth=locked,clearContext=locked}={}){
+  authPanel.hidden=!showAuth;
   document.getElementById("tenant").textContent=locked?"Not authenticated":"Workspace verified";
   document.getElementById("connection").textContent=locked?"BACKEND LOCKED":"TENANT VERIFIED";
   document.getElementById("status").textContent=locked?"SIGN IN REQUIRED":"TENANT CONNECTED";
   document.getElementById("diagnosisForm").querySelectorAll("input,textarea,button").forEach(el=>el.disabled=locked);
+  if(clearContext)tenantContext=null;
   if(locked){
-    tenantContext=null;
-    tenantSelect.disabled=true;
-    connectTenant.disabled=true;
-    signoutButton.hidden=true;
-    if(signoutTop)signoutTop.hidden=true;
+    signoutButton.hidden=!session;
+    if(signoutTop)signoutTop.hidden=!session;
   }else{
     signoutButton.hidden=false;
     if(signoutTop)signoutTop.hidden=false;
@@ -85,8 +83,11 @@ async function loadMemberships(){
     });
     tenantSelect.disabled=false;
     connectTenant.disabled=false;
-    setWorkspaceLocked(true);
+    setWorkspaceLocked(true,{showAuth:true,clearContext:true});
+    tenantSelect.disabled=false;
+    connectTenant.disabled=false;
     signoutButton.hidden=false;
+    if(signoutTop)signoutTop.hidden=false;
     note(authNote,"More than one active workspace found. Select the workspace you want to open.","success");
     return;
   }
