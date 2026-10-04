@@ -14,16 +14,21 @@ test("bounded retry reaches terminal failure",()=>{
 
 test("worker uses row locking and bounded attempts",async()=>{
   const s=await fs.readFile("phase2/queue-worker/worker.mjs","utf8");
-  assert.match(s,/for update skip locked/i);
-  assert.match(s,/attempt_count/);
-  assert.match(s,/MAX_ATTEMPTS/);
-  assert.match(s,/lease_until/);
+  const q=await fs.readFile("supabase/migrations/202610040003_diagnosis_queue_retry_dlq.sql","utf8");
+  assert.match(s,/claim_diagnosis_jobs/);
+  assert.match(s,/fail_diagnosis_job/);
+  assert.match(q,/for update skip locked/i);
+  assert.match(q,/attempt_count/);
+  assert.match(q,/MAX_ATTEMPTS/);
 });
 
 test("terminal provider failure is explicit until DLQ persistence contract is verified",async()=>{
   const s=await fs.readFile("phase2/queue-worker/worker.mjs","utf8");
+  const q=await fs.readFile("supabase/migrations/202610040003_diagnosis_queue_retry_dlq.sql","utf8");
   assert.match(s,/WORKER_PROVIDER_NOT_CONFIGURED/);
-  assert.match(s,/FAILED/);
+  assert.match(s,/fail_diagnosis_job/);
+  assert.match(q,/diagnosis_dead_letters/);
+  assert.match(q,/MAX_ATTEMPTS_EXCEEDED/);
 });
 
 test("review API queries both report and review approval",async()=>{
