@@ -12,12 +12,48 @@ const config=window.AIMPACT_CONFIG||{};
 let supabaseClient=null;
 let session=null;
 let tenantContext=null;
+let authReady=false;
+let requestController=null;
+
+async function safeFetch(url,options={},timeoutMs=12000){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{return await fetch(url,{...options,signal:controller.signal});}
+  catch(error){
+    if(error.name==="AbortError")throw new Error("REQUEST_TIMEOUT");
+    if(!navigator.onLine)throw new Error("NETWORK_OFFLINE");
+    throw new Error("NETWORK_UNAVAILABLE");
+  }finally{clearTimeout(timer);}
+}
+function friendlyError(code){
+  const messages={
+    REQUEST_TIMEOUT:"The request took too long. Your entries are still on this page; please try again.",
+    NETWORK_OFFLINE:"You appear to be offline. Reconnect and try again. Your entries are still on this page.",
+    NETWORK_UNAVAILABLE:"The service could not be reached. Please try again; your entries remain on this page.",
+    SIGN_IN_REQUIRED:"Your session has expired. Please sign in again.",
+    ACTIVE_TENANT_MEMBERSHIP_REQUIRED:"Your workspace access is no longer active. Choose another workspace or contact your administrator.",
+    TENANT_CONTEXT_REJECTED:"Workspace verification failed. Please reconnect your workspace.",
+    TENANT_MEMBERSHIP_RECHECK_FAILED:"We could not verify workspace access. No diagnosis was submitted. Please retry shortly.",
+    TENANT_MEMBERSHIP_RECHECK_UNAVAILABLE:"Workspace verification is temporarily unavailable. No diagnosis was submitted. Please retry."
+  };
+  return messages[code]||String(code||"Something went wrong. Please try again.").replaceAll("_"," ").toLowerCase();
+}
+function setBusy(button,busy,label){
+  if(!button)return;
+  if(busy){button.dataset.originalLabel=button.textContent;button.textContent=label||"PLEASE WAIT…";button.disabled=true;}
+  else{button.textContent=button.dataset.originalLabel||button.textContent;button.disabled=false;delete button.dataset.originalLabel;}
+}
 
 function note(element,message,state=""){
   element.textContent=message;
   element.dataset.state=state;
 }
 function show(id){
+  if(!authReady && id!=="overview")id="overview";
+  if(authReady && !tenantContext && id!=="overview"){
+    note(authNote,"Connect a verified workspace before opening customer data.","error");
+    id="overview";
+  }
   views.forEach(v=>v.classList.toggle("active",v.id===id));
   nav.forEach(b=>b.classList.toggle("active",b.dataset.view===id));
   crumb.textContent="AIMPACT / "+id.toUpperCase();
@@ -52,7 +88,7 @@ async function getSession(){
 async function loadMemberships(){
   const token=session?.access_token;
   if(!token)throw new Error("SIGN_IN_REQUIRED");
-  const response=await fetch("/.netlify/functions/tenant-context",{
+  const response=await safeFetch("/.netlify/functions/tenant-context",{
     method:"POST",
     headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json","Accept":"application/json"},
     body:JSON.stringify({})
@@ -60,6 +96,7 @@ async function loadMemberships(){
   const data=await response.json().catch(()=>({}));
   if(response.ok && data.tenant_context){
     tenantContext=data.tenant_context;
+    authReady=true;
     tenantSelect.innerHTML="";
     const option=document.createElement("option");
     option.value=data.tenant.id;
@@ -74,6 +111,7 @@ async function loadMemberships(){
   }
   if(response.status===409 && data.code==="TENANT_SELECTION_REQUIRED" && Array.isArray(data.memberships)){
     tenantContext=null;
+    authReady=false;
     tenantSelect.innerHTML='<option value="">Choose a workspace</option>';
     data.memberships.forEach(item=>{
       const option=document.createElement("option");
@@ -92,6 +130,7 @@ async function loadMemberships(){
     return;
   }
   tenantContext=null;
+  authReady=false;
   tenantSelect.innerHTML='<option value="">No active workspace found</option>';
   tenantSelect.disabled=true;
   connectTenant.disabled=true;
@@ -105,7 +144,7 @@ async function loadMemberships(){
 async function connectSelectedTenant(){
   const tenantId=tenantSelect.value;
   if(!tenantId)throw new Error("SELECT_WORKSPACE");
-  const response=await fetch("/.netlify/functions/tenant-context",{
+  const response=await safeFetch("/.netlify/functions/tenant-context",{
     method:"POST",
     headers:{"Authorization":"Bearer "+session.access_token,"Content-Type":"application/json","Accept":"application/json"},
     body:JSON.stringify({tenant_id:tenantId})
@@ -113,6 +152,7 @@ async function connectSelectedTenant(){
   const data=await response.json().catch(()=>({}));
   if(!response.ok||!data.tenant_context)throw new Error(data.code||"TENANT_CONTEXT_REJECTED");
   tenantContext=data.tenant_context;
+  authReady=true;
   setWorkspaceLocked(false);
   document.getElementById("tenant").textContent=data.tenant.id;
   note(authNote,"Selected workspace verified. Secure tenant session is active.","success");
@@ -171,7 +211,7 @@ document.getElementById("tenantForm").addEventListener("submit",async event=>{
   const form=new FormData(event.currentTarget);
   note(authNote,"Creating workspace through the verified server boundary…");
   try{
-    const response=await fetch("/.netlify/functions/tenant-bootstrap",{
+    const response=await safeFetch("/.netlify/functions/tenant-bootstrap",{
       method:"POST",
       headers:{"Authorization":"Bearer "+session.access_token,"Content-Type":"application/json","Accept":"application/json"},
       body:JSON.stringify({name:String(form.get("name")).trim(),slug:String(form.get("slug")).trim()})
@@ -195,6 +235,7 @@ document.getElementById("tenantForm").addEventListener("submit",async event=>{
 async function signOut(){
   await supabaseClient.auth.signOut();
   session=null;
+  authReady=false;
   setWorkspaceLocked(true);
   tenantSelect.innerHTML='<option value="">Sign in to load workspaces</option>';
   note(authNote,"Signed out. Customer data is locked.");
@@ -217,7 +258,7 @@ document.getElementById("diagnosisForm").addEventListener("submit",async event=>
   if(Object.values(answers).some(value=>!value)){note(noteElement,"Complete every diagnosis field before submitting.","blocked");return;}
   note(noteElement,"Submitting securely to your verified workspace…");
   try{
-    const response=await fetch("/.netlify/functions/diagnosis-intake",{
+    const response=await safeFetch("/.netlify/functions/diagnosis-intake",{
       method:"POST",
       headers:{
         "Content-Type":"application/json",
@@ -232,7 +273,7 @@ document.getElementById("diagnosisForm").addEventListener("submit",async event=>
     note(noteElement,"Diagnosis accepted and queued. Reference: "+data.submission_id,"accepted");
     event.currentTarget.reset();
   }catch(error){
-    note(noteElement,"Submission blocked: "+error.message+". No unverified tenant data was stored.","blocked");
+    note(noteElement,friendlyError(error.message)+" No diagnosis was accepted; your entries remain on this page.","blocked");
   }
 });
 
@@ -247,8 +288,8 @@ async function boot(){
   });
   supabaseClient.auth.onAuthStateChange((_event,newSession)=>{
     session=newSession;
-    if(newSession)queueMicrotask(()=>refreshSession().catch(error=>note(authNote,error.message,"error")));
-    else setWorkspaceLocked(true);
+    if(newSession)queueMicrotask(()=>refreshSession().catch(error=>note(authNote,friendlyError(error.message),"error")));
+    else{authReady=false;tenantContext=null;setWorkspaceLocked(true);}
   });
   try{await refreshSession();}catch(error){setWorkspaceLocked(true);note(authNote,"Session check failed: "+error.message,"error");}
 }
