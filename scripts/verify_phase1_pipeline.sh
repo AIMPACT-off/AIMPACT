@@ -14,6 +14,8 @@ set -euo pipefail
 # This harness does NOT set WAITLIST_INTAKE_ENABLED and does NOT deploy/merge.
 
 : "${TEST_DATABASE_URL:?TEST_DATABASE_URL is required}"
+: "${TEST_SERVICE_KEY:?TEST_SERVICE_KEY is required}"
+: "${TEST_API_URL:?TEST_API_URL is required (configured TEST/staging endpoint)}"
 
 case "${TEST_DATABASE_URL}" in
   *aimpact-ai.netlify.app*|*prod*|*production*)
@@ -89,7 +91,7 @@ SELECT has_table_privilege('service_role', 'public.waitlist_submissions', 'INSER
 SQL
 
 if [[ -n "${TEST_SERVICE_KEY:-}" ]]; then
-  base="${TEST_API_URL:-https://aimpact-ai.netlify.app}"
+  base="${TEST_API_URL}"
   origin="${TEST_ORIGIN:-https://aimpact-ai.netlify.app}"
   email="phase1-verification-$(date +%s)@example.invalid"
 
@@ -101,7 +103,6 @@ if [[ -n "${TEST_SERVICE_KEY:-}" ]]; then
     -X POST "${base%/}/.netlify/functions/waitlist-intake" \
     -H "Origin: ${origin}" \
     -H 'Content-Type: application/json' \
-    -H "Authorization: Bearer ${TEST_SERVICE_KEY}" \
     --data-binary "{
       \"company\":\"AIMPACT TEST ONLY\",
       \"name\":\"Phase1 Verification\",
@@ -125,10 +126,6 @@ if [[ -n "${TEST_SERVICE_KEY:-}" ]]; then
   echo "[6/6] Querying the inserted TEST record"
   psql "${TEST_DATABASE_URL}" -v ON_ERROR_STOP=1 -c \
     "SELECT id, company_name, contact_name, work_email, consent_notice_version, created_at FROM public.waitlist_submissions WHERE work_email = '${email}' ORDER BY created_at DESC LIMIT 1;"
-else
-  echo "[5/6] API test SKIPPED: TEST_SERVICE_KEY not supplied."
-  echo "[6/6] DB record test SKIPPED because no API request was made."
-fi
 
 echo "RESULT: infrastructure checks completed; intake remains fail-closed."
 echo "WAITLIST_INTAKE_ENABLED was NOT changed."
