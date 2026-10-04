@@ -36,6 +36,7 @@ jobs:
           node --check scripts/check-provider-env.mjs
           node --check scripts/test-tenant-isolation.mjs
           node --check scripts/lint-migrations.mjs
+          node --check scripts/phase2-auth-jwt-audit.mjs
       - name: Migration safety lint
         run: node scripts/lint-migrations.mjs
       - name: Dispatcher integration tests
