@@ -30,10 +30,27 @@ Evidence is written to `artifacts/phase2-test-evidence/` by default. Set `TEST_E
 - Capture database fixture rows in the JSON evidence package.
 - When optional API variables are present, call the deployed review function and record Tenant A (200), Tenant B (403), and invalid-context (401) request/response evidence.
 
-## Explicit limitations
+## Evidence interpretation and limits
 
+- A successful GitHub Actions run against its disposable local Supabase stack proves that workflow's migration/audit exercise only. It is not a PASS for a separately provisioned TEST database. Record these as separate evidence sources.
+- Two independent claims launched with `Promise.all` (or otherwise launched concurrently) prove concurrent request launch and the observed claim outcome. They do **not**, by themselves, prove that the requests overlapped while contending for the same PostgreSQL row lock. Strict row-lock contention remains **NOT VERIFIED** unless a separate test deliberately holds the relevant lock, demonstrates the competing session is blocked, and captures the resulting evidence.
+- The HTTP probe evidence contract is limited to request metadata, HTTP status code, and response body payload actually collected by the runner. Do not claim response-header evidence unless the runner is explicitly changed to collect and persist headers and that change is verified.
+- The optional API probe's 200/403/401 outcomes prove only the signed-tenant-context behavior exercised by those requests. They do not prove authenticated user-to-tenant membership.
 - Database service-role tests do not prove authenticated account membership.
 - Current canonical migrations do not define a trusted user-to-tenant membership table/policy. A valid HMAC tenant-context token is not proof that its subject belongs to that tenant.
-- If `TEST_API_URL` and `TENANT_CONTEXT_HMAC_SECRET` are configured, the optional probe collects real HTTP request/response bodies for signed-context scoping. If absent, the API probe is `NOT_RUN`.
+- If `TEST_API_URL` and `TENANT_CONTEXT_HMAC_SECRET` are configured, the optional probe collects real HTTP response status and body for signed-context scoping. If absent, the API probe is `NOT_RUN`.
 - Even when the optional API probe passes, authenticated account membership remains unverified: the test uses synthetic HMAC contexts and the current handler does not perform a trusted membership lookup.
 - No production migration, deployment, merge, or feature activation is performed.
+
+## Evidence status vocabulary
+
+Use these labels consistently in reports:
+
+- `PASS`: the named check ran against the named target and its raw evidence satisfies the stated assertion.
+- `ALIGNED`: source or documentation matches the agreed specification; this is not a runtime pass.
+- `NOT_RUN`: the check was not executed.
+- `NOT VERIFIED`: execution/evidence is absent or insufficient to support the claim.
+- `UNVERIFIED`: a required security or product property has not been established.
+- `HOLD`: an operational gate intentionally prevents merge, deployment, migration, or activation.
+
+Never aggregate source-level alignment, local disposable CI, dedicated TEST DB runtime, and production verification into one undifferentiated PASS or completion percentage.
