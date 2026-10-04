@@ -1,6 +1,6 @@
 # Phase 2 disposable TEST database verification
 
-This runner is a destructive integration test for a disposable TEST database. It applies the six canonical Phase 2 migrations in order, creates deterministic Tenant A/B fixtures, exercises queue/review behavior, removes its fixtures, and writes a JSON evidence file.
+This runner is a destructive integration test for a disposable TEST database. It applies the six canonical Phase 2 migrations in order, creates deterministic Tenant A/B fixtures, exercises queue/review behavior, proves atomic intake idempotency and rollback, removes its fixtures, and writes a JSON evidence file. The GitHub disposable-Supabase workflow now invokes this runner against its local throwaway database after a clean migration reset.
 
 ## Preconditions
 
