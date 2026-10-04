@@ -82,6 +82,7 @@ const B = "b2000000-0000-4000-8000-000000000002";
 const reviewer = "c3000000-0000-4000-8000-000000000003";
 const subA = "a1000000-0000-4000-8000-000000000011";
 const subB = "b2000000-0000-4000-8000-000000000012";
+const subDlq = "a1000000-0000-4000-8000-000000000013";
 const jobRace = "a1000000-0000-4000-8000-000000000021";
 const jobDlq = "a1000000-0000-4000-8000-000000000022";
 const report = "a1000000-0000-4000-8000-000000000031";
@@ -217,8 +218,11 @@ try {
   const winners = claims.filter(Boolean);
   assert(winners.length === 1 && winners[0] === jobRace, "exactly one of two workers must claim the same queued job");
   evidence.checks.concurrent_claim = { status: "PASS", worker_a_claim: claims[0] || null, worker_b_claim: claims[1] || null, claimed_job: winners[0] };
-  psql(`insert into public.diagnosis_jobs (id,tenant_id,submission_id,max_attempts)
-    values ('${jobDlq}','${A}','${subA}',1)`, "DLQ job fixture");
+  psql(`insert into public.diagnosis_submissions
+      (id,tenant_id,idempotency_key,schema_version,raw_answers,consent_notice_version,consented_at)
+    values ('${subDlq}','${A}','phase2-test-dlq-0001','v1','{"dlq_test":true}','test-v1',now());
+    insert into public.diagnosis_jobs (id,tenant_id,submission_id,max_attempts)
+    values ('${jobDlq}','${A}','${subDlq}',1)`, "DLQ job fixture");
   const dlqClaim = psql(`select id from public.claim_diagnosis_jobs('phase2-dlq-worker',1,300)`, "claim DLQ fixture");
   assert(dlqClaim === jobDlq, "DLQ fixture must be claimed by its worker before failure");
   const failResult = psql(`
