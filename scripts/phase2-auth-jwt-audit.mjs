@@ -4,6 +4,7 @@
  * Destructive only to uniquely named disposable fixtures; requires explicit opt-in.
  */
 import crypto from "node:crypto";
+import tenantBootstrap from "../netlify/functions/tenant-bootstrap.mjs";
 
 const required = ["TEST_SUPABASE_URL","TEST_SUPABASE_ANON_KEY","TEST_SUPABASE_SERVICE_ROLE_KEY","TEST_DB_DISPOSABLE"];
 for (const key of required) if (!process.env[key]) throw new Error(`FAIL-CLOSED: ${key} is required`);
@@ -60,6 +61,48 @@ try {
   const userB = await adminCreateUser(users[1]);
   const jwtA = await signIn(users[0]);
   const jwtB = await signIn(users[1]);
+
+  // Exercise the real HTTP handler contract with actual Supabase Auth JWTs.
+  process.env.SUPABASE_URL = base;
+  process.env.SUPABASE_ANON_KEY = anon;
+  process.env.SUPABASE_SERVICE_ROLE_KEY = service;
+  const ownerSlug = `jwt-owner-${run.slice(0,8)}`;
+  async function bootstrap(jwt, slug) {
+    return tenantBootstrap(new Request("http://localhost/.netlify/functions/tenant-bootstrap", {
+      method:"POST",
+      headers:{ "content-type":"application/json", authorization:`Bearer ${jwt}` },
+      body:JSON.stringify({ name:"JWT Owner Bootstrap", slug, owner_user_id:"client-must-not-control-this" })
+    }));
+  }
+  const ownerCreatedResponse = await bootstrap(jwtA, ownerSlug);
+  const ownerCreatedBody = await ownerCreatedResponse.json();
+  expect(ownerCreatedResponse.status === 201 && ownerCreatedBody.created === true, "verified Tenant A JWT must bootstrap its own tenant and owner membership");
+  const ownerTenantId = ownerCreatedBody.tenant_id;
+  tenants.push(ownerTenantId);
+  const ownerReplayResponse = await bootstrap(jwtA, ownerSlug);
+  const ownerReplayBody = await ownerReplayResponse.json();
+  expect(ownerReplayResponse.status === 200 && ownerReplayBody.created === false && ownerReplayBody.tenant_id === ownerTenantId, "same verified owner bootstrap retry must be idempotent");
+  const foreignBootstrapResponse = await bootstrap(jwtB, ownerSlug);
+  expect(foreignBootstrapResponse.status === 409, "different authenticated user must not claim another user's tenant slug");
+  const ownerMembership = await select("tenant_memberships", {
+    select:"tenant_id,user_id,role,status",
+    tenant_id:`eq.${ownerTenantId}`,
+    user_id:`eq.${userA.id}`
+  }, jwtA);
+  expect(ownerMembership.status === 200 && ownerMembership.data.length === 1
+    && ownerMembership.data[0].role === "owner" && ownerMembership.data[0].status === "active",
+    "owner bootstrap must create exactly one active owner membership visible to its JWT");
+  evidence.checks = {
+    owner_bootstrap_endpoint: "PASS",
+    owner_bootstrap_observed: {
+      first_status:ownerCreatedResponse.status,
+      replay_status:ownerReplayResponse.status,
+      foreign_claim_status:foreignBootstrapResponse.status,
+      owner_membership_rows:ownerMembership.data.length,
+      owner_role:ownerMembership.data[0].role,
+      owner_status:ownerMembership.data[0].status
+    }
+  };
   const tenantA = await insert("tenants", { name:"JWT Audit A", slug:`jwt-a-${run.slice(0,8)}`, created_by:userA.id });
   tenants.push(tenantA.id);
   const tenantB = await insert("tenants", { name:"JWT Audit B", slug:`jwt-b-${run.slice(0,8)}`, created_by:userB.id });
@@ -93,8 +136,8 @@ try {
   expect(review.status === 204 || review.status === 200, "trusted server must approve fixture report");
 
   const [aMembership,bMembership,aTenant,bTenant,aApproved,bApproved,aPending,bPending] = await Promise.all([
-    select("tenant_memberships",{select:"tenant_id,user_id,role,status",user_id:`eq.${userA.id}`},jwtA),
-    select("tenant_memberships",{select:"tenant_id,user_id,role,status",user_id:`eq.${userB.id}`},jwtB),
+    select("tenant_memberships",{select:"tenant_id,user_id,role,status",tenant_id:`eq.${tenantA.id}`,user_id:`eq.${userA.id}`},jwtA),
+    select("tenant_memberships",{select:"tenant_id,user_id,role,status",tenant_id:`eq.${tenantB.id}`,user_id:`eq.${userB.id}`},jwtB),
     select("tenants",{select:"id",id:`eq.${tenantA.id}`},jwtA),
     select("tenants",{select:"id",id:`eq.${tenantA.id}`},jwtB),
     select("diagnosis_reports",{select:"id",tenant_id:`eq.${tenantA.id}`,id:`eq.${approved.id}`},jwtA),
@@ -113,6 +156,7 @@ try {
   const mutation = await request("/rest/v1/tenant_memberships", { key:anon, token:jwtA, method:"POST", body:{tenant_id:tenantB.id,user_id:userA.id,role:"admin",status:"active"}, headers:{Prefer:"return=representation"} });
   expect(mutation.status >= 400, "authenticated user must not self-assign or mutate membership");
   evidence.checks = {
+    ...evidence.checks,
     real_auth_jwt_issued: "PASS",
     tenant_membership_self_scope: "PASS",
     cross_tenant_tenant_read: "PASS",
