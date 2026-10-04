@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aimpact.ai/schemas/business-diagnosis-request.v1.json",
+  "title": "AIMPACT B2B Business Diagnosis Request",
+  "description": "Versioned intake contract. Do not submit credentials, personal records, customer-level data, or confidential source files.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "answers"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "answers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "current_workflow", "frequency_volume", "time_cost", "bottleneck", "systems", "inputs_outputs", "exceptions", "data_sensitivity", "current_ai_use", "success_measure", "stakeholders", "timing"],
+      "properties": {
+        "outcome": { "type": "string", "minLength": 1, "maxLength": 2000, "description": "Q01: Desired business outcome." },
+        "current_workflow": { "type": "string", "minLength": 1, "maxLength": 4000, "description": "Q02: Current process steps from start to finish." },
+        "frequency_volume": { "type": "string", "minLength": 1, "maxLength": 1000, "description": "Q03: Frequency and approximate weekly/monthly volume." },
+        "time_cost": { "type": "string", "minLength": 1, "maxLength": 1500, "description": "Q04: Staff time, visible cost, and rework." },
+        "bottleneck": { "type": "string", "minLength": 1, "maxLength": 2000, "description": "Q05: Greatest delay, error, or frustration." },
+        "systems": { "type": "array", "minItems": 1, "maxItems": 30, "items": { "type": "string", "minLength": 1, "maxLength": 120 }, "description": "Q06: Software/system names or categories only; no credentials." },
+        "inputs_outputs": { "type": "string", "minLength": 1, "maxLength": 3000, "description": "Q07: Information entering the process and expected output." },
+        "exceptions": { "type": "string", "minLength": 1, "maxLength": 3000, "description": "Q08: Exceptions requiring judgment or human approval." },
+        "data_sensitivity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["contains_restricted_data", "categories"],
+          "properties": {
+            "contains_restricted_data": { "type": "boolean" },
+            "categories": { "type": "array", "maxItems": 10, "uniqueItems": true, "items": { "enum": ["personal", "financial", "health", "children", "confidential", "other", "none"] } },
+            "notes": { "type": "string", "maxLength": 1000, "description": "Describe categories only; never include actual sensitive records." }
+          },
+          "description": "Q09: Sensitivity screening; category-level answer only."
+        },
+        "current_ai_use": { "type": "string", "minLength": 1, "maxLength": 2000, "description": "Q10: AI tools currently used, if any." },
+        "success_measure": { "type": "string", "minLength": 1, "maxLength": 2000, "description": "Q11: Pilot success criteria and measurable outcomes." },
+        "stakeholders": { "type": "string", "minLength": 1, "maxLength": 1500, "description": "Q12: Process owner and pilot approver roles; avoid unnecessary personal data." },
+        "timing": { "type": "string", "minLength": 1, "maxLength": 1000, "description": "Q13: Target date or operational deadline." },
+        "budget_range": { "type": "string", "maxLength": 500, "description": "Q14: Optional planning range; no commitment implied." }
+      }
+    }
+  }
+}
