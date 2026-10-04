@@ -6,6 +6,8 @@
 <title>AIMPACT — Client Portal</title>
 <meta name="description" content="AIMPACT B2B AI operations client portal.">
 <link rel="stylesheet" href="./styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../config.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -27,6 +29,34 @@
   </aside>
 
   <main>
+    <section class="panel auth-panel" id="authPanel">
+      <p class="eyebrow">SECURE CLIENT ACCESS</p>
+      <h2>Welcome to AIMPACT.</h2>
+      <p class="lead">Sign in to your workspace. Your reports and diagnosis data remain isolated to your verified organization.</p>
+      <div class="auth-grid">
+        <form id="loginForm" class="auth-form">
+          <label>EMAIL<input name="email" type="email" autocomplete="email" required placeholder="you@company.com"></label>
+          <label>PASSWORD<input name="password" type="password" autocomplete="current-password" required minlength="8" placeholder="Your password"></label>
+          <button class="button primary" type="submit">SIGN IN</button>
+          <button class="button" type="button" id="signupButton">CREATE ACCOUNT</button>
+          <button class="button" type="button" id="oauthButton">CONTINUE WITH GOOGLE</button>
+        </form>
+        <div class="tenant-access">
+          <label>ACTIVE WORKSPACE<select id="tenantSelect" disabled><option value="">Sign in to load workspaces</option></select></label>
+          <button class="button primary" id="connectTenant" type="button" disabled>CONNECT WORKSPACE</button>
+          <details>
+            <summary>Create a new workspace</summary>
+            <form id="tenantForm">
+              <label>COMPANY / WORKSPACE NAME<input name="name" required maxlength="160" placeholder="Your company"></label>
+              <label>WORKSPACE URL NAME<input name="slug" required pattern="[a-z0-9][a-z0-9-]{1,62}[a-z0-9]" placeholder="your-company"></label>
+              <button class="button" type="submit">CREATE WORKSPACE</button>
+            </form>
+          </details>
+          <button class="button quiet" id="signoutButton" type="button" hidden>Sign out</button>
+        </div>
+      </div>
+      <p class="formnote" id="authNote" role="status">Authentication required. Customer data remains locked until workspace membership is verified.</p>
+    </section>
     <header class="topbar">
       <div><small id="crumb">AIMPACT / OVERVIEW</small><h1 id="heading">Business Command Center</h1></div>
       <span class="status" id="status">FAIL-CLOSED</span>
