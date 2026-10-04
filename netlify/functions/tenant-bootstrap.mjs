@@ -3,6 +3,7 @@ const fail=(code,status)=>new Response(JSON.stringify({ok:false,code}),{status,h
 const SLUG=/^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/;
 
 export default async function handler(request){
+  if(process.env.TENANT_BOOTSTRAP_ENABLED!=="true")return fail("TENANT_BOOTSTRAP_DISABLED",503);
   if(request.method!=="POST")return fail("METHOD_NOT_ALLOWED",405);
   if(request.headers.get("content-type")?.toLowerCase().split(";")[0]!=="application/json")return fail("JSON_REQUIRED",400);
   const authorization=request.headers.get("authorization")||"";
@@ -18,7 +19,7 @@ export default async function handler(request){
   try{body=await request.json();}catch{return fail("INVALID_JSON",400);}
   if(!body||typeof body!=="object"||typeof body.name!=="string"||typeof body.slug!=="string")return fail("INVALID_TENANT_INPUT",400);
   const name=body.name.trim(),slug=body.slug.trim();
-  if(name.length<1||name.length>160||!SLUG.test(slug))return fail("INVALID_TENANT_INPUT",400);
+  if(name.length<1||name.length>160||!SLUG.test(slug)||JSON.stringify(body).length>4096)return fail("INVALID_TENANT_INPUT",400);
   try{
     // Ask Supabase Auth to validate the bearer token; never trust decoded JWT claims.
     const auth=await fetch(url+"/auth/v1/user",{headers:{apikey:anon,Authorization:"Bearer "+match[1]}});
