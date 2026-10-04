@@ -8,6 +8,7 @@ This runner is a destructive integration test for a disposable TEST database. It
 - Install Node.js and the PostgreSQL `psql` client.
 - Supply `TEST_DATABASE_URL` through the local shell or CI secret store. Do not paste credentials into chat or commit them.
 - Set `TEST_DB_DISPOSABLE=YES` only after independently confirming the target is disposable.
+- Optional HTTP probe: set `TEST_API_URL` to the TEST/staging Netlify site base URL and `TENANT_CONTEXT_HMAC_SECRET` through the secret store. The runner signs synthetic Tenant A/B contexts and records the actual GET responses.
 
 ## Run
 
@@ -27,6 +28,7 @@ Evidence is written to `artifacts/phase2-test-evidence/` by default. Set `TEST_E
 - Claim a one-attempt job, fail it, and require `FAILED` plus exactly one `diagnosis_dead_letters` row.
 - Verify latest review decision/report status agreement, caller transaction rollback, and rollback of the review insert when the report update is forced to fail.
 - Capture database fixture rows in the JSON evidence package.
+- When optional API variables are present, call the deployed review function and record Tenant A (200), Tenant B (403), and invalid-context (401) request/response evidence.
 
 ## Explicit limitations
 
