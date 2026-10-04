@@ -186,7 +186,7 @@ try {
   const forcedAtomic = spawnSync("psql", [dbUrl,"-X","-v","ON_ERROR_STOP=1","-v","VERBOSITY=verbose","-At","-c",
     `select public.create_diagnosis_intake_atomic('${A}','${forcedAtomicKey}','1.0.0','{"rollback_test":true}'::jsonb,'phase2-test-v1',now(),null)`], {encoding:"utf8"});
   psql("alter table public.diagnosis_jobs drop constraint phase2_test_block_intake_job", "remove atomic intake rollback probe");
-  const forcedAtomicSqlstate = forcedAtomic.stderr.match(/ERROR:\\s+(\\d{5}):/)?.[1];
+  const forcedAtomicSqlstate = forcedAtomic.stderr.match(/ERROR:\s+(\d{5}):/)?.[1];
   assert(forcedAtomic.status !== 0 && forcedAtomicSqlstate === "23514", "forced queue-job constraint failure must abort atomic intake");
   const atomicRollbackCounts = psql(`
     select
