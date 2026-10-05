@@ -30,6 +30,7 @@ const migrations = [
   "supabase/migrations/202610040004_review_first_access_control.sql",
   "supabase/migrations/202610040005_auth_tenant_membership.sql",
   "supabase/migrations/202610040006_tenant_bootstrap_atomic_intake.sql",
+  "supabase/migrations/202610050003_control_plane_lifecycle.sql",
 ];
 for (const file of migrations) {
   if (!fs.existsSync(file)) throw new Error(`FAIL-CLOSED: missing migration ${file}`);
@@ -89,6 +90,13 @@ const report = "a1000000-0000-4000-8000-000000000031";
 let fixturesCreated = false;
 try {
   psql("select current_database() || '|' || current_user", "database identity");
+  psql(`
+    insert into public.tenants (id,name,slug,created_by)
+    values
+      ('${A}','TEST Control Plane A','test-control-plane-a',null),
+      ('${B}','TEST Control Plane B','test-control-plane-b',null)
+    on conflict (id) do nothing;
+  `, "control plane tenant fixtures");
   for (const file of migrations) {
     const applied = spawnSync("psql", [dbUrl, "-X", "-v", "ON_ERROR_STOP=1", "-f", file], {
       encoding: "utf8", env: { ...process.env, PGPASSWORD: process.env.PGPASSWORD || "" }
@@ -270,6 +278,57 @@ try {
   const statusAfterFailure = psql(`select report_status from public.diagnosis_reports where tenant_id='${A}' and id='${report}'`, "report status after forced failure");
   assert(beforeFailure === afterFailure && statusAfterFailure === "APPROVED", "failed report update must roll back inserted review row");
   evidence.checks.review_failure_rollback = { status: "PASS", sqlstate: forcedSqlstate, review_rows_before: Number(beforeFailure), review_rows_after: Number(afterFailure), report_status: statusAfterFailure };
+
+  const cpEvent1 = "a1000000-0000-4000-8000-000000000101";
+  const cpEvent2 = "a1000000-0000-4000-8000-000000000102";
+  const cpEvent3 = "a1000000-0000-4000-8000-000000000103";
+  const cpKey1 = "cp-idem-" + evidence.run_id;
+  const cpKey2 = "cp-race-a-" + evidence.run_id;
+  const cpKey3 = "cp-race-b-" + evidence.run_id;
+  const cpFirst = psql(`
+    select public.apply_lifecycle_event_atomic(
+      '${cpEvent1}','${A}','TENANT_CREATED','${cpKey1}',0,1,
+      'system',null,null,null,'1','{"source":"phase2-test"}'::jsonb,now()
+    )::text
+  `, "control plane initial transition");
+  const cpDuplicate = psql(`
+    select public.apply_lifecycle_event_atomic(
+      '${cpEvent1}','${A}','TENANT_CREATED','${cpKey1}',0,1,
+      'system',null,null,null,'1','{"source":"phase2-test"}'::jsonb,now()
+    )::text
+  `, "control plane idempotent replay");
+  assert(cpFirst.includes('"duplicate": false') && cpFirst.includes('"version": 1'), "initial lifecycle event must advance version to 1");
+  assert(cpDuplicate.includes('"duplicate": true') && cpDuplicate.includes('"version": 1'), "lifecycle replay must be idempotent");
+  evidence.checks.control_plane_idempotency = { status: "PASS", first: JSON.parse(cpFirst), replay: JSON.parse(cpDuplicate) };
+
+  const staleCp = spawnSync("psql", [dbUrl,"-X","-v","ON_ERROR_STOP=1","-v","VERBOSITY=verbose","-At","-c",
+    `select public.apply_lifecycle_event_atomic('${cpEvent2}','${A}','DIAGNOSIS_SUBMITTED','${cpKey2}',0,2)`], {encoding:"utf8"});
+  const staleCpSqlstate = staleCp.stderr.match(/ERROR:\s+(\\d{5}):/)?.[1];
+  assert(staleCp.status !== 0 && staleCpSqlstate === "40001", "stale lifecycle version must fail with SQLSTATE 40001");
+  evidence.checks.control_plane_optimistic_lock = { status: "PASS", sqlstate: staleCpSqlstate };
+
+  const raceResults = await Promise.allSettled([
+    psqlAsync(`select public.apply_lifecycle_event_atomic('${cpEvent2}','${A}','DIAGNOSIS_SUBMITTED','${cpKey2}',1,2)`, "control plane race A"),
+    psqlAsync(`select public.apply_lifecycle_event_atomic('${cpEvent3}','${A}','DIAGNOSIS_SUBMITTED','${cpKey3}',1,3)`, "control plane race B")
+  ]);
+  const racePassed = raceResults.filter(r => r.status === "fulfilled");
+  const raceFailed = raceResults.filter(r => r.status === "rejected");
+  const raceError = raceFailed.map(r => String(r.reason?.message || r.reason)).join("\n");
+  assert(racePassed.length === 1 && raceFailed.length === 1 && /40001/.test(raceError),
+    "concurrent lifecycle transitions with the same expected version must yield exactly one winner and one optimistic-lock conflict");
+  const cpState = psql(`
+    select state || '|' || version || '|' || last_event_id::text
+      from public.customer_lifecycle_state
+     where tenant_id='${A}'
+  `, "control plane final state");
+  assert(cpState.split("|")[0] === "DIAGNOSIS" && cpState.split("|")[1] === "2", "exactly one concurrent transition must advance lifecycle state");
+  evidence.checks.control_plane_concurrency = {
+    status: "PASS",
+    winner_count: racePassed.length,
+    conflict_count: raceFailed.length,
+    conflict: raceError,
+    final_state: cpState
+  };
   evidence.db_rows = {
     job: psql(`select to_jsonb(j)::text from public.diagnosis_jobs j where id in ('${jobRace}','${jobDlq}') order by id`, 'evidence job rows'),
     dead_letters: psql(`select to_jsonb(d)::text from public.diagnosis_dead_letters d where job_id='${jobDlq}'`, 'evidence DLQ row'),
@@ -303,7 +362,10 @@ try {
   if (fixturesCreated) {
     try {
       psql(`delete from public.diagnosis_dead_letters where tenant_id in ('${A}','${B}');
-        delete from public.diagnosis_submissions where tenant_id in ('${A}','${B}');`, "fixture cleanup");
+        delete from public.diagnosis_submissions where tenant_id in ('${A}','${B}');
+        delete from public.control_plane_events where tenant_id in ('${A}','${B}');
+        delete from public.customer_lifecycle_state where tenant_id in ('${A}','${B}');
+        delete from public.tenants where id in ('${A}','${B}');`, "fixture cleanup");
       evidence.fixture_cleanup = "PASS";
     } catch (cleanupError) {
       evidence.fixture_cleanup = "FAILED: " + String(cleanupError.message || cleanupError);
