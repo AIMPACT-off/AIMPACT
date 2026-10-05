@@ -92,6 +92,31 @@ begin
     raise exception 'invalid lifecycle event parameters' using errcode = '22023';
   end if;
 
+  select e.event_id into v_inserted_event_id
+    from public.control_plane_events e
+   where e.tenant_id = p_tenant_id
+     and e.idempotency_key = p_idempotency_key
+   limit 1;
+
+  if v_inserted_event_id is not null then
+    if v_inserted_event_id <> p_event_id then
+      raise exception 'idempotency key already belongs to a different event id'
+        using errcode = '23505';
+    end if;
+    select s.state, s.version
+      into v_current_state, v_current_version
+      from public.customer_lifecycle_state s
+     where s.tenant_id = p_tenant_id;
+    return jsonb_build_object(
+      'ok', true,
+      'duplicate', true,
+      'event_id', v_inserted_event_id,
+      'tenant_id', p_tenant_id,
+      'state', coalesce(v_current_state, 'LEAD'),
+      'version', coalesce(v_current_version, 0)
+    );
+  end if;
+
   select s.state, s.version
     into v_current_state, v_current_version
     from public.customer_lifecycle_state s
