@@ -75,5 +75,14 @@ export function createExecutionOutboxAdapter(supabase) {
       if (error) throw error;
       return data;
     },
+    async retry(intentId, maxAttempts = 3, backoffSeconds = 30) {
+      const { data, error } = await supabase.rpc("retry_execution_intent_atomic", {
+        p_intent_id: intentId,
+        p_max_attempts: maxAttempts,
+        p_backoff_seconds: backoffSeconds,
+      });
+      if (error) throw error;
+      return data;
+    },
   };
 }
