@@ -34,6 +34,7 @@ const migrations = [
   "supabase/migrations/202610050004_action_execution_ledger.sql",
   "supabase/migrations/202610050006_execution_outbox_table.sql",
   "supabase/migrations/202610050007_execution_intent_rpc.sql",
+  "supabase/migrations/202610050008_execution_intent_claim_rpc.sql",
 ];
 for (const file of migrations) {
   if (!fs.existsSync(file)) throw new Error(`FAIL-CLOSED: missing migration ${file}`);
@@ -499,6 +500,77 @@ try {
     replay: JSON.parse(intentReplay),
     conflict_sqlstate: intentConflictSqlstate,
     rows: intentRows
+  };
+  const claimFirst = psql(`
+    select public.claim_execution_intent_atomic('a1000000-0000-4000-8000-000000000001'::uuid,'worker-a',60)::text
+  `, "execution intent first claim");
+  const claimFirstJson = JSON.parse(claimFirst);
+  assert(claimFirstJson.claimed === true, "first worker must claim the intent");
+  assert(claimFirstJson.status === "CLAIMED", "claimed intent must be CLAIMED");
+  assert(claimFirstJson.attempt === 1, "first claim must increment attempt to 1");
+  assert(claimFirstJson.claimed_by === "worker-a", "first claim must record worker");
+
+  const claimSecond = psql(`
+    select public.claim_execution_intent_atomic('a1000000-0000-4000-8000-000000000001'::uuid,'worker-b',60)::text
+  `, "execution intent second claim");
+  const claimSecondJson = JSON.parse(claimSecond);
+  assert(claimSecondJson.claimed === false, "second worker must not reclaim active lease");
+
+  const leaseReclaim = psql(`
+    update public.control_plane_execution_outbox
+       set claimed_at = now() - interval '120 seconds'
+     where intent_id='a1000000-0000-4000-8000-000000000501'::uuid;
+    select public.claim_execution_intent_atomic('a1000000-0000-4000-8000-000000000001'::uuid,'worker-b',60)::text
+  `, "execution intent lease reclaim");
+  const leaseReclaimJson = JSON.parse(leaseReclaim);
+  assert(leaseReclaimJson.claimed === true, "expired lease must be reclaimable");
+  assert(leaseReclaimJson.attempt === 2, "lease reclaim must increment attempt to 2");
+  assert(leaseReclaimJson.claimed_by === "worker-b", "reclaim must record new worker");
+
+  psql(`
+    select public.create_execution_intent_atomic(
+      'a1000000-0000-4000-8000-000000000503'::uuid,
+      'a1000000-0000-4000-8000-000000000001'::uuid,
+      'a1000000-0000-4000-8000-000000000101'::uuid,
+      'START_WORKFLOW',
+      'phase-c-race-0001',
+      '{"workflow_id":"wf-phase-c-race"}'::jsonb,
+      null,
+      null
+    )::text
+  `, "execution intent race fixture");
+
+  const raceA = psqlAsync(`
+    select pg_sleep(0.25), public.claim_execution_intent_atomic('a1000000-0000-4000-8000-000000000001'::uuid,'worker-race-a',60)::text
+  `, "claim race worker A");
+  const raceB = psqlAsync(`
+    select pg_sleep(0.25), public.claim_execution_intent_atomic('a1000000-0000-4000-8000-000000000001'::uuid,'worker-race-b',60)::text
+  `, "claim race worker B");
+  const [raceOutA, raceOutB] = await Promise.all([raceA, raceB]);
+  const raceAJson = JSON.parse(raceOutA);
+  const raceBJson = JSON.parse(raceOutB);
+  const raceWinners = [raceAJson, raceBJson].filter(v => v.claimed === true);
+  assert(raceWinners.length === 1, "concurrent claim must have exactly one winner");
+
+  const claimEvidenceRows = psql(`
+    select count(*)::text || '|' ||
+           max(case when intent_id='a1000000-0000-4000-8000-000000000501'::uuid then attempt end)::text || '|' ||
+           max(case when intent_id='a1000000-0000-4000-8000-000000000503'::uuid then attempt end)::text
+      from public.control_plane_execution_outbox
+     where tenant_id='a1000000-0000-4000-8000-000000000001'::uuid
+  `, "execution claim evidence rows");
+
+  evidence.checks.execution_intent_claim_rpc = {
+    status: "PASS",
+    first: claimFirstJson,
+    second: claimSecondJson,
+    lease_reclaim: leaseReclaimJson,
+    concurrent_race: {
+      worker_a: raceAJson,
+      worker_b: raceBJson,
+      winner_count: raceWinners.length
+    },
+    rows_attempts: claimEvidenceRows
   };
   evidence.checks.action_execution_ledger = {
     status: "PASS",
