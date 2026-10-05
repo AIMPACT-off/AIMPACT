@@ -12,7 +12,28 @@ function normalizeEvent(event){
   }
   return {event_id:event?.id||null,type,status,tenant_reference:tenant,plan,customer_id:object.customer||null,subscription_id:object.subscription||null,created:event?.created||null};
 }
-async function persistEntitlement(normalized,reference){
+
+async function stripeRequest(path,method="GET",body=null){
+  const key=process.env.STRIPE_SECRET_KEY;
+  if(!key)return null;
+  const response=await fetch("https://api.stripe.com"+path,{method,headers:{Authorization:"Bearer "+key,"Content-Type":"application/x-www-form-urlencoded"},body});
+  if(!response.ok)return null;
+  return response.json();
+}
+async function attachReferenceToSubscription(subscriptionId,reference){
+  if(!subscriptionId)return true;
+  const body=new URLSearchParams({"metadata[aimpact_billing_reference]":reference,"metadata[aimpact_plan]":reference.plan});
+  return Boolean(await stripeRequest("/v1/subscriptions/"+encodeURIComponent(subscriptionId),"POST",body));
+}
+async function resolveReference(normalized,event){
+  const direct=normalized.tenant_reference?verifyBillingReference(normalized.tenant_reference,process.env.BILLING_REFERENCE_HMAC_SECRET):null;
+  if(direct)return direct;
+  if(!normalized.subscription_id)return null;
+  const subscription=await stripeRequest("/v1/subscriptions/"+encodeURIComponent(normalized.subscription_id));
+  const reference=subscription?.metadata?.aimpact_billing_reference;
+  return reference?verifyBillingReference(reference,process.env.BILLING_REFERENCE_HMAC_SECRET):null;
+}
+\nasync function persistEntitlement(normalized,reference){
   const url=process.env.SUPABASE_URL?.replace(/\/$/,""),service=process.env.SUPABASE_SERVICE_ROLE_KEY;
   if(!url||!service)return {ok:false,code:"ENTITLEMENT_SERVER_CONFIG_REQUIRED"};
   const rpc=process.env.BILLING_ENTITLEMENT_RPC||"process_stripe_entitlement_event";
@@ -34,8 +55,12 @@ export default async function handler(request){
   const supported=new Set(["checkout.session.completed","checkout.session.async_payment_succeeded","invoice.paid","invoice.payment_failed","customer.subscription.updated","customer.subscription.deleted"]);
   if(!supported.has(event.type))return new Response(JSON.stringify({ok:true,ignored:true,event_id:event.id}),{status:200,headers:HEADERS});
   const normalized=normalizeEvent(event);
-  const reference=normalized.tenant_reference?verifyBillingReference(normalized.tenant_reference,process.env.BILLING_REFERENCE_HMAC_SECRET):null;
+  const reference=await resolveReference(normalized,event);
   if(!reference)return fail("ENTITLEMENT_REFERENCE_UNAVAILABLE",503);
+  if((normalized.type==="checkout.session.completed"||normalized.type==="checkout.session.async_payment_succeeded") && normalized.subscription_id){
+    const attached=await attachReferenceToSubscription(normalized.subscription_id,normalized.tenant_reference?verifyBillingReference(normalized.tenant_reference,process.env.BILLING_REFERENCE_HMAC_SECRET):reference);
+    if(!attached)return fail("STRIPE_SUBSCRIPTION_MAPPING_FAILED",503,{event_id:event.id});
+  }
   const persisted=await persistEntitlement(normalized,reference);
   if(!persisted.ok)return fail(persisted.code,503,{event_id:event.id});
   return new Response(JSON.stringify({ok:true,event_id:event.id,entitlement:"PROCESSED",tenant_id:reference.tenant_id,plan:reference.plan,status:normalized.status}),{status:200,headers:HEADERS});
