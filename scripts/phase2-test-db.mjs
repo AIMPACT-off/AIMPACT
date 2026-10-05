@@ -63,7 +63,7 @@ function psql(sql, label) {
 }
 function psqlAsync(sql, label) {
   return new Promise((resolve, reject) => {
-    const child = spawn("psql", [dbUrl, "-X", "-v", "ON_ERROR_STOP=1", "-At", "-c", sql], {
+    const child = spawn("psql", [dbUrl, "-X", "-v", "ON_ERROR_STOP=1", "-v", "VERBOSITY=verbose", "-At", "-c", sql], {
       env: { ...process.env, PGPASSWORD: process.env.PGPASSWORD || "" },
       stdio: ["ignore", "pipe", "pipe"]
     });
