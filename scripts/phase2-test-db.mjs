@@ -391,13 +391,50 @@ try {
   `, "action ledger privilege check");
   assert(ledgerBrowser === "false|true|false|true", "action ledger must be authenticated-read/service-role-write");
 
-  const learningFirst = psql("select public.record_learning_signal_atomic($a1000000-0000-4000-8000-000000000301$::uuid,$a1000000-0000-4000-8000-000000000001$::uuid,$a1000000-0000-4000-8000-000000000201$::uuid,$a1000000-0000-4000-8000-000000000101$::uuid,$ACTION_OUTCOME$,$POSITIVE$,${\\"dispatch_status\\":\\"EXECUTED\\"}$::jsonb,$a1000000-0000-4000-8000-000000000401$::uuid,$a1000000-0000-4000-8000-000000000201$::uuid)::text","learning signal write");
+  const learningFirst = psql(`
+    select public.record_learning_signal_atomic(
+      'a1000000-0000-4000-8000-000000000301'::uuid,
+      'a1000000-0000-4000-8000-000000000001'::uuid,
+      'a1000000-0000-4000-8000-000000000201'::uuid,
+      'a1000000-0000-4000-8000-000000000101'::uuid,
+      'ACTION_OUTCOME',
+      'POSITIVE',
+      '{"dispatch_status":"EXECUTED"}'::jsonb,
+      'a1000000-0000-4000-8000-000000000401'::uuid,
+      'a1000000-0000-4000-8000-000000000201'::uuid
+    )::text
+  `, "learning signal write");
   assert(JSON.parse(learningFirst).duplicate === false, "learning first write must persist");
-  const learningReplay = psql("select public.record_learning_signal_atomic($a1000000-0000-4000-8000-000000000301$::uuid,$a1000000-0000-4000-8000-000000000001$::uuid,$a1000000-0000-4000-8000-000000000201$::uuid,$a1000000-0000-4000-8000-000000000101$::uuid,$ACTION_OUTCOME$,$POSITIVE$,${\\"dispatch_status\\":\\"EXECUTED\\"}$::jsonb,$a1000000-0000-4000-8000-000000000401$::uuid,$a1000000-0000-4000-8000-000000000201$::uuid)::text","learning signal replay");
+
+  const learningReplay = psql(`
+    select public.record_learning_signal_atomic(
+      'a1000000-0000-4000-8000-000000000301'::uuid,
+      'a1000000-0000-4000-8000-000000000001'::uuid,
+      'a1000000-0000-4000-8000-000000000201'::uuid,
+      'a1000000-0000-4000-8000-000000000101'::uuid,
+      'ACTION_OUTCOME',
+      'POSITIVE',
+      '{"dispatch_status":"EXECUTED"}'::jsonb,
+      'a1000000-0000-4000-8000-000000000401'::uuid,
+      'a1000000-0000-4000-8000-000000000201'::uuid
+    )::text
+  `, "learning signal replay");
   assert(JSON.parse(learningReplay).duplicate === true, "learning replay must be duplicate");
-  const learningRows = psql("select count(*)::text from public.control_plane_learning_signals where tenant_id=$a1000000-0000-4000-8000-000000000001$::uuid and execution_id=$a1000000-0000-4000-8000-000000000201$::uuid","learning evidence rows");
+
+  const learningRows = psql(`
+    select count(*)::text
+      from public.control_plane_learning_signals
+     where tenant_id='a1000000-0000-4000-8000-000000000001'::uuid
+       and execution_id='a1000000-0000-4000-8000-000000000201'::uuid
+  `, "learning evidence rows");
   assert(learningRows === "1", "learning evidence row count mismatch");
-  evidence.checks.learning_loop = {status:"PASS",first:JSON.parse(learningFirst),replay:JSON.parse(learningReplay),rows:learningRows};
+
+  evidence.checks.learning_loop = {
+    status: "PASS",
+    first: JSON.parse(learningFirst),
+    replay: JSON.parse(learningReplay),
+    rows: learningRows
+  };
   evidence.checks.action_execution_ledger = {
     status: "PASS",
     first: JSON.parse(ledgerFirst),
