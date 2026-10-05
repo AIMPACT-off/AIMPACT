@@ -23,7 +23,7 @@ on:
       - "tests/control-plane-execution-outbox-complete.test.mjs"
       - "tests/control-plane-execution-outbox-retry.test.mjs"
       - "tests/control-plane-execution-outbox-dlq.test.mjs"
-      - "tests/control-plane-autonomous-event-loop.test.mjs tests/autonomous-github-webhook.test.mjs"
+      - "tests/control-plane-autonomous-event-loop.test.mjs tests/autonomous-github-webhook.test.mjs tests/control-plane-autonomous-dispatcher.test.mjs"
       - "phase2/control-plane/**"
       - "portal/**"
       - "netlify/functions/**"
