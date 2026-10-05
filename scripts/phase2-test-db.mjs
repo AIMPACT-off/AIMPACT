@@ -702,7 +702,7 @@ try {
       'MANUAL_REVIEW',
       'completed intent must not enter DLQ'
     )::text`], {encoding:"utf8"});
-  const dlqWrongStateSqlstate = dlqWrongState.stderr.match(/ERROR:\\s+(\\d{5}):/)?.[1];
+  const dlqWrongStateSqlstate = dlqWrongState.stderr.match(/ERROR:\s+(\d{5}):/)?.[1];
   assert(dlqWrongState.status !== 0 && dlqWrongStateSqlstate === "55000", "non-FAILED intent must be rejected from DLQ");
 
   const dlqRows = psql(`
