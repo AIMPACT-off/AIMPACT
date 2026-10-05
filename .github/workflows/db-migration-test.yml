@@ -3,7 +3,7 @@ on:
   pull_request:
     paths: ["supabase/**", "scripts/phase2-test-db.mjs", ".github/workflows/db-migration-test.yml"]
   push:
-    paths: ["supabase/**", ".github/workflows/db-migration-test.yml"]
+    paths: ["supabase/**", "scripts/phase2-test-db.mjs", ".github/workflows/db-migration-test.yml"]
   workflow_dispatch:
 permissions:
   contents: read
