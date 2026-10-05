@@ -10,8 +10,7 @@ const dbUrl=process.env.TEST_DATABASE_URL;
 if(!dbUrl || process.env.TEST_DB_DISPOSABLE!=="YES") throw new Error("FAIL-CLOSED: disposable TEST database required");
 const u=new URL(dbUrl);
 if(!["postgres:","postgresql:"].includes(u.protocol) || /(prod|production|live)/i.test(u.hostname+u.pathname)) throw new Error("FAIL-CLOSED: unsafe database target");
-const A="a1000000-0000-4000-8000-000000000001";
-const runId=crypto.randomUUID(), successEvent=crypto.randomUUID(), failureEvent=crypto.randomUUID();
+const runId=crypto.randomUUID(), A=crypto.randomUUID(), successEvent=crypto.randomUUID(), failureEvent=crypto.randomUUID();
 const successCorrelation=crypto.randomUUID(), successCausation=crypto.randomUUID();
 const failureCorrelation=crypto.randomUUID(), failureCausation=crypto.randomUUID();
 const successKey="true-loop-success-"+runId, failureKey="true-loop-failure-"+runId;
@@ -38,8 +37,9 @@ const bridge=createRuntimePersistenceBridge({
  learning,
  handlers:{START_WORKFLOW:async()=>{order.push("dispatch");return{workflow_id:"TEST-"+runId};}}
 });
-const evidence={status:"PASS",run_id:runId,success_path:{},ledger_failure_path:{}};
+const evidence={status:"PASS",run_id:runId,tenant_id:A,success_path:{},ledger_failure_path:{}};
 try{
+ psql("insert into public.tenants (id,name,slug,created_by) values ("+q(A)+","+q("TRUE Closed Loop Test")+" ,"+q("true-closed-loop-"+runId)+",null); insert into public.customer_lifecycle_state (tenant_id,state,version) values ("+q(A)+","+"'DIAGNOSIS'"+",2);","create true-loop fixture");
  const ev={event_id:successEvent,event_type:"DIAGNOSIS_REVIEW_APPROVED",tenant_id:A,occurred_at:new Date().toISOString(),schema_version:"1",sequence:3,idempotency_key:successKey,actor_type:"system",correlation_id:successCorrelation,causation_id:successCausation,payload:{source:"true-closed-loop"}};
  const result=await bridge.process(ev,{evidence:{authenticated:true,active_membership:true,approved_report:true,approved_review:true,active_entitlement:true,lifecycle_ready:true}},{source:"true-closed-loop"});
  if(!result.ok||result.status!=="EXECUTED")throw new Error("true loop did not execute");
@@ -73,6 +73,6 @@ try{
  evidence.final_state=psql("select state||'|'||version from public.customer_lifecycle_state where tenant_id="+q(A),"final state");
 }catch(e){evidence.status="FAIL";evidence.error=String(e.message||e);process.exitCode=1;}
 finally{
- try{psql("delete from public.control_plane_learning_signals where event_id in ("+q(successEvent)+","+q(failureEvent)+");delete from public.control_plane_action_executions where event_id in ("+q(successEvent)+","+q(failureEvent)+") or idempotency_key="+q(failureKey)+";update public.customer_lifecycle_state set last_event_id=null where tenant_id="+q(A)+";delete from public.control_plane_events where event_id in ("+q(successEvent)+","+q(failureEvent)+");","true-loop cleanup");evidence.fixture_cleanup="PASS";}catch(e){evidence.fixture_cleanup="FAILED: "+String(e.message||e);process.exitCode=1;}
+ try{psql("delete from public.control_plane_learning_signals where event_id in ("+q(successEvent)+","+q(failureEvent)+");delete from public.control_plane_action_executions where event_id in ("+q(successEvent)+","+q(failureEvent)+") or idempotency_key="+q(failureKey)+";update public.customer_lifecycle_state set last_event_id=null where tenant_id="+q(A)+";delete from public.control_plane_events where event_id in ("+q(successEvent)+","+q(failureEvent)+");delete from public.customer_lifecycle_state where tenant_id="+q(A)+";delete from public.tenants where id="+q(A)+";","true-loop cleanup");evidence.fixture_cleanup="PASS";}catch(e){evidence.fixture_cleanup="FAILED: "+String(e.message||e);process.exitCode=1;}
  const out=evidenceDir+"/true-closed-loop-"+runId+".json";fs.writeFileSync(out,JSON.stringify(evidence,null,2)+"\n",{mode:0o600});process.stdout.write(JSON.stringify(evidence,null,2)+"\n");
 }
