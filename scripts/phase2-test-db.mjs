@@ -31,6 +31,7 @@ const migrations = [
   "supabase/migrations/202610040005_auth_tenant_membership.sql",
   "supabase/migrations/202610040006_tenant_bootstrap_atomic_intake.sql",
   "supabase/migrations/202610050003_control_plane_lifecycle.sql",
+  "supabase/migrations/202610050004_action_execution_ledger.sql",
 ];
 for (const file of migrations) {
   if (!fs.existsSync(file)) throw new Error(`FAIL-CLOSED: missing migration ${file}`);
@@ -329,7 +330,74 @@ try {
     conflict: raceError,
     final_state: cpState
   };
-  evidence.db_rows = {
+  const ledgerExecution1 = "a1000000-0000-4000-8000-000000000201";
+  const ledgerExecution2 = "a1000000-0000-4000-8000-000000000202";
+  const ledgerKey = "ledger-idem-" + evidence.run_id;
+  const ledgerFailedKey = "ledger-failed-" + evidence.run_id;
+  const ledgerEvent = cpEvent1;
+  const ledgerFirst = psql(`
+    select public.record_action_execution_atomic(
+      '${ledgerExecution1}','${A}','${ledgerEvent}','START_WORKFLOW','EXECUTED','${ledgerKey}',
+      1,'v1','{"result":"workflow-created"}'::jsonb,null,null,null,'${ledgerEvent}',now(),now()
+    )::text
+  `, "action ledger first execution");
+  const ledgerDuplicate = psql(`
+    select public.record_action_execution_atomic(
+      '${ledgerExecution1}','${A}','${ledgerEvent}','START_WORKFLOW','EXECUTED','${ledgerKey}',
+      1,'v1','{"result":"workflow-created"}'::jsonb,null,null,null,'${ledgerEvent}',now(),now()
+    )::text
+  `, "action ledger idempotent replay");
+  assert(ledgerFirst.includes('"duplicate": false') && ledgerFirst.includes('"status": "EXECUTED"'),
+    "first action ledger write must persist EXECUTED");
+  assert(ledgerDuplicate.includes('"duplicate": true') && ledgerDuplicate.includes('"execution_id": "${ledgerExecution1}"'),
+    "same execution/idempotency replay must return duplicate without creating a second row");
+
+  const ledgerConflict = spawnSync("psql", [dbUrl,"-X","-v","ON_ERROR_STOP=1","-v","VERBOSITY=verbose","-At","-c",
+    `select public.record_action_execution_atomic(
+      '${ledgerExecution2}','${A}','${ledgerEvent}','START_WORKFLOW','EXECUTED','${ledgerKey}',
+      1,'v1','{"result":"conflict"}'::jsonb,null,null,null,'${ledgerEvent}',now(),now()
+    )`], {encoding:"utf8"});
+  const ledgerConflictSqlstate = ledgerConflict.stderr.match(/ERROR:\s+(\d{5}):/)?.[1];
+  assert(ledgerConflict.status !== 0 && ledgerConflictSqlstate === "23505",
+    "different execution id with same ledger idempotency key must fail with SQLSTATE 23505");
+
+  const ledgerFailed = psql(`
+    select public.record_action_execution_atomic(
+      gen_random_uuid(),'${A}','${ledgerEvent}','START_WORKFLOW','FAILED','${ledgerFailedKey}',
+      2,'v1','{"step":"payment"}'::jsonb,'TEST_FAILURE','fixture failure','${ledgerEvent}','${ledgerEvent}',now(),now()
+    )::text
+  `, "action ledger failed execution");
+  assert(ledgerFailed.includes('"duplicate": false') && ledgerFailed.includes('"status": "FAILED"'),
+    "failed action execution must persist FAILED evidence");
+  const ledgerRows = psql(`
+    select count(*)::text || '|' ||
+           count(*) filter (where status='EXECUTED')::text || '|' ||
+           count(*) filter (where status='FAILED')::text || '|' ||
+           count(*) filter (where error_code='TEST_FAILURE')::text
+      from public.control_plane_action_executions
+     where tenant_id='${A}' and idempotency_key in ('${ledgerKey}','${ledgerFailedKey}')
+  `, "action ledger evidence rows");
+  assert(ledgerRows === "2|1|1|1", "ledger must contain exactly one EXECUTED and one FAILED evidence row");
+
+  const ledgerBrowser = psql(`
+    select
+      has_table_privilege('anon','public.control_plane_action_executions','select')::text || '|' ||
+      has_table_privilege('authenticated','public.control_plane_action_executions','select')::text || '|' ||
+      has_function_privilege('authenticated','public.record_action_execution_atomic(uuid,uuid,uuid,text,text,text,integer,text,jsonb,text,text,uuid,uuid,timestamp with time zone,timestamp with time zone)','execute')::text || '|' ||
+      has_function_privilege('service_role','public.record_action_execution_atomic(uuid,uuid,uuid,text,text,text,integer,text,jsonb,text,text,uuid,uuid,timestamp with time zone,timestamp with time zone)','execute')::text
+  `, "action ledger privilege check");
+  assert(ledgerBrowser === "false|true|false|true", "action ledger must be authenticated-read/service-role-write");
+
+  evidence.checks.action_execution_ledger = {
+    status: "PASS",
+    first: JSON.parse(ledgerFirst),
+    replay: JSON.parse(ledgerDuplicate),
+    conflict_sqlstate: ledgerConflictSqlstate,
+    failed: JSON.parse(ledgerFailed),
+    rows: ledgerRows,
+    browser_privileges: ledgerBrowser
+  };
+    evidence.db_rows = {
     job: psql(`select to_jsonb(j)::text from public.diagnosis_jobs j where id in ('${jobRace}','${jobDlq}') order by id`, 'evidence job rows'),
     dead_letters: psql(`select to_jsonb(d)::text from public.diagnosis_dead_letters d where job_id='${jobDlq}'`, 'evidence DLQ row'),
     report: psql(`select to_jsonb(r)::text from public.diagnosis_reports r where id='${report}'`, 'evidence report row'),
