@@ -650,6 +650,8 @@ try {
      where intent_id='${retryIntentId}'::uuid
   `, "execution intent retry availability evidence");
   assert(retryAvailable === "PENDING|1", "retry intent must remain pending at attempt 1");
+  const retryClaimSecond = JSON.parse(psql(`
+    select public.claim_execution_intent_atomic('${A}'::uuid, 'retry-worker-b', 60)::text
   `, "execution intent retry second claim"));
   assert(retryClaimSecond.claimed === true, "retry second claim must succeed");
   assert(retryClaimSecond.attempt === 2, "retry second claim must increment attempt to 2");
