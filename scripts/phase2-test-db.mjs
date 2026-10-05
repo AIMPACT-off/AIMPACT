@@ -541,10 +541,10 @@ try {
   `, "execution intent race fixture");
 
   const raceA = psqlAsync(`
-    select pg_sleep(0.25), public.claim_execution_intent_atomic('a1000000-0000-4000-8000-000000000001'::uuid,'worker-race-a',60)::text
+    select public.claim_execution_intent_atomic('a1000000-0000-4000-8000-000000000001'::uuid,'worker-race-a',60)::text from (select pg_sleep(0.25)) s
   `, "claim race worker A");
   const raceB = psqlAsync(`
-    select pg_sleep(0.25), public.claim_execution_intent_atomic('a1000000-0000-4000-8000-000000000001'::uuid,'worker-race-b',60)::text
+    select public.claim_execution_intent_atomic('a1000000-0000-4000-8000-000000000001'::uuid,'worker-race-b',60)::text from (select pg_sleep(0.25)) s
   `, "claim race worker B");
   const [raceOutA, raceOutB] = await Promise.all([raceA, raceB]);
   const raceAJson = JSON.parse(raceOutA);
