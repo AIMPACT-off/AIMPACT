@@ -16,7 +16,8 @@ on:
       - "tests/control-plane-runtime-persistence.test.mjs"
       - "tests/control-plane-action-ledger.test.mjs"
       - "tests/control-plane-learning.test.mjs"
-      - "tests/control-plane-execution-outbox.test.mjs"
+      - "tests/control-plane-execution-outbox.test.mjs
+          tests/control-plane-execution-outbox-claim.test.mjs"
       - "tests/control-plane-execution-outbox-schema.test.mjs"
       - "phase2/control-plane/**"
       - "portal/**"
