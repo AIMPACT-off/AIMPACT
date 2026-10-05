@@ -516,10 +516,12 @@ try {
   const claimSecondJson = JSON.parse(claimSecond);
   assert(claimSecondJson.claimed === false, "second worker must not reclaim active lease");
 
-  const leaseReclaim = psql(`
+  psql(`
     update public.control_plane_execution_outbox
        set claimed_at = now() - interval '120 seconds'
-     where intent_id='a1000000-0000-4000-8000-000000000501'::uuid;
+     where intent_id='a1000000-0000-4000-8000-000000000501'::uuid
+  `, "expire execution intent lease");
+  const leaseReclaim = psql(`
     select public.claim_execution_intent_atomic('a1000000-0000-4000-8000-000000000001'::uuid,'worker-b',60)::text
   `, "execution intent lease reclaim");
   const leaseReclaimJson = JSON.parse(leaseReclaim);
