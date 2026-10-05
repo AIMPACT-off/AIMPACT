@@ -8,7 +8,7 @@ function json(statusCode, body) {
   };
 }
 
-function verify(rawBody, signature, secret) {
+function deliveryUuid(delivery) { const h=crypto.createHash("sha256").update(delivery).digest(); h[6]=(h[6]&0x0f)|0x40; h[8]=(h[8]&0x3f)|0x80; const hex=h.toString("hex"); return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20,32)}`; }\n\nfunction verify(rawBody, signature, secret) {
   if (!rawBody || !signature || !secret) return false;
   const expected = "sha256=" + crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
   const a = Buffer.from(expected);
@@ -37,9 +37,9 @@ export async function handler(event) {
   const eventType = event.headers?.["x-github-event"] || event.headers?.["X-GitHub-Event"];
   if (!eventId || !eventType) return json(400, { error: "MISSING_GITHUB_EVENT_HEADERS" });
 
-  const systemEvent = {
-    event_id: eventId,
-    event_type: eventType,
+  const eventUuid = deliveryUuid(eventId);\n  const normalizedType = eventType === "workflow_run"\n    ? (payload.action === "completed" && payload.workflow_run?.conclusion === "success" ? "CI_RUN_COMPLETED" : payload.action === "completed" ? "CI_RUN_FAILED" : "GITHUB_WORKFLOW_EVENT")\n    : "GITHUB_EVENT";\n  const systemEvent = {
+    event_id: eventUuid,
+    event_type: normalizedType,
     source: "github",
     repository: payload.repository?.full_name ?? null,
     ref: payload.ref ?? payload.workflow_run?.head_branch ?? null,
