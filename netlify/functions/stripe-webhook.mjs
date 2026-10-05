@@ -33,7 +33,8 @@ async function resolveReference(normalized,event){
   const reference=subscription?.metadata?.aimpact_billing_reference;
   return reference?verifyBillingReference(reference,process.env.BILLING_REFERENCE_HMAC_SECRET):null;
 }
-\nasync function persistEntitlement(normalized,reference){
+
+async function persistEntitlement(normalized,reference){
   const url=process.env.SUPABASE_URL?.replace(/\/$/,""),service=process.env.SUPABASE_SERVICE_ROLE_KEY;
   if(!url||!service)return {ok:false,code:"ENTITLEMENT_SERVER_CONFIG_REQUIRED"};
   const rpc=process.env.BILLING_ENTITLEMENT_RPC||"process_stripe_entitlement_event";
