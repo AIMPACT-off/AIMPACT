@@ -18,7 +18,7 @@ const conflictExecution=crypto.randomUUID();
 const evidenceDir=process.env.TEST_EVIDENCE_DIR||"artifacts/phase2-test-evidence";
 fs.mkdirSync(evidenceDir,{recursive:true});
 
-function q(v){if(v===null||v===undefined)return"null";if(typeof v==="boolean")return v?"true":"false";if(typeof v==="number")return String(v);return"'"+String(v).replaceAll("'","''")+"'";}
+function q(v){if(v===null||v===undefined)return"null";if(typeof v==="boolean")return v?"true":"false";if(typeof v==="number")return String(v);if(typeof v==="object")return"'"+JSON.stringify(v).replaceAll("'","''")+"'";return"'"+String(v).replaceAll("'","''")+"'";}
 function sql(name,args){return"select public."+name+"("+args.map(q).join(",")+")::text";}
 function psql(s,label){const r=spawnSync("psql",[dbUrl,"-X","-v","ON_ERROR_STOP=1","-v","VERBOSITY=verbose","-At","-c",s],{encoding:"utf8",env:{...process.env,PGPASSWORD:process.env.PGPASSWORD||""}});if(r.error)throw r.error;if(r.status!==0)throw new Error(label+": "+(r.stderr||r.stdout||"psql failed").replace(/postgres(?:ql)?:\/\/[^\s]+/gi,"[REDACTED_DB_URL]"));return r.stdout.trim();}
 function client(){return{async rpc(name,args){try{const raw=psql(sql(name,Object.values(args)),"RPC "+name);let data;try{data=JSON.parse(raw)}catch{data=raw}return{data,error:null}}catch(error){return{data:null,error}}}};}
