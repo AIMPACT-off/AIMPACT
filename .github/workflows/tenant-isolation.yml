@@ -32,6 +32,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Verify TEST secret injection (values never printed)
+        env:
+          TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+          TEST_SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
+          TEST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+          TEST_DB_DISPOSABLE: ${{ secrets.TEST_DB_DISPOSABLE }}
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+        run: node scripts/check-test-secret-injection.mjs
+
       - name: Run real Supabase Auth JWT audit
         env:
           TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
