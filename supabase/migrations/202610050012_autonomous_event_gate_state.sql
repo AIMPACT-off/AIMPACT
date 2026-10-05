@@ -40,7 +40,9 @@ create or replace function public.record_autonomous_system_event_atomic(
   p_ref text, p_commit_sha text, p_correlation_id uuid, p_causation_id uuid,
   p_schema_version text, p_payload jsonb, p_occurred_at timestamptz
 ) returns jsonb
-language plpgsql security definer set search_path=pg_catalog,public as $$
+language plpgsql security definer set search_path=pg_catalog,public as $
+declare
+  v_duplicate boolean := false;
 begin
   if p_event_id is null or p_event_type is null or p_source is null
      or p_correlation_id is null or p_payload is null
