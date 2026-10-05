@@ -14,6 +14,7 @@ on:
       - "tests/control-plane-policy.test.mjs"
       - "tests/control-plane-router-dispatcher.test.mjs"
       - "tests/control-plane-runtime-persistence.test.mjs"
+      - "tests/control-plane-action-ledger.test.mjs"
       - "phase2/control-plane/**"
       - "portal/**"
       - "netlify/functions/**"
@@ -31,7 +32,7 @@ jobs:
         with:
           node-version: 22
       - name: Run Phase 2 product surface tests
-        run: node --test tests/phase2-product-surface.test.mjs tests/stripe-billing.test.mjs tests/control-plane-lifecycle.test.mjs tests/control-plane-policy.test.mjs tests/control-plane-router-dispatcher.test.mjs tests/control-plane-runtime-persistence.test.mjs
+        run: node --test tests/phase2-product-surface.test.mjs tests/stripe-billing.test.mjs tests/control-plane-lifecycle.test.mjs tests/control-plane-policy.test.mjs tests/control-plane-router-dispatcher.test.mjs tests/control-plane-runtime-persistence.test.mjs tests/control-plane-action-ledger.test.mjs
       - name: Syntax check portal and server functions
         run: node --check portal/app.js && node --check netlify/functions/billing-status.mjs && node --check netlify/functions/workflow-status.mjs && node --check netlify/functions/workflow-start.mjs && node --check netlify/functions/outcome-submit.mjs
 
