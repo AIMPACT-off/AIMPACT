@@ -104,7 +104,7 @@ function show(id){
   heading.textContent={overview:"Business Command Center",diagnosis:"Business Diagnosis",reports:"Approved Reports",workflows:"Workflow Operations",roi:"Outcome & ROI",billing:"Billing & Entitlements"}[id]||"AIMPACT";
   window.scrollTo({top:0,behavior:"smooth"});
 }
-nav.forEach(b=>b.addEventListener("click",()=>{show(b.dataset.view);if(b.dataset.view==="reports")loadApprovedReports().catch(error=>note(authNote,"Report data is temporarily unavailable: "+friendlyError(error.message),"error"));}));
+nav.forEach(b=>b.addEventListener("click",()=>{show(b.dataset.view);const loaders={reports:loadApprovedReports,billing:loadBillingState,workflows:loadWorkflowState};if(loaders[b.dataset.view])loaders[b.dataset.view]().catch(error=>note(authNote,"Data is temporarily unavailable: "+friendlyError(error.message),"error"));}));
 document.querySelectorAll("[data-view-target]").forEach(b=>b.addEventListener("click",()=>show(b.dataset.viewTarget)));
 
 function setWorkspaceLocked(locked,{showAuth=locked,clearContext=locked}={}){
@@ -152,6 +152,7 @@ async function loadMemberships(){
     document.getElementById("tenant").textContent=data.tenant.id;
     restoreDraft();
     note(authNote,"Workspace membership verified. Secure tenant session is active.","success");
+    Promise.allSettled([loadApprovedReports(),loadBillingState(),loadWorkflowState()]);
     return;
   }
   if(response.status===409 && data.code==="TENANT_SELECTION_REQUIRED" && Array.isArray(data.memberships)){
@@ -202,6 +203,7 @@ async function connectSelectedTenant(){
   document.getElementById("tenant").textContent=data.tenant.id;
   restoreDraft();
   note(authNote,"Selected workspace verified. Secure tenant session is active.","success");
+  Promise.allSettled([loadApprovedReports(),loadBillingState(),loadWorkflowState()]);
 }
 
 async function refreshSession(){
@@ -302,6 +304,32 @@ function renderApprovedReports(reports){
   }).join("");
 }
 function escapeHtml(value){return String(value).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");}
+async function loadBillingState(){
+  if(!session?.access_token || !tenantContext || !authReady)return;
+  const tenantId=encodeURIComponent(tenantSelect.value||"");
+  const response=await safeFetch("/.netlify/functions/billing-status?tenant_id="+tenantId,{headers:{"Authorization":"Bearer "+session.access_token,"Accept":"application/json"}});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(data.code||"BILLING_LOAD_FAILED");
+  const entitlement=data.entitlement;
+  document.getElementById("billingPlan").textContent=entitlement?.plan||"NOT ACTIVE";
+  document.getElementById("billingStatus").textContent=entitlement?.status||"No entitlement";
+  document.getElementById("billingRenewal").textContent=entitlement?.current_period_end?new Date(entitlement.current_period_end).toLocaleDateString():"—";
+  document.getElementById("billingPanel").innerHTML=entitlement?"<b>"+escapeHtml(entitlement.plan)+" · "+escapeHtml(entitlement.status)+"</b><p>Entitlement is verified server-side for this workspace. Live billing remains disabled.</p>":"<b>NO ACTIVE ENTITLEMENT</b><p>Choose a plan through the test billing path when enabled. No production access is granted by this screen.</p>";
+}
+async function loadWorkflowState(){
+  if(!session?.access_token || !tenantContext || !authReady)return;
+  const tenantId=encodeURIComponent(tenantSelect.value||"");
+  const response=await safeFetch("/.netlify/functions/workflow-status?tenant_id="+tenantId,{headers:{"Authorization":"Bearer "+session.access_token,"Accept":"application/json"}});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(data.code||"WORKFLOW_LOAD_FAILED");
+  const workflows=data.workflows||[], outcomes=data.outcomes||[];
+  document.getElementById("metricWorkflows").textContent=String(workflows.filter(item=>!["COMPLETED","FAILED"].includes(item.status)).length);
+  const panel=document.getElementById("workflowPanel");
+  if(!workflows.length){panel.innerHTML="<b>NO WORKFLOW RUNS</b><p>Approved reports can be converted into server-controlled workflow runs after the implementation gate is enabled.</p>";document.getElementById("metricRoi").textContent="—";return;}
+  panel.innerHTML=workflows.map(item=>{const related=outcomes.filter(outcome=>outcome.workflow_id===item.id);return "<article class='report-card'><small>"+escapeHtml(item.status)+" · "+escapeHtml(item.current_step)+"</small><h3>"+escapeHtml(item.workflow_name)+"</h3><p>Workflow "+escapeHtml(item.id)+" · report "+escapeHtml(item.report_id)+"</p><strong>VERIFIED OUTCOMES</strong><pre>"+escapeHtml(JSON.stringify(related,null,2))+"</pre></article>";}).join("");
+  const verified=outcomes.filter(item=>item.verified).length;document.getElementById("metricRoi").textContent=verified?String(verified):"—";
+}
+
 \nasync function signOut(){
   await supabaseClient.auth.signOut();
   session=null;
