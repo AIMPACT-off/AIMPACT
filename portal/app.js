@@ -343,7 +343,8 @@ async function loadWorkflowState(){
   const verified=outcomes.filter(item=>item.verified).length;document.getElementById("metricRoi").textContent=verified?String(verified):"—";
 }
 
-\nasync function signOut(){
+
+async function signOut(){
   await supabaseClient.auth.signOut();
   session=null;
   authReady=false;
