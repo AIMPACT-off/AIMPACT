@@ -3,7 +3,7 @@ const fail = (code, status, extra = {}) =>
   new Response(JSON.stringify({ok:false, code, ...extra}), {status, headers:HEADERS});
 
 async function getVerifiedUser(request, url, anon) {
-  const match = (request.headers.get("authorization") || "").match(/^Bearer\\s+([A-Za-z0-9._~-]+)$/);
+  const match = (request.headers.get("authorization") || "").match(/^Bearer\s+([A-Za-z0-9._~-]+)$/);
   if (!match) return {error: fail("SUPABASE_AUTH_JWT_REQUIRED", 401)};
   const auth = await fetch(url + "/auth/v1/user", {
     headers: {apikey: anon, Authorization: "Bearer " + match[1]}
@@ -72,7 +72,7 @@ export default async function handler(request) {
   if (request.method !== "GET") return fail("METHOD_NOT_ALLOWED", 405);
   if (process.env.DIAGNOSIS_PORTAL_ENABLED !== "true") return fail("PORTAL_DISABLED", 503);
 
-  const url = process.env.SUPABASE_URL?.replace(/\\/$/, "");
+  const url = process.env.SUPABASE_URL?.replace(/\/$/, "");
   const anon = process.env.SUPABASE_ANON_KEY;
   const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !anon || !service) return fail("SUPABASE_SERVER_CONFIG_REQUIRED", 503);
