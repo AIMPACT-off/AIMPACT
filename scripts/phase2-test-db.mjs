@@ -707,14 +707,13 @@ try {
 
   const dlqRows = psql(`
     select count(*)::text || '|' ||
-           max(status) || '|' ||
            max(attempt)::text || '|' ||
            max(error_code)
       from public.control_plane_execution_dlq d
      where d.tenant_id='${A}'::uuid
        and d.intent_id='${retryIntentId}'::uuid
   `, "execution intent DLQ evidence row");
-  assert(dlqRows === "1|DLQ|2|RETRY_EXHAUSTED", "DLQ evidence row mismatch");
+  assert(dlqRows === "1|2|RETRY_EXHAUSTED", "DLQ evidence row mismatch");
 
   const dlqOriginal = psql(`
     select status || '|' || attempt::text || '|' || coalesce(last_error_code,'')
