@@ -84,5 +84,14 @@ export function createExecutionOutboxAdapter(supabase) {
       if (error) throw error;
       return data;
     },
+    async quarantineDlq(intentId, reasonCode = "RETRY_EXHAUSTED", reasonMessage = null) {
+      const { data, error } = await supabase.rpc("quarantine_execution_intent_dlq_atomic", {
+        p_intent_id: intentId,
+        p_reason_code: reasonCode,
+        p_reason_message: reasonMessage,
+      });
+      if (error) throw error;
+      return data;
+    },
   };
 }
