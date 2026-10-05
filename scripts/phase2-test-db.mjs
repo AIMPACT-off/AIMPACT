@@ -54,7 +54,7 @@ const evidence = {
   ]
 };
 function psql(sql, label) {
-  const r = spawnSync("psql", [dbUrl, "-X", "-v", "ON_ERROR_STOP=1", "-At", "-c", sql], {
+  const r = spawnSync("psql", [dbUrl, "-X", "-v", "ON_ERROR_STOP=1", "-v", "VERBOSITY=verbose", "-At", "-c", sql], {
     encoding: "utf8", env: { ...process.env, PGPASSWORD: process.env.PGPASSWORD || "" }
   });
   if (r.error) throw r.error;
