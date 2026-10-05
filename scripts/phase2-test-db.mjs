@@ -481,7 +481,7 @@ try {
       )::text
     `, "execution intent conflict");
   } catch (error) {
-    const match = String(error.message || "").match(/ERROR:\s+(\d{5}):/);
+    const match = String(error.message || "").match(/ERROR:\s+(\d{5})(?::|\b)/);
     intentConflictSqlstate = match?.[1] || "";
   }
   assert(intentConflictSqlstate === "23505", "execution intent conflict must return SQLSTATE 23505");
