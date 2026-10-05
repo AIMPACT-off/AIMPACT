@@ -1,5 +1,7 @@
 import { routeEvent } from "./event-router.mjs";
 import { executeRoutedAction } from "./action-dispatcher.mjs";
+import { createActionExecutionRecord } from "./action-execution-ledger.mjs";
+import { createLearningSignalRecord } from "./learning-loop.mjs";
 
 function validateRuntimeEvent(event) {
   const required = ["event_id", "event_type", "tenant_id", "occurred_at", "schema_version"];
@@ -12,7 +14,7 @@ function validateRuntimeEvent(event) {
  * Persistence contract deliberately uses an injected adapter.
  * The bridge is server-side only; callers must supply a service-role-scoped adapter.
  */
-export function createRuntimePersistenceBridge({ persistence, handlers = {}, actionMap } = {}) {
+export function createRuntimePersistenceBridge({ persistence, handlers = {}, actionMap, actionLedger, learning } = {}) {
   if (!persistence?.getLifecycleState || !persistence?.getEventByIdempotencyKey || !persistence?.applyLifecycleEvent) {
     throw new Error("PERSISTENCE_ADAPTER_REQUIRED");
   }
@@ -87,6 +89,51 @@ export function createRuntimePersistenceBridge({ persistence, handlers = {}, act
       }
 
       const dispatch = executeRoutedAction(route, payload, handlers);
+      let ledger = null;
+      let learningRecord = null;
+
+      if (actionLedger) {
+        const executionRecord = createActionExecutionRecord({
+          tenantId: event.tenant_id,
+          eventId: event.event_id,
+          action: route.action,
+          dispatch,
+          idempotencyKey: event.idempotency_key,
+          correlationId: event.correlation_id ?? null,
+          causationId: event.causation_id ?? null
+        });
+        if (!executionRecord.ok) {
+          return {
+            ok: false,
+            stage: "LEDGER",
+            code: executionRecord.code,
+            event_id: event.event_id,
+            lifecycle: route.lifecycle,
+            policy: route.policy,
+            action: route.action,
+            persistence: persisted,
+            dispatch
+          };
+        }
+        ledger = await actionLedger.record(executionRecord.execution);
+      }
+
+      if (learning && ledger?.duplicate !== true) {
+        const learningInput = {
+          tenantId: event.tenant_id,
+          eventId: event.event_id,
+          executionId: ledger?.execution_id ?? ledger?.data?.execution_id ?? null,
+          signalType: dispatch.status === "EXECUTED" ? "ACTION_OUTCOME" : "ACTION_FAILURE",
+          dispatchStatus: dispatch.status,
+          result: dispatch.result ?? null,
+          correlationId: event.correlation_id ?? null,
+          causationId: event.causation_id ?? null
+        };
+        learningRecord = createLearningSignalRecord(learningInput);
+        const learningResult = await learning.record(learningRecord);
+        learningRecord = { ...learningRecord, persistence: learningResult?.data ?? learningResult };
+      }
+
       return {
         ok: dispatch.status === "EXECUTED",
         status: dispatch.status === "EXECUTED" ? "EXECUTED" : "EXECUTION_FAILED",
@@ -96,7 +143,8 @@ export function createRuntimePersistenceBridge({ persistence, handlers = {}, act
         action: route.action,
         persistence: persisted,
         dispatch,
-        learning: {
+        ledger,
+        learning: learningRecord ?? {
           correlation_id: event.correlation_id ?? null,
           causation_id: event.causation_id ?? null,
           outcome: dispatch.status
