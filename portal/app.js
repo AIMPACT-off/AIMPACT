@@ -300,10 +300,23 @@ function renderApprovedReports(reports){
     const candidates=Array.isArray(report.solution_candidates)?report.solution_candidates:[];
     const workflow=report.workflow_recommendation&&typeof report.workflow_recommendation==="object"?report.workflow_recommendation:{};
     const evidence=Array.isArray(report.evidence)?report.evidence:[];
-    return '<article class="report-card"><small>APPROVED · '+escapeHtml(report.created_at||"")+'</small><h3>'+escapeHtml(report.problem_category||"Business Diagnosis")+'</h3><p>'+escapeHtml(report.problem_statement||"")+'</p><strong>RECOMMENDATION</strong><pre>'+escapeHtml(JSON.stringify(workflow,null,2))+'</pre><strong>SOLUTION CANDIDATES</strong><pre>'+escapeHtml(JSON.stringify(candidates,null,2))+'</pre><strong>EVIDENCE</strong><pre>'+escapeHtml(JSON.stringify(evidence,null,2))+'</pre><span>CONFIDENCE · '+escapeHtml(String(report.confidence??"—"))+'</span></article>';
+    return '<article class="report-card"><small>APPROVED · '+escapeHtml(report.created_at||"")+'</small><h3>'+escapeHtml(report.problem_category||"Business Diagnosis")+'</h3><p>'+escapeHtml(report.problem_statement||"")+'</p><strong>RECOMMENDATION</strong><pre>'+escapeHtml(JSON.stringify(workflow,null,2))+'</pre><strong>SOLUTION CANDIDATES</strong><pre>'+escapeHtml(JSON.stringify(candidates,null,2))+'</pre><strong>EVIDENCE</strong><pre>'+escapeHtml(JSON.stringify(evidence,null,2))+'</pre><span>CONFIDENCE · '+escapeHtml(String(report.confidence??"—"))+'</span><button class="button primary start-workflow" data-report-id="'+escapeHtml(report.id)+'" type="button">START WORKFLOW →</button></article>';
   }).join("");
 }
 function escapeHtml(value){return String(value).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");}
+async function startWorkflow(reportId,button){
+  if(!reportId||!session?.access_token||!tenantContext)return;
+  setBusy(button,true,"STARTING…");
+  try{
+    const response=await safeFetch("/.netlify/functions/workflow-start",{method:"POST",headers:{"Authorization":"Bearer "+session.access_token,"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({tenant_id:tenantSelect.value,report_id:reportId})});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(data.code||"WORKFLOW_START_FAILED");
+    button.textContent=data.duplicate?"WORKFLOW ALREADY QUEUED":"WORKFLOW QUEUED";
+    await loadWorkflowState();
+  }catch(error){note(authNote,"Workflow start blocked: "+friendlyError(error.message),"error");setBusy(button,false);}
+}
+document.addEventListener("click",event=>{const button=event.target.closest(".start-workflow");if(button)startWorkflow(button.dataset.reportId,button);});
+
 async function loadBillingState(){
   if(!session?.access_token || !tenantContext || !authReady)return;
   const tenantId=encodeURIComponent(tenantSelect.value||"");
