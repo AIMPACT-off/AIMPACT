@@ -303,7 +303,7 @@ try {
 
   const staleCp = spawnSync("psql", [dbUrl,"-X","-v","ON_ERROR_STOP=1","-v","VERBOSITY=verbose","-At","-c",
     `select public.apply_lifecycle_event_atomic('${cpEvent2}','${A}','DIAGNOSIS_SUBMITTED','${cpKey2}',0,2)`], {encoding:"utf8"});
-  const staleCpSqlstate = staleCp.stderr.match(/ERROR:\s+(\\d{5}):/)?.[1];
+  const staleCpSqlstate = staleCp.stderr.match(/ERROR:\s+(\d{5}):/)?.[1];
   assert(staleCp.status !== 0 && staleCpSqlstate === "40001", "stale lifecycle version must fail with SQLSTATE 40001");
   evidence.checks.control_plane_optimistic_lock = { status: "PASS", sqlstate: staleCpSqlstate };
 
