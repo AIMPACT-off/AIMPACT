@@ -52,11 +52,8 @@ begin
   values
     (p_event_id,p_event_type,p_source,p_repository,p_ref,p_commit_sha,p_correlation_id,p_causation_id,p_schema_version,p_payload,p_occurred_at)
   on conflict (event_id) do nothing;
-  return jsonb_build_object(
-    'ok', true,
-    'duplicate', exists(select 1 from public.autonomous_system_events e where e.event_id=p_event_id and e.created_at < now()),
-    'event_id', p_event_id
-  );
+  if not found then v_duplicate := true; end if;
+  return jsonb_build_object('ok', true, 'duplicate', v_duplicate, 'event_id', p_event_id);
 end;
 $$;
 
