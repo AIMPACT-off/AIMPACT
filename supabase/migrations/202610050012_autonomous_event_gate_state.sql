@@ -40,7 +40,7 @@ create or replace function public.record_autonomous_system_event_atomic(
   p_ref text, p_commit_sha text, p_correlation_id uuid, p_causation_id uuid,
   p_schema_version text, p_payload jsonb, p_occurred_at timestamptz
 ) returns jsonb
-language plpgsql security definer set search_path=pg_catalog,public as $
+language plpgsql security definer set search_path=pg_catalog,public as $function$
 declare
   v_duplicate boolean := false;
 begin
@@ -57,7 +57,7 @@ begin
   if not found then v_duplicate := true; end if;
   return jsonb_build_object('ok', true, 'duplicate', v_duplicate, 'event_id', p_event_id);
 end;
-$$;
+$function$;
 
 revoke all on function public.record_autonomous_system_event_atomic(uuid,text,text,text,text,text,uuid,uuid,text,jsonb,timestamptz) from public,anon,authenticated;
 grant execute on function public.record_autonomous_system_event_atomic(uuid,text,text,text,text,text,uuid,uuid,text,jsonb,timestamptz) to service_role;
