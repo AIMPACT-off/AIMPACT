@@ -1,4 +1,5 @@
 name: Tenant isolation tests
+    # Dispatcher CI execution explicitly included
 
 on:
   workflow_dispatch:
