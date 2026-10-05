@@ -36,6 +36,7 @@ const migrations = [
   "supabase/migrations/202610050007_execution_intent_rpc.sql",
   "supabase/migrations/202610050008_execution_intent_claim_rpc.sql",
   "supabase/migrations/202610050009_execution_intent_complete_rpc.sql",
+  "supabase/migrations/202610050010_execution_intent_retry_rpc.sql",
 ];
 for (const file of migrations) {
   if (!fs.existsSync(file)) throw new Error(`FAIL-CLOSED: missing migration ${file}`);
@@ -611,7 +612,61 @@ try {
     replay: completeReplayJson,
     row: completeRows
   };
-  evidence.checks.action_execution_ledger = {
+
+  const retryIntentId = "a1000000-0000-4000-8000-000000000504";
+  psql(`
+    insert into public.control_plane_execution_outbox
+      (intent_id, tenant_id, event_id, action, idempotency_key, status, attempt, payload)
+    values
+      ('${retryIntentId}'::uuid, '${A}'::uuid, 'a1000000-0000-4000-8000-000000000101'::uuid,
+       'RETRY_TEST', 'phase-d2-retry-0001', 'PENDING', 0, '{}'::jsonb)
+  `, "execution intent retry fixture");
+  const retryClaim = JSON.parse(psql(`
+    select public.claim_execution_intent_atomic('${A}'::uuid, 'retry-worker-a', 60)::text
+  `, "execution intent retry claim"));
+  assert(retryClaim.claimed === true, "retry fixture claim must succeed");
+  assert(retryClaim.attempt === 1, "retry fixture first attempt must be 1");
+  psql(`
+    update public.control_plane_execution_outbox
+       set last_error_code='ACTION_FAILED', last_error_message='retry test failure'
+     where intent_id='${retryIntentId}'::uuid
+  `, "execution intent retry failure marker");
+  const retryFirst = JSON.parse(psql(`
+    select public.retry_execution_intent_atomic('${retryIntentId}'::uuid, 3, 30)::text
+  `, "execution intent retry first"));
+  assert(retryFirst.ok === true, "retry must succeed");
+  assert(retryFirst.status === "PENDING", "retry must return PENDING before exhaustion");
+  assert(retryFirst.retry_exhausted === false, "first retry must not exhaust");
+  assert(retryFirst.backoff_seconds === 30, "first retry backoff must be 30 seconds");
+  const retryAvailable = psql(`
+    update public.control_plane_execution_outbox set available_at=now()
+     where intent_id='${retryIntentId}'::uuid
+     returning status || '|' || attempt::text
+  `, "execution intent retry availability");
+  assert(retryAvailable === "PENDING|1", "retry intent must remain pending at attempt 1");
+  const retryClaimSecond = JSON.parse(psql(`
+    select public.claim_execution_intent_atomic('${A}'::uuid, 'retry-worker-b', 60)::text
+  `, "execution intent retry second claim"));
+  assert(retryClaimSecond.claimed === true, "retry second claim must succeed");
+  assert(retryClaimSecond.attempt === 2, "retry second claim must increment attempt to 2");
+  psql(`
+    update public.control_plane_execution_outbox
+       set last_error_code='ACTION_FAILED', last_error_message='retry test second failure'
+     where intent_id='${retryIntentId}'::uuid
+  `, "execution intent retry second failure marker");
+  const retryExhausted = JSON.parse(psql(`
+    select public.retry_execution_intent_atomic('${retryIntentId}'::uuid, 2, 30)::text
+  `, "execution intent retry exhausted"));
+  assert(retryExhausted.ok === true, "retry exhaustion must return success");
+  assert(retryExhausted.retry_exhausted === true, "retry must report exhaustion");
+  assert(retryExhausted.status === "FAILED", "exhausted retry must become FAILED");
+  const retryRow = psql(`
+    select status || '|' || attempt::text || '|' || coalesce(last_error_code,'')
+      from public.control_plane_execution_outbox
+     where intent_id='${retryIntentId}'::uuid
+  `, "execution intent retry evidence row");
+  assert(retryRow === "FAILED|2|ACTION_FAILED", "retry exhaustion state mismatch");
+  evidence.checks.execution_intent_retry_rpc = { status: "PASS", first_claim: retryClaim, first_retry: retryFirst, second_claim: retryClaimSecond, exhausted: retryExhausted, row: retryRow };  evidence.checks.action_execution_ledger = {
     status: "PASS",
     first: JSON.parse(ledgerFirst),
     replay: JSON.parse(ledgerDuplicate),
