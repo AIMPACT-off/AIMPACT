@@ -183,22 +183,32 @@ begin
       p_tenant_id, v_next_state, 1, p_event_id, p_occurred_at, now()
     )
     on conflict (tenant_id) do nothing;
-  end if;
 
-  update public.customer_lifecycle_state
-     set state = v_next_state,
-         version = v_current_version + 1,
-         last_event_id = p_event_id,
-         last_event_at = p_occurred_at,
-         updated_at = now()
-   where tenant_id = p_tenant_id
-     and version = v_current_version;
+    if not exists (
+      select 1 from public.customer_lifecycle_state
+       where tenant_id = p_tenant_id
+         and version = 1
+         and last_event_id = p_event_id
+    ) then
+      raise exception 'optimistic concurrency conflict creating lifecycle state'
+        using errcode = '40001';
+    end if;
+  else
+    update public.customer_lifecycle_state
+       set state = v_next_state,
+           version = v_current_version + 1,
+           last_event_id = p_event_id,
+           last_event_at = p_occurred_at,
+           updated_at = now()
+     where tenant_id = p_tenant_id
+       and version = v_current_version;
 
-  get diagnostics v_updated = row_count;
+    get diagnostics v_updated = row_count;
 
-  if v_updated <> 1 then
-    raise exception 'optimistic concurrency conflict for tenant % at version %',
-      p_tenant_id, v_current_version using errcode = '40001';
+    if v_updated <> 1 then
+      raise exception 'optimistic concurrency conflict for tenant % at version %',
+        p_tenant_id, v_current_version using errcode = '40001';
+    end if;
   end if;
 
   return jsonb_build_object(
