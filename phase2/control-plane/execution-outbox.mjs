@@ -57,6 +57,8 @@ export function createExecutionOutboxAdapter(supabase) {
       return data;
     },
     async claim(tenantId, workerId, leaseSeconds = 60) {
+      if (!tenantId || !workerId) throw new Error("EXECUTION_CLAIM_CONTEXT_REQUIRED");
+      if (!Number.isInteger(leaseSeconds) || leaseSeconds <= 0) throw new Error("EXECUTION_CLAIM_LEASE_INVALID");
       const { data, error } = await supabase.rpc("claim_execution_intent_atomic", {
         p_tenant_id: tenantId,
         p_worker_id: workerId,
