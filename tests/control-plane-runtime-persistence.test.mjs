@@ -121,3 +121,76 @@ test("runtime bridge propagates persistence concurrency rejection without dispat
   assert.equal(result.code, "PERSISTENCE_REJECTED");
   assert.equal(executed, 0);
 });
+
+
+test("runtime bridge closes the loop: dispatch -> ledger -> learning", async () => {
+  const persistence = fakePersistence();
+  const order = [];
+  const ledgerRecords = [];
+  const learningRecords = [];
+  const bridge = createRuntimePersistenceBridge({
+    persistence,
+    handlers: {
+      START_WORKFLOW: () => {
+        order.push("dispatch");
+        return { workflow_id: "wf-closed-loop" };
+      }
+    },
+    actionLedger: {
+      async record(execution) {
+        order.push("ledger");
+        ledgerRecords.push(execution);
+        return { ok: true, duplicate: false, execution_id: "exec-closed-loop" };
+      }
+    },
+    learning: {
+      async record(signal) {
+        order.push("learning");
+        learningRecords.push(signal);
+        return { ok: true, duplicate: false, signal_id: "signal-closed-loop" };
+      }
+    }
+  });
+
+  const result = await bridge.process(
+    baseEvent({ correlation_id: "corr-1", causation_id: "cause-1" }),
+    readyPolicy,
+    { tenant_id: "tenant-a" }
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(order, ["dispatch", "ledger", "learning"]);
+  assert.equal(ledgerRecords.length, 1);
+  assert.equal(ledgerRecords[0].status, "EXECUTED");
+  assert.equal(learningRecords.length, 1);
+  assert.equal(learningRecords[0].execution_id, "exec-closed-loop");
+  assert.equal(learningRecords[0].signal_type, "ACTION_OUTCOME");
+  assert.equal(learningRecords[0].outcome, "POSITIVE");
+  assert.equal(learningRecords[0].correlation_id, "corr-1");
+  assert.equal(learningRecords[0].causation_id, "cause-1");
+});
+
+test("runtime bridge never creates learning when ledger persistence fails", async () => {
+  const persistence = fakePersistence();
+  let learningCalls = 0;
+  const bridge = createRuntimePersistenceBridge({
+    persistence,
+    handlers: { START_WORKFLOW: () => ({ workflow_id: "wf-ledger-failure" }) },
+    actionLedger: {
+      async record() {
+        throw new Error("LEDGER_WRITE_FAILED");
+      }
+    },
+    learning: {
+      async record() {
+        learningCalls += 1;
+      }
+    }
+  });
+
+  await assert.rejects(
+    () => bridge.process(baseEvent(), readyPolicy),
+    /LEDGER_WRITE_FAILED/
+  );
+  assert.equal(learningCalls, 0);
+});
