@@ -43,6 +43,11 @@ revoke all on public.billing_events, public.tenant_entitlements
   from public, anon, authenticated;
 grant select on public.tenant_entitlements to authenticated;
 
+drop policy if exists tenant_entitlements_member_read on public.tenant_entitlements;
+create policy tenant_entitlements_member_read on public.tenant_entitlements
+  for select to authenticated
+  using (public.is_active_tenant_member(tenant_id));
+
 create or replace function public.process_stripe_entitlement_event(
   p_event_id text,
   p_event_type text,
@@ -60,6 +65,7 @@ as $$
 declare
   v_existing public.billing_events%rowtype;
   v_entitlement public.tenant_entitlements%rowtype;
+  v_latest_created timestamptz;
   v_status text;
 begin
   if p_event_id is null or p_event_type is null or p_tenant_id is null
