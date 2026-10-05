@@ -95,6 +95,28 @@ begin
     );
   end if;
 
+  select max(event_created_at) into v_latest_created
+    from public.billing_events
+   where tenant_id = p_tenant_id
+     and event_status = 'PROCESSED';
+
+  if p_event_created_at is not null and v_latest_created is not null
+     and p_event_created_at < v_latest_created then
+    insert into public.billing_events(
+      event_id,tenant_id,event_type,event_status,stripe_customer_id,
+      stripe_subscription_id,plan,event_created_at,processed_at
+    ) values (
+      p_event_id,p_tenant_id,p_event_type,'IGNORED',p_customer_id,
+      p_subscription_id,p_plan,p_event_created_at,now()
+    );
+    return jsonb_build_object(
+      'processed',false,
+      'ignored',true,
+      'stale',true,
+      'event_id',p_event_id
+    );
+  end if;
+
   v_status := case
     when p_event_type in ('checkout.session.completed','checkout.session.async_payment_succeeded')
       and p_status = 'paid' then 'ACTIVE'
