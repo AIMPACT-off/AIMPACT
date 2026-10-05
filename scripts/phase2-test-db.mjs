@@ -35,6 +35,7 @@ const migrations = [
   "supabase/migrations/202610050006_execution_outbox_table.sql",
   "supabase/migrations/202610050007_execution_intent_rpc.sql",
   "supabase/migrations/202610050008_execution_intent_claim_rpc.sql",
+  "supabase/migrations/202610050009_execution_intent_complete_rpc.sql",
 ];
 for (const file of migrations) {
   if (!fs.existsSync(file)) throw new Error(`FAIL-CLOSED: missing migration ${file}`);
@@ -573,6 +574,42 @@ try {
       winner_count: raceWinners.length
     },
     rows_attempts: claimEvidenceRows
+  };
+
+  const completeFirst = psql(`
+    select public.complete_execution_intent_atomic(
+      'a1000000-0000-4000-8000-000000000501'::uuid,
+      'COMPLETED'
+    )::text
+  `, "execution intent complete");
+  const completeFirstJson = JSON.parse(completeFirst);
+  assert(completeFirstJson.ok === true, "complete must succeed");
+  assert(completeFirstJson.duplicate === false, "first complete must not be duplicate");
+  assert(completeFirstJson.status === "COMPLETED", "completed intent must be COMPLETED");
+
+  const completeReplay = psql(`
+    select public.complete_execution_intent_atomic(
+      'a1000000-0000-4000-8000-000000000501'::uuid,
+      'COMPLETED'
+    )::text
+  `, "execution intent complete replay");
+  const completeReplayJson = JSON.parse(completeReplay);
+  assert(completeReplayJson.ok === true, "complete replay must succeed");
+  assert(completeReplayJson.duplicate === true, "complete replay must be duplicate");
+  assert(completeReplayJson.status === "COMPLETED", "complete replay must remain COMPLETED");
+
+  const completeRows = psql(`
+    select status || '|' || attempt::text
+      from public.control_plane_execution_outbox
+     where intent_id='a1000000-0000-4000-8000-000000000501'::uuid
+  `, "execution intent complete evidence row");
+  assert(completeRows === "COMPLETED|2", "completed intent state/attempt mismatch");
+
+  evidence.checks.execution_intent_complete_rpc = {
+    status: "PASS",
+    first: completeFirstJson,
+    replay: completeReplayJson,
+    row: completeRows
   };
   evidence.checks.action_execution_ledger = {
     status: "PASS",
