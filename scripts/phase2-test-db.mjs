@@ -37,6 +37,7 @@ const migrations = [
   "supabase/migrations/202610050008_execution_intent_claim_rpc.sql",
   "supabase/migrations/202610050009_execution_intent_complete_rpc.sql",
   "supabase/migrations/202610050010_execution_intent_retry_rpc.sql",
+  "supabase/migrations/202610050011_execution_intent_dlq.sql",
 ];
 for (const file of migrations) {
   if (!fs.existsSync(file)) throw new Error(`FAIL-CLOSED: missing migration ${file}`);
@@ -666,7 +667,65 @@ try {
      where intent_id='${retryIntentId}'::uuid
   `, "execution intent retry evidence row");
   assert(retryRow === "FAILED|2|ACTION_FAILED", "retry exhaustion state mismatch");
-  evidence.checks.execution_intent_retry_rpc = { status: "PASS", first_claim: retryClaim, first_retry: retryFirst, second_claim: retryClaimSecond, exhausted: retryExhausted, row: retryRow };  evidence.checks.action_execution_ledger = {
+  evidence.checks.execution_intent_retry_rpc = { status: "PASS", first_claim: retryClaim, first_retry: retryFirst, second_claim: retryClaimSecond, exhausted: retryExhausted, row: retryRow };
+
+  const dlqFirst = JSON.parse(psql(`
+    select public.quarantine_execution_intent_dlq_atomic(
+      '${retryIntentId}'::uuid,
+      'RETRY_EXHAUSTED',
+      'max retry attempts reached'
+    )::text
+  `, "execution intent DLQ quarantine"));
+  assert(dlqFirst.ok === true, "DLQ quarantine must succeed");
+  assert(dlqFirst.duplicate === false, "first DLQ quarantine must not be duplicate");
+  assert(dlqFirst.status === "DLQ", "DLQ quarantine must return DLQ");
+
+  const dlqReplay = JSON.parse(psql(`
+    select public.quarantine_execution_intent_dlq_atomic(
+      '${retryIntentId}'::uuid,
+      'RETRY_EXHAUSTED',
+      'max retry attempts reached'
+    )::text
+  `, "execution intent DLQ replay"));
+  assert(dlqReplay.ok === true, "DLQ replay must succeed");
+  assert(dlqReplay.duplicate === true, "DLQ replay must be duplicate");
+  assert(dlqReplay.status === "DLQ", "DLQ replay must remain DLQ");
+
+  const dlqWrongState = spawnSync("psql", [dbUrl,"-X","-v","ON_ERROR_STOP=1","-v","VERBOSITY=verbose","-At","-c",
+    `select public.quarantine_execution_intent_dlq_atomic(
+      'a1000000-0000-4000-8000-000000000501'::uuid,
+      'MANUAL_REVIEW',
+      'completed intent must not enter DLQ'
+    )::text`], {encoding:"utf8"});
+  const dlqWrongStateSqlstate = dlqWrongState.stderr.match(/ERROR:\\s+(\\d{5}):/)?.[1];
+  assert(dlqWrongState.status !== 0 && dlqWrongStateSqlstate === "55000", "non-FAILED intent must be rejected from DLQ");
+
+  const dlqRows = psql(`
+    select count(*)::text || '|' ||
+           max(status) || '|' ||
+           max(attempt)::text || '|' ||
+           max(error_code)
+      from public.control_plane_execution_dlq d
+     where d.tenant_id='${A}'::uuid
+       and d.intent_id='${retryIntentId}'::uuid
+  `, "execution intent DLQ evidence row");
+  assert(dlqRows === "1|DLQ|2|RETRY_EXHAUSTED", "DLQ evidence row mismatch");
+
+  const dlqOriginal = psql(`
+    select status || '|' || attempt::text || '|' || coalesce(last_error_code,'')
+      from public.control_plane_execution_outbox
+     where intent_id='${retryIntentId}'::uuid
+  `, "execution intent DLQ source row");
+  assert(dlqOriginal === "FAILED|2|ACTION_FAILED", "DLQ quarantine must preserve FAILED source intent");
+
+  evidence.checks.execution_intent_dlq_rpc = {
+    status: "PASS",
+    first: dlqFirst,
+    replay: dlqReplay,
+    non_failed_sqlstate: dlqWrongStateSqlstate,
+    dlq_row: dlqRows,
+    source_row: dlqOriginal
+  };  evidence.checks.action_execution_ledger = {
     status: "PASS",
     first: JSON.parse(ledgerFirst),
     replay: JSON.parse(ledgerDuplicate),
@@ -708,6 +767,7 @@ try {
   if (fixturesCreated) {
     try {
       psql(`delete from public.control_plane_learning_signals where tenant_id in ('${A}','${B}');
+        delete from public.control_plane_execution_dlq where tenant_id in ('${A}','${B}');
         delete from public.control_plane_execution_outbox where tenant_id in ('${A}','${B}');
         delete from public.control_plane_action_executions where tenant_id in ('${A}','${B}');
         delete from public.diagnosis_dead_letters where tenant_id in ('${A}','${B}');
