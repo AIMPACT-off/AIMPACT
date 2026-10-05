@@ -32,6 +32,8 @@ const migrations = [
   "supabase/migrations/202610040006_tenant_bootstrap_atomic_intake.sql",
   "supabase/migrations/202610050003_control_plane_lifecycle.sql",
   "supabase/migrations/202610050004_action_execution_ledger.sql",
+  "supabase/migrations/202610050006_execution_outbox_table.sql",
+  "supabase/migrations/202610050007_execution_intent_rpc.sql",
 ];
 for (const file of migrations) {
   if (!fs.existsSync(file)) throw new Error(`FAIL-CLOSED: missing migration ${file}`);
@@ -435,6 +437,69 @@ try {
     replay: JSON.parse(learningReplay),
     rows: learningRows
   };
+  const intentFirst = psql(`
+    select public.create_execution_intent_atomic(
+      'a1000000-0000-4000-8000-000000000501'::uuid,
+      'a1000000-0000-4000-8000-000000000001'::uuid,
+      'a1000000-0000-4000-8000-000000000101'::uuid,
+      'START_WORKFLOW',
+      'phase-b-intent-0001',
+      '{"workflow_id":"wf-phase-b"}'::jsonb,
+      'a1000000-0000-4000-8000-000000000401'::uuid,
+      'a1000000-0000-4000-8000-000000000101'::uuid
+    )::text
+  `, "execution intent first write");
+  assert(JSON.parse(intentFirst).duplicate === false, "execution intent first write must persist");
+  assert(JSON.parse(intentFirst).status === "PENDING", "execution intent must start PENDING");
+
+  const intentReplay = psql(`
+    select public.create_execution_intent_atomic(
+      'a1000000-0000-4000-8000-000000000501'::uuid,
+      'a1000000-0000-4000-8000-000000000001'::uuid,
+      'a1000000-0000-4000-8000-000000000101'::uuid,
+      'START_WORKFLOW',
+      'phase-b-intent-0001',
+      '{"workflow_id":"wf-phase-b"}'::jsonb,
+      'a1000000-0000-4000-8000-000000000401'::uuid,
+      'a1000000-0000-4000-8000-000000000101'::uuid
+    )::text
+  `, "execution intent replay");
+  assert(JSON.parse(intentReplay).duplicate === true, "execution intent replay must be duplicate");
+
+  let intentConflictSqlstate = "";
+  try {
+    psql(`
+      select public.create_execution_intent_atomic(
+        'a1000000-0000-4000-8000-000000000502'::uuid,
+        'a1000000-0000-4000-8000-000000000001'::uuid,
+        'a1000000-0000-4000-8000-000000000101'::uuid,
+        'START_WORKFLOW',
+        'phase-b-intent-0001',
+        '{"workflow_id":"wf-phase-b-conflict"}'::jsonb,
+        null,
+        null
+      )::text
+    `, "execution intent conflict");
+  } catch (error) {
+    const match = String(error.message || "").match(/ERROR:\s+(\d{5}):/);
+    intentConflictSqlstate = match?.[1] || "";
+  }
+  assert(intentConflictSqlstate === "23505", "execution intent conflict must return SQLSTATE 23505");
+
+  const intentRows = psql(`
+    select count(*)::text from public.control_plane_execution_outbox
+     where tenant_id='a1000000-0000-4000-8000-000000000001'::uuid
+       and idempotency_key='phase-b-intent-0001'
+  `, "execution intent evidence rows");
+  assert(intentRows === "1", "execution intent must persist exactly one row");
+
+  evidence.checks.execution_intent_rpc = {
+    status: "PASS",
+    first: JSON.parse(intentFirst),
+    replay: JSON.parse(intentReplay),
+    conflict_sqlstate: intentConflictSqlstate,
+    rows: intentRows
+  };
   evidence.checks.action_execution_ledger = {
     status: "PASS",
     first: JSON.parse(ledgerFirst),
@@ -477,6 +542,7 @@ try {
   if (fixturesCreated) {
     try {
       psql(`delete from public.control_plane_learning_signals where tenant_id in ('${A}','${B}');
+        delete from public.control_plane_execution_outbox where tenant_id in ('${A}','${B}');
         delete from public.control_plane_action_executions where tenant_id in ('${A}','${B}');
         delete from public.diagnosis_dead_letters where tenant_id in ('${A}','${B}');
         delete from public.diagnosis_submissions where tenant_id in ('${A}','${B}');
