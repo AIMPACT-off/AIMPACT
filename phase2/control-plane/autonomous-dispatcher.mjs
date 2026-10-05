@@ -9,6 +9,10 @@ export function dispatchEligibleEvent({ event, tenantId, evidence = {}, intentId
   if (!event || !event.event_id) return { status:"NOT_DISPATCHED", code:"EVENT_REQUIRED" };
   if (!tenantId) return { status:"NOT_DISPATCHED", code:"TENANT_CONTEXT_REQUIRED" };
 
+  if (evidence.tenant_id && evidence.tenant_id !== tenantId) {
+    return { status: "BLOCKED", code: "TENANT_SCOPE_MISMATCH" };
+  }
+
   const action = event.payload?.action ?? event.action ?? null;
   const policy = evaluateGate(action, { tenant_id: tenantId, evidence: { ...evidence, tenant_id: tenantId } });
   if (policy.decision !== "ALLOW") {
