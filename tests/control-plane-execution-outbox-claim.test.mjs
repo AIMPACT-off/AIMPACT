@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-test("claim contract requires tenant and worker context", () => {
-  assert.throws(() => ({ tenant_id: null, worker_id: "" }), /worker|tenant/);
+test("claim contract requires tenant and worker context", async () => {
+  const { createExecutionOutboxAdapter } = await import("../phase2/control-plane/execution-outbox.mjs");
+  const adapter = createExecutionOutboxAdapter({ rpc: async () => { throw new Error("RPC_MUST_NOT_BE_CALLED"); } });
+  await assert.rejects(() => adapter.claim(null, ""), /EXECUTION_CLAIM_CONTEXT_REQUIRED/);
 });
 
 test("claim contract uses exclusive lease states", () => {
