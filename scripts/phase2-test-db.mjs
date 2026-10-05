@@ -347,9 +347,11 @@ try {
       1,'v1','{"result":"workflow-created"}'::jsonb,null,null,null,'${ledgerEvent}',now(),now()
     )::text
   `, "action ledger idempotent replay");
-  assert(ledgerFirst.includes('"duplicate":false') && ledgerFirst.includes('"status":"EXECUTED"'),
+  const ledgerFirstJson = JSON.parse(ledgerFirst);
+  assert(ledgerFirstJson.ok === true && ledgerFirstJson.duplicate === false && ledgerFirstJson.status === "EXECUTED",
     "first action ledger write must persist EXECUTED");
-  assert(ledgerDuplicate.includes('"duplicate":true') && new RegExp('"execution_id"\\s*:\\s*"' + ledgerExecution1 + '"').test(ledgerDuplicate),
+  const ledgerDuplicateJson = JSON.parse(ledgerDuplicate);
+  assert(ledgerDuplicateJson.ok === true && ledgerDuplicateJson.duplicate === true && ledgerDuplicateJson.execution_id === ledgerExecution1,
     "same execution/idempotency replay must return duplicate without creating a second row");
 
   const ledgerConflict = spawnSync("psql", [dbUrl,"-X","-v","ON_ERROR_STOP=1","-v","VERBOSITY=verbose","-At","-c",
@@ -367,7 +369,8 @@ try {
       2,'v1','{"step":"payment"}'::jsonb,'TEST_FAILURE','fixture failure','${ledgerEvent}','${ledgerEvent}',now(),now()
     )::text
   `, "action ledger failed execution");
-  assert(ledgerFailed.includes('"duplicate":false') && ledgerFailed.includes('"status":"FAILED"'),
+  const ledgerFailedJson = JSON.parse(ledgerFailed);
+  assert(ledgerFailedJson.ok === true && ledgerFailedJson.duplicate === false && ledgerFailedJson.status === "FAILED",
     "failed action execution must persist FAILED evidence");
   const ledgerRows = psql(`
     select count(*)::text || '|' ||
