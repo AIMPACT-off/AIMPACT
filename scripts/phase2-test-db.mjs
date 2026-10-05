@@ -639,14 +639,17 @@ try {
   assert(retryFirst.status === "PENDING", "retry must return PENDING before exhaustion");
   assert(retryFirst.retry_exhausted === false, "first retry must not exhaust");
   assert(retryFirst.backoff_seconds === 30, "first retry backoff must be 30 seconds");
-  const retryAvailable = psql(`
-    update public.control_plane_execution_outbox set available_at=now()
+  psql(`
+    update public.control_plane_execution_outbox
+       set available_at=now()
      where intent_id='${retryIntentId}'::uuid
-     returning status || '|' || attempt::text
-  `, "execution intent retry availability");
+  `, "execution intent retry availability update");
+  const retryAvailable = psql(`
+    select status || '|' || attempt::text
+      from public.control_plane_execution_outbox
+     where intent_id='${retryIntentId}'::uuid
+  `, "execution intent retry availability evidence");
   assert(retryAvailable === "PENDING|1", "retry intent must remain pending at attempt 1");
-  const retryClaimSecond = JSON.parse(psql(`
-    select public.claim_execution_intent_atomic('${A}'::uuid, 'retry-worker-b', 60)::text
   `, "execution intent retry second claim"));
   assert(retryClaimSecond.claimed === true, "retry second claim must succeed");
   assert(retryClaimSecond.attempt === 2, "retry second claim must increment attempt to 2");
