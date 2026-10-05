@@ -5,9 +5,31 @@ on:
   pull_request:
     paths:
       - "scripts/test-tenant-isolation.mjs"
+      - "scripts/check-test-secret-injection.mjs"
+      - "scripts/phase2-auth-jwt-audit.mjs"
+      - "scripts/test-billing-entitlement.mjs"
+      - "tests/phase2-product-surface.test.mjs"
+      - "tests/stripe-billing.test.mjs"
+      - "portal/**"
+      - "netlify/functions/**"
+      - "phase2/**"
+      - "supabase/migrations/**"
+      - "package.json"
       - ".github/workflows/tenant-isolation.yml"
 
 jobs:
+  code-surface-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run Phase 2 product surface tests
+        run: node --test tests/phase2-product-surface.test.mjs tests/stripe-billing.test.mjs
+      - name: Syntax check portal and server functions
+        run: node --check portal/app.js && node --check netlify/functions/billing-status.mjs && node --check netlify/functions/workflow-status.mjs && node --check netlify/functions/workflow-start.mjs && node --check netlify/functions/outcome-submit.mjs
+
   rls-negative-tests:
     if: ${{ vars.RLS_TESTS_ENABLED == 'true' }}
     runs-on: ubuntu-latest
