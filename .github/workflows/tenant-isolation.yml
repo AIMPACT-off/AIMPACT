@@ -9,6 +9,7 @@ on:
       - "scripts/phase2-auth-jwt-audit.mjs"
       - "scripts/test-billing-entitlement.mjs"
       - "tests/phase2-product-surface.test.mjs"
+      - "tests/customer-app-v1-data-flow.test.mjs"
       - "tests/stripe-billing.test.mjs"
       - "tests/control-plane-lifecycle.test.mjs"
       - "tests/control-plane-policy.test.mjs"
@@ -39,7 +40,7 @@ jobs:
         with:
           node-version: 22
       - name: Run Phase 2 product surface tests
-        run: node --test tests/phase2-product-surface.test.mjs tests/stripe-billing.test.mjs tests/control-plane-lifecycle.test.mjs tests/control-plane-policy.test.mjs tests/control-plane-router-dispatcher.test.mjs tests/control-plane-runtime-persistence.test.mjs tests/control-plane-action-ledger.test.mjs tests/control-plane-learning.test.mjs tests/control-plane-execution-outbox.test.mjs tests/control-plane-execution-outbox-schema.test.mjs tests/control-plane-execution-outbox-complete.test.mjs tests/control-plane-execution-outbox-retry.test.mjs tests/control-plane-execution-outbox-dlq.test.mjs
+        run: node --test tests/phase2-product-surface.test.mjs tests/customer-app-v1-data-flow.test.mjs tests/stripe-billing.test.mjs tests/control-plane-lifecycle.test.mjs tests/control-plane-policy.test.mjs tests/control-plane-router-dispatcher.test.mjs tests/control-plane-runtime-persistence.test.mjs tests/control-plane-action-ledger.test.mjs tests/control-plane-learning.test.mjs tests/control-plane-execution-outbox.test.mjs tests/control-plane-execution-outbox-schema.test.mjs tests/control-plane-execution-outbox-complete.test.mjs tests/control-plane-execution-outbox-retry.test.mjs tests/control-plane-execution-outbox-dlq.test.mjs
       - name: Syntax check portal and server functions
         run: node --check portal/app.js && node --check netlify/functions/billing-status.mjs && node --check netlify/functions/workflow-status.mjs && node --check netlify/functions/workflow-start.mjs && node --check netlify/functions/outcome-submit.mjs
 
