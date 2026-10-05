@@ -33,3 +33,22 @@ for (const file of [
   "netlify/functions/workflow-start.mjs",
   "netlify/functions/outcome-submit.mjs"
 ]) test(file+" exists",()=>assert.ok(fs.existsSync(file)));
+
+
+test("customer app v1 exposes the complete commercial loop",()=>{
+  const html=read("portal/index.html");
+  for (const view of ["overview","discover","diagnosis","reports","match","workflows","roi","billing"]) assert.match(html,new RegExp('id="'+view+'"'));
+  for (const label of ["COMMAND CENTER","DISCOVER","DIAGNOSE","REPORT","MATCH","EXECUTE","MEASURE","BILLING"]) assert.match(html,new RegExp(label));
+  assert.match(html,/id="diagnosisForm"/);
+  assert.match(html,/id="reportsPanel"/);
+  assert.match(html,/id="workflowPanel"/);
+  assert.match(html,/id="billingPanel"/);
+});
+
+test("customer app v1 keeps evidence-first and fail-closed copy",()=>{
+  const html=read("portal/index.html");
+  assert.match(html,/Evidence before/);
+  assert.match(html,/No invented metrics/);
+  assert.match(html,/Production not activated/i);
+  assert.match(html,/tenant boundary/i);
+});
