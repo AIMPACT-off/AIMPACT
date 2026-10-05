@@ -109,7 +109,7 @@
         <article class="card"><small>VERIFY</small><b>Approve</b><span>Human review gate</span></article>
         <article class="card"><small>APPLY</small><b>Operate</b><span>Workflow execution</span></article>
       </div>
-      <div class="panel gate"><strong>QUEUE ENGINE</strong><p>PR #22 remains a draft until PostgreSQL concurrency and retry/DLQ tests pass in TEST.</p></div>
+      <div class="panel gate"><strong>QUEUE ENGINE</strong><p>Workflow execution remains server-controlled. The portal shows only tenant-scoped workflow state and verified outcome measurements.</p></div><div class="panel" id="workflowPanel"><b>WORKFLOW DATA NOT LOADED</b><p>Workflow status appears after authenticated tenant verification.</p></div>
     </section>
 
     <section class="view" id="roi">
@@ -122,10 +122,11 @@
       <p class="eyebrow">05 · BILLING</p>
       <h2>Commercial control.</h2>
       <div class="grid three">
-        <article class="card"><small>ENTITLEMENT</small><b>LOCKED</b><span>Awaiting authenticated billing state</span></article>
+        <article class="card"><small>ENTITLEMENT</small><b id="billingPlan">LOCKED</b><span id="billingStatus">Awaiting authenticated billing state</span></article>
         <article class="card"><small>PAYMENT</small><b>TEST</b><span>Live credentials remain off</span></article>
-        <article class="card"><small>RENEWAL</small><b>—</b><span>No production subscription loaded</span></article>
+        <article class="card"><small>RENEWAL</small><b id="billingRenewal">—</b><span>Current period end from verified billing state</span></article>
       </div>
+      <div class="panel" id="billingPanel"><b>BILLING DATA NOT LOADED</b><p>Billing state is server-verified and tenant-scoped.</p></div>
     </section>
 
     <footer>AIMPACT · BUILD V1 · CUSTOMER DATA FAIL-CLOSED · PRODUCTION NOT ACTIVATED</footer>
