@@ -104,7 +104,7 @@ function show(id){
   heading.textContent={overview:"Business Command Center",diagnosis:"Business Diagnosis",reports:"Approved Reports",workflows:"Workflow Operations",roi:"Outcome & ROI",billing:"Billing & Entitlements"}[id]||"AIMPACT";
   window.scrollTo({top:0,behavior:"smooth"});
 }
-nav.forEach(b=>b.addEventListener("click",()=>show(b.dataset.view)));
+nav.forEach(b=>b.addEventListener("click",()=>{show(b.dataset.view);if(b.dataset.view==="reports")loadApprovedReports().catch(error=>note(authNote,"Report data is temporarily unavailable: "+friendlyError(error.message),"error"));}));
 document.querySelectorAll("[data-view-target]").forEach(b=>b.addEventListener("click",()=>show(b.dataset.viewTarget)));
 
 function setWorkspaceLocked(locked,{showAuth=locked,clearContext=locked}={}){
@@ -278,7 +278,31 @@ document.getElementById("tenantForm").addEventListener("submit",async event=>{
   }catch(error){note(authNote,"Workspace creation blocked: "+error.message,"error");}
 });
 
-async function signOut(){
+async function loadApprovedReports(){
+  if(!session?.access_token || !tenantContext || !authReady)return;
+  const response=await safeFetch("/.netlify/functions/diagnosis-portal?tenant_id="+encodeURIComponent(tenantSelect.value||""),{
+    method:"GET",
+    headers:{"Authorization":"Bearer "+session.access_token,"Accept":"application/json"}
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(data.code||"REPORT_LOAD_FAILED");
+  const reports=data.reports||[];
+  document.getElementById("metricReports").textContent=String(reports.length);
+  renderApprovedReports(reports);
+}
+function renderApprovedReports(reports){
+  const panel=document.getElementById("reportsPanel");
+  if(!panel)return;
+  if(!reports.length){panel.innerHTML='<b>NO APPROVED REPORTS</b><p>Your workspace has no customer-visible report approved by the review gate yet.</p>';return;}
+  panel.innerHTML=reports.map(report=>{
+    const candidates=Array.isArray(report.solution_candidates)?report.solution_candidates:[];
+    const workflow=report.workflow_recommendation&&typeof report.workflow_recommendation==="object"?report.workflow_recommendation:{};
+    const evidence=Array.isArray(report.evidence)?report.evidence:[];
+    return '<article class="report-card"><small>APPROVED · '+escapeHtml(report.created_at||"")+'</small><h3>'+escapeHtml(report.problem_category||"Business Diagnosis")+'</h3><p>'+escapeHtml(report.problem_statement||"")+'</p><strong>RECOMMENDATION</strong><pre>'+escapeHtml(JSON.stringify(workflow,null,2))+'</pre><strong>SOLUTION CANDIDATES</strong><pre>'+escapeHtml(JSON.stringify(candidates,null,2))+'</pre><strong>EVIDENCE</strong><pre>'+escapeHtml(JSON.stringify(evidence,null,2))+'</pre><span>CONFIDENCE · '+escapeHtml(String(report.confidence??"—"))+'</span></article>';
+  }).join("");
+}
+function escapeHtml(value){return String(value).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");}
+\nasync function signOut(){
   await supabaseClient.auth.signOut();
   session=null;
   authReady=false;
