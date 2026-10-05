@@ -439,7 +439,8 @@ try {
 } finally {
   if (fixturesCreated) {
     try {
-      psql(`delete from public.control_plane_action_executions where tenant_id in ('${A}','${B}');
+      psql(`delete from public.control_plane_learning_signals where tenant_id in ('${A}','${B}');
+        delete from public.control_plane_action_executions where tenant_id in ('${A}','${B}');
         delete from public.diagnosis_dead_letters where tenant_id in ('${A}','${B}');
         delete from public.diagnosis_submissions where tenant_id in ('${A}','${B}');
         update public.customer_lifecycle_state set last_event_id=null where tenant_id in ('${A}','${B}');
