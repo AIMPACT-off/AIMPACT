@@ -6,7 +6,7 @@ const MAX_FILE=5*1024*1024;
 const ALLOWED=new Set(["application/pdf","image/jpeg","image/png"]);
 
 async function authUser(request,url,anon){
-  const match=(request.headers.get("authorization")||"").match(/^Bearer\\s+([A-Za-z0-9._~-]+)$/);
+  const match=(request.headers.get("authorization")||"").match(/^Bearer\s+([A-Za-z0-9._~-]+)$/);
   if(!match) throw Object.assign(new Error("SUPABASE_AUTH_JWT_REQUIRED"),{status:401});
   const auth=await fetch(url+"/auth/v1/user",{headers:{apikey:anon,Authorization:"Bearer "+match[1]}});
   if(!auth.ok) throw Object.assign(new Error("INVALID_OR_EXPIRED_AUTH"),{status:401});
@@ -18,7 +18,7 @@ async function authUser(request,url,anon){
 export default async function handler(request){
   if(process.env.BUSINESS_ONBOARDING_ENABLED!=="true") return fail("BUSINESS_ONBOARDING_DISABLED",503);
   if(request.method!=="POST") return fail("METHOD_NOT_ALLOWED",405);
-  const url=process.env.SUPABASE_URL?.replace(/\\/$/,"");
+  const url=process.env.SUPABASE_URL?.replace(/\/$/,"");
   const anon=process.env.SUPABASE_ANON_KEY;
   const service=process.env.SUPABASE_SERVICE_ROLE_KEY;
   if(!url||!anon||!service) return fail("SUPABASE_SERVER_CONFIG_REQUIRED",503);
@@ -35,7 +35,7 @@ export default async function handler(request){
     const industry=String(form.get("industry")||"").trim();
     const bankName=String(form.get("bank_name")||"").trim();
     const accountHolder=String(form.get("account_holder")||"").trim();
-    const bankAccount=String(form.get("bank_account")||"").replace(/\\s+/g,"");
+    const bankAccount=String(form.get("bank_account")||"").replace(/\s+/g,"");
     const certificate=form.get("certificate");
 
     if(!tenantId||!legalName||!registrationNumber||!representativeName||!businessAddress||!bankName||!accountHolder||!/^[0-9]{8,20}$/.test(bankAccount))
@@ -65,7 +65,7 @@ export default async function handler(request){
     if(!upload.ok) return fail("CERTIFICATE_UPLOAD_FAILED",503);
 
     // The raw bank account is sent only across the server-to-server boundary and
-    // is encrypted by Postgres before persistence. It is never returned to the client.
+    // is encrypted by the server before persistence. It is never returned to the client.
     const rpc=await fetch(url+"/rest/v1/rpc/upsert_business_profile_atomic",{
       method:"POST",
       headers:{apikey:service,Authorization:"Bearer "+service,"Content-Type":"application/json"},
