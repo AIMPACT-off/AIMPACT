@@ -9,7 +9,7 @@ async function user(request,url,anon){
 export default async function handler(request){
   if(request.method!=="POST")return fail("METHOD_NOT_ALLOWED",405);
   if(process.env.WORKFLOW_PORTAL_ENABLED!=="true")return fail("WORKFLOW_PORTAL_DISABLED",503);
-  const url=process.env.SUPABASE_URL?.replace(/\\/$/,""),anon=process.env.SUPABASE_ANON_KEY,service=process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url=process.env.SUPABASE_URL?.replace(/\/$/,""),anon=process.env.SUPABASE_ANON_KEY,service=process.env.SUPABASE_SERVICE_ROLE_KEY;
   if(!url||!anon||!service)return fail("SUPABASE_SERVER_CONFIG_REQUIRED",503);
   const u=await user(request,url,anon); if(!u)return fail("INVALID_OR_EXPIRED_AUTH",401);
   let body;try{body=await request.json();}catch{return fail("INVALID_JSON");}
