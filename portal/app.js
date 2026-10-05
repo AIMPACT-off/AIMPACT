@@ -101,7 +101,7 @@ function show(id){
   views.forEach(v=>v.classList.toggle("active",v.id===id));
   nav.forEach(b=>b.classList.toggle("active",b.dataset.view===id));
   crumb.textContent="AIMPACT / "+id.toUpperCase();
-  heading.textContent={overview:"Business Command Center",diagnosis:"Business Diagnosis",reports:"Approved Reports",workflows:"Workflow Operations",roi:"Outcome & ROI",billing:"Billing & Entitlements"}[id]||"AIMPACT";
+  heading.textContent={overview:"Business Command Center",discover:"Discover a Business Opportunity",diagnosis:"Business Diagnosis",reports:"Approved Intelligence",match:"Solution Match",workflows:"Workflow Execution",roi:"Outcome & ROI",billing:"Billing & Entitlements"}[id]||"AIMPACT";
   window.scrollTo({top:0,behavior:"smooth"});
 }
 nav.forEach(b=>b.addEventListener("click",()=>{show(b.dataset.view);const loaders={reports:loadApprovedReports,billing:loadBillingState,workflows:loadWorkflowState};if(loaders[b.dataset.view])loaders[b.dataset.view]().catch(error=>note(authNote,"Data is temporarily unavailable: "+friendlyError(error.message),"error"));}));
@@ -392,6 +392,7 @@ document.getElementById("diagnosisForm").addEventListener("submit",async event=>
     const data=await response.json().catch(()=>({}));
     if(!response.ok)throw new Error(data.code||"INGEST_REJECTED");
     note(noteElement,"Diagnosis accepted and queued. Reference: "+data.submission_id,"accepted");
+    const diagnosisMetric=document.getElementById("metricDiagnosis"); if(diagnosisMetric)diagnosisMetric.textContent="QUEUED";
     event.currentTarget.reset();
     clearDraft();
     submissionKey=null;
