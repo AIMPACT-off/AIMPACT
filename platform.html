@@ -21,46 +21,40 @@
 <section id="control" class="view"><div class="ey">06 · AIMPACT COMMAND CENTER</div><h1 class="title">Control the loop.</h1><div class="grid g4 section"><div class="card metric"><span>LEADS</span><b id="cLead">0</b></div><div class="card metric"><span>DIAGNOSES</span><b id="cDiag">0</b></div><div class="card metric"><span>PAYMENT VERIFIED</span><b>$0</b></div><div class="card metric"><span>OUTCOMES VERIFIED</span><b>0</b></div></div><div class="card section"><table class="table"><tbody><tr><td>LEAD_CREATED</td><td id="e1">PENDING</td></tr><tr><td>DIAGNOSIS_STARTED</td><td id="e2">PENDING</td></tr><tr><td>PRIORITY_SET</td><td id="e3">PENDING</td></tr><tr><td>CHECKOUT_CREATED</td><td id="e4">PENDING</td></tr><tr><td>PAYMENT_SUCCEEDED</td><td>PENDING</td></tr><tr><td>OUTCOME_VERIFIED</td><td>PENDING</td></tr></tbody></table></div><div class="notice section">This V1 does not fabricate live payment or outcome states. Server-side central control and live billing remain separate production gates.</div></section>
 <footer>AIMPACT · SEE → FIND → DIAGNOSE → PRIORITIZE → FIX → MEASURE → GROW → REPEAT<br><br>에임펙트 (AIMPACT) · 사업자등록번호 516-13-02707 · 대표자 박정현<br>광주광역시 동구 문화전당로35번길 24, 엘크루에스아이타워 1307호 · 010-8566-6246<br><a href="/terms.html">이용약관</a> · <a href="/refund.html">환불정책</a> · <a href="/privacy.html">개인정보처리방침</a></footer></main></div>
 <script src="https://js.tosspayments.com/v2/standard"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="config.js"></script><script>
-const KEY="aimpact_v1_case", TOSS_CLIENT_KEY=window.AIMPACT_CONFIG?.tossClientKey||"", QUICK_AUDIT_AMOUNT=200000;let C=JSON.parse(localStorage.getItem(KEY)||"null"),views=[...document.querySelectorAll(".view")],$=id=>document.getElementById(id);
-function go(id){const target=document.getElementById(id);if(!target)return;if(id==="account")initToss();views.forEach(v=>v.classList.toggle("active",v.id===id));document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.v===id));$("crumb").textContent="AIMPACT / "+id.toUpperCase();window.scrollTo(0,0);render()}
-document.querySelectorAll(".nav button").forEach(b=>b.addEventListener("click",()=>go(b.dataset.v)));document.getElementById("startIntakeBtn")?.addEventListener("click",e=>{e.preventDefault();go("intake")});
+<script>
+const KEY="aimpact_v1_case", QUICK_AUDIT_AMOUNT=200000;
+let C=JSON.parse(localStorage.getItem(KEY)||"null"),views=[...document.querySelectorAll(".view")],$=id=>document.getElementById(id);
+function go(id){const target=document.getElementById(id);if(!target)return;views.forEach(v=>v.classList.toggle("active",v.id===id));document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.v===id));$("crumb").textContent="AIMPACT / "+id.toUpperCase();window.scrollTo(0,0);render()}
+document.querySelectorAll(".nav button").forEach(b=>b.addEventListener("click",()=>go(b.dataset.v)));
+document.getElementById("startIntakeBtn")?.addEventListener("click",e=>{e.preventDefault();go("intake")});
 function money(n){return Number(n||0).toLocaleString("en-US",{maximumFractionDigits:0})}
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
-function calc(c){let h=+c.hours||0,cost=+c.cost||0,aff=+c.affected||0,err=+c.error||0,auto=Math.min(.6,Math.max(.15,.25+(h>100?.2:0)+(err>15?.1:0))),hs=h*auto,cs=cost*auto,ro=aff*Math.min(.2,Math.max(.03,err/100*.5+.03)),score=Math.min(99,Math.round(35+Math.min(25,h/8)+Math.min(20,err)+Math.min(15,aff?10:0)+Math.min(10,(+c.team||1)/5)));return{auto,hs,cs,ro,score,severity:score>=80?"CRITICAL":score>=65?"HIGH":score>=50?"MEDIUM":"LOW",priority:h>=40?"TIME / WORKFLOW BOTTLENECK":aff?"REVENUE LEAKAGE":"MANUAL PROCESS / AUTOMATION"}}
-async function sendLead(c){try{if(!window.supabase||!window.AIMPACT_CONFIG?.supabaseUrl||!window.AIMPACT_CONFIG?.supabaseKey)return;let db=supabase.createClient(AIMPACT_CONFIG.supabaseUrl,AIMPACT_CONFIG.supabaseKey);await db.from("leads").insert({email:null,company:c.company,problem:c.problem,industry:c.industry,company_size:String(c.team||""),current_tools:c.tools,current_process:c.process,desired_automation:"Business X-Ray",budget:"AI Quick Audit ₩200,000",source:"app-v1",consent:true,funnel_stage:"NEW",next_action:"Review X-Ray and sell Quick Audit",session_id:crypto.randomUUID()})}catch(e){}}
-async function runXray(){let c={company:$("company").value.trim(),industry:$("industry").value, revenue:+$("revenue").value||0,team:+$("team").value||0,problem:$("problem").value.trim(),hours:+$("hours").value||0,cost:+$("cost").value||0,affected:+$("affected").value||0,error:+$("error").value||0,tools:$("tools").value.trim(),process:$("process").value.trim(),at:new Date().toISOString()};if(!c.company||!c.problem){$("save").textContent="COMPANY + PRIMARY BUSINESS PROBLEM REQUIRED";return}c.x=calc(c);C=c;localStorage.setItem(KEY,JSON.stringify(C));$("save").textContent="CASE SAVED · DIAGNOSIS READY";await sendLead(c);go("diagnosis")}
-function render(){if(!C){$("diag").innerHTML='<div class="notice section">Complete Business Intake first. No diagnosis without a real input case.</div>';$("actions").innerHTML=$("diag").innerHTML;$("roiBox").innerHTML=$("diag").innerHTML;return}let x=C.x;$("state").textContent="DIAGNOSIS_READY";$("mRev").textContent=money(x.ro);$("mCost").textContent=money(x.cs);$("mHours").textContent=money(x.hs);$("mScore").textContent=x.score;$("aCompany").textContent=C.company;$("aState").textContent="DIAGNOSIS_READY";$("aPriority").textContent=x.severity;$("cLead").textContent=1;$("cDiag").textContent=1;$("e1").textContent="RECORDED";$("e2").textContent="READY";$("e3").textContent="SET";if(document.getElementById("diag"))$("diag").innerHTML='<div class="grid g4 section"><div class="card metric"><span>SCORE</span><b>'+x.score+'</b><small>'+x.severity+'</small></div><div class="card metric"><span>TIME RECOVERY</span><b>'+money(x.hs)+'h</b><small>estimate / month</small></div><div class="card metric"><span>COST OPPORTUNITY</span><b>'+money(x.cs)+'</b><small>estimate / month</small></div><div class="card metric"><span>REVENUE OPPORTUNITY</span><b>'+money(x.ro)+'</b><small>estimate / month</small></div></div><div class="result section"><span class="tag">ROOT-CAUSE DIAGNOSIS · '+esc(C.company)+'</span><div class="score">'+x.score+'</div><div class="warn">'+x.severity+' · '+x.priority+'</div><div class="finding"><strong>VISIBILITY GAP</strong><span>The workflow is not measured as one system. Establish a baseline before changing tools.</span></div><div class="finding"><strong>BOTTLENECK</strong><span>'+esc(C.problem)+'</span></div><div class="finding"><strong>AUTOMATION POTENTIAL</strong><span>Estimated '+Math.round(x.auto*100)+'% of stated process time may be a candidate. Not a verified saving.</span></div><div class="finding"><strong>EVIDENCE GATE</strong><span>Confirm actual time, cost, volume and revenue impact before calling ROI realized.</span></div><button class="btn primary" onclick="go(\'action\')">SET PRIORITY →</button></div>';if(document.getElementById("actions"))$("actions").innerHTML='<div class="card section"><div class="head"><h2>DO THIS FIRST</h2><span class="tag">'+x.severity+' · '+x.priority+'</span></div><div class="action"><h3>P0 · Instrument the current workflow</h3><p>Capture baseline volume, cycle time, manual touches and rework for 7 days.</p></div><div class="action"><h3>P1 · Automate the highest-repeat step</h3><p>Use AI classification/drafting with human approval at material actions.</p></div><div class="action"><h3>P2 · Measure the result</h3><p>Compare actual hours, cost, volume and revenue impact against baseline.</p></div><button class="btn primary" onclick="go(\'roi\')">OPEN ROI CONTROL →</button> <button class="btn good" onclick="pay()">BUY ₩200,000 QUICK AUDIT →</button></div>';if(document.getElementById("roiBox"))$("roiBox").innerHTML='<div class="grid g3"><div class="card metric"><span>BASELINE HOURS</span><b>'+money(C.hours)+'</b></div><div class="card metric"><span>EST. HOURS AFTER</span><b>'+money(Math.max(0,C.hours-x.hs))+'</b></div><div class="card metric"><span>EST. MONTHLY VALUE</span><b>'+money(x.cs+x.ro)+'</b></div></div><div class="notice section">These are model estimates from supplied inputs. They are not realized savings, revenue or verified ROI. OUTCOME VERIFIED requires actual Before/After evidence.</div>';if(document.getElementById("control"))$("e3").textContent="SET"}
-let tossWidgets=null,tossWindow=null;
-async function initToss(){
-  if(!TOSS_CLIENT_KEY){$("payStatus").textContent="TOSS CLIENT KEY NOT CONFIGURED. PAYMENT RAIL IS READY BUT ACTIVATION IS CONTROLLED.";return false}
-  if(tossWidgets)return true;
+async function runXray(){
+  const c={company:$("company").value.trim(),industry:$("industry").value,revenue:+$("revenue").value||0,team:+$("team").value||0,problem:$("problem").value.trim(),hours:+$("hours").value||0,cost:+$("cost").value||0,affected:+$("affected").value||0,error:+$("error").value||0,tools:$("tools").value.trim(),process:$("process").value.trim()};
+  if(!c.company||!c.problem){$("save").textContent="COMPANY + PRIMARY BUSINESS PROBLEM REQUIRED";return}
+  $("save").textContent="SAVING INTAKE…";
   try{
-    const toss=TossPayments(TOSS_CLIENT_KEY);
-    tossWidgets=toss.widgets({customerKey:"ANONYMOUS"});
-    await tossWidgets.setAmount({currency:"KRW",value:QUICK_AUDIT_AMOUNT});
-    tossWindow=await tossWidgets.renderPaymentWindow({selector:"#tossPaymentWindow",orderName:"AIMPACT AI Quick Audit"});
-    tossWindow.on("cancel",()=>{$("payStatus").textContent="PAYMENT WINDOW CLOSED."});
-    tossWindow.on("paymentRequest",()=>requestTossPayment());
-    $("payStatus").textContent="TOSS PAYMENT WINDOW READY · ₩200,000";
-    return true;
-  }catch(e){$("payStatus").textContent="TOSS INIT FAILED · "+(e?.message||"UNKNOWN_ERROR");return false}
+    const r=await fetch("/.netlify/functions/business-xray",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(c)});
+    const data=await r.json().catch(()=>({error:"INVALID_SERVER_RESPONSE"}));
+    if(!r.ok) throw new Error(data.error||"SERVER_XRAY_FAILED");
+    C={...data.input,x:data.diagnosis,caseId:data.caseId,actionPlan:data.actionPlan,state:data.state};
+    localStorage.setItem(KEY,JSON.stringify(C));
+    $("save").textContent="SERVER CASE SAVED · DIAGNOSIS READY";
+    go("diagnosis");
+  }catch(e){$("save").textContent="INTAKE SAVE FAILED · "+String(e.message||e).toUpperCase()}
 }
-async function requestTossPayment(){
-  try{
-    const orderId="AIMPACT-QA-"+crypto.randomUUID().replaceAll("-","").slice(0,24);
-    $("payStatus").textContent="REQUESTING PAYMENT…";
-    await tossWidgets.requestPayment({
-      orderId,
-      orderName:"AIMPACT AI Quick Audit",
-      successUrl:location.origin+"/payment-success.html",
-      failUrl:location.origin+"/payment-fail.html"
-    });
-  }catch(e){$("payStatus").textContent="PAYMENT REQUEST FAILED · "+(e?.message||"UNKNOWN_ERROR")}
+function render(){
+  if(!C){$("diag").innerHTML='<div class="notice section">Complete Business Intake first. No diagnosis without a server-created case.</div>';$("actions").innerHTML=$("diag").innerHTML;$("roiBox").innerHTML=$("diag").innerHTML;return}
+  const x=C.x;
+  $("state").textContent=C.state||"DIAGNOSIS_READY";$("mRev").textContent=money(x.ro);$("mCost").textContent=money(x.cs);$("mHours").textContent=money(x.hs);$("mScore").textContent=x.score;
+  $("aCompany").textContent=C.company;$("aState").textContent=C.state||"DIAGNOSIS_READY";$("aPriority").textContent=x.severity;
+  $("cLead").textContent=1;$("cDiag").textContent=1;$("e1").textContent="RECORDED";$("e2").textContent="READY";$("e3").textContent="SET";
+  $("diag").innerHTML='<div class="grid g4 section"><div class="card metric"><span>SCORE</span><b>'+x.score+'</b><small>'+x.severity+'</small></div><div class="card metric"><span>TIME RECOVERY</span><b>'+money(x.hs)+'h</b><small>server estimate / month</small></div><div class="card metric"><span>COST OPPORTUNITY</span><b>'+money(x.cs)+'</b><small>server estimate / month</small></div><div class="card metric"><span>REVENUE OPPORTUNITY</span><b>'+money(x.ro)+'</b><small>server estimate / month</small></div></div><div class="result section"><span class="tag">ROOT-CAUSE DIAGNOSIS · '+esc(C.company)+'</span><div class="score">'+x.score+'</div><div class="warn">'+x.severity+' · '+x.priority+'</div><div class="finding"><strong>VISIBILITY GAP</strong><span>The workflow is not measured as one system. Establish a baseline before changing tools.</span></div><div class="finding"><strong>BOTTLENECK</strong><span>'+esc(C.problem)+'</span></div><div class="finding"><strong>AUTOMATION POTENTIAL</strong><span>Estimated '+Math.round(x.auto*100)+'% of stated process time may be a candidate. Not a verified saving.</span></div><div class="finding"><strong>EVIDENCE GATE</strong><span>Confirm actual time, cost, volume and revenue impact before calling ROI realized.</span></div><button class="btn primary" onclick="go('action')">SET PRIORITY →</button></div>';
+  $("actions").innerHTML='<div class="card section"><div class="head"><h2>DO THIS FIRST</h2><span class="tag">'+x.severity+' · '+x.priority+'</span></div>'+C.actionPlan.map(a=>'<div class="action"><h3>'+esc(a.priority)+' · '+esc(a.title)+'</h3><p>'+esc(a.detail)+'</p></div>').join("")+'<button class="btn primary" onclick="go(\'roi\')">OPEN ROI CONTROL →</button> <button class="btn good" onclick="pay()">BUY ₩200,000 QUICK AUDIT →</button></div>';
+  $("roiBox").innerHTML='<div class="grid g3"><div class="card metric"><span>BASELINE HOURS</span><b>'+money(C.hours)+'</b></div><div class="card metric"><span>EST. HOURS AFTER</span><b>'+money(Math.max(0,C.hours-x.hs))+'</b></div><div class="card metric"><span>EST. MONTHLY VALUE</span><b>'+money(x.cs+x.ro)+'</b></div></div><div class="notice section">These are server model estimates from supplied inputs. They are not realized savings, revenue or verified ROI. OUTCOME VERIFIED requires actual Before/After evidence.</div>';
 }
 async function pay(){
-  if(!(await initToss()))return;
-  if(tossWindow)$("payStatus").textContent="SELECT A PAYMENT METHOD IN THE TOSS WINDOW.";
+  $("payStatus").textContent="LIVE PAYMENT REMAINS FAIL-CLOSED UNTIL TOSS MERCHANT CONFIGURATION IS VERIFIED.";
 }
-
 render();
 </script></body></html>
