@@ -36,7 +36,7 @@ footer{padding:30px 34px;border-top:1px solid var(--line);color:var(--muted);fon
   <div class="sideBottom">TENANT<br><b id="tenantName">Demo Company</b><br><br>PLATFORM STATUS<br><span style="color:#9df0bd">SAFE CORE · READY</span></div>
 </aside>
 <main>
-<header class="top"><span id="crumb">AIMPACT / OVERVIEW</span><span class="pill">DEMO TENANT · NOT LIVE BILLING</span></header>
+<header class="top"><span id="crumb">AIMPACT / OVERVIEW</span><span class="pill" id="commercialStatus">AUDIT READY · BILLING CONTROLLED</span></header>
 
 <section id="dashboard" class="view active">
   <div class="eyebrow">AIMPACT BUSINESS OS</div><h1 class="title">See the business.<br>Decide. Act. Measure.</h1>
@@ -74,7 +74,7 @@ footer{padding:30px 34px;border-top:1px solid var(--line);color:var(--muted);fon
     <article class="card product"><span class="tag">GROW</span><h3>Business AI Platform</h3><p>Recurring audit, reports, ROI tracking, workflow recommendations and continuous improvement workspace.</p><div class="price">₩490,000 <small>/ month · draft</small></div><button class="btn primary" onclick="selectPlan('Business AI Platform','₩490,000 / month')">SUBSCRIBE</button></article>
     <article class="card product"><span class="tag">ENTERPRISE</span><h3>AI Transformation</h3><p>Custom tenant, integrations, implementation, security package and enterprise operating support.</p><div class="price">CUSTOM <small>contract</small></div><button class="btn" onclick="go('billing')">REQUEST PROPOSAL</button></article>
   </div>
-  <div class="notice section">Payment is intentionally marked DEMO in this first product shell. Live payment credentials, tax/settlement configuration and production activation remain separate controlled gates.</div>
+  <div class="notice section" id="checkoutNotice">Checkout is controlled by the production billing gate. When a live payment link is configured, the selected plan will open the verified checkout destination.</div>
 </section>
 
 <section id="reports" class="view">
