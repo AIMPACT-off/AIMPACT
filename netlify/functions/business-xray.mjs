@@ -36,7 +36,7 @@ export default async (req) => {
     severity: score >= 80 ? "CRITICAL" : score >= 65 ? "HIGH" : score >= 50 ? "MEDIUM" : "LOW",
     priority: c.hours >= 40 ? "TIME / WORKFLOW BOTTLENECK" : c.affected ? "REVENUE LEAKAGE" : "MANUAL PROCESS / AUTOMATION"
   };
-  const caseId = crypto.randomUUID();
+  const caseId = crypto.randomUUID().replaceAll("-","").slice(0,24);
 
   const lead = {
     email: null, company: c.company, problem: c.problem, industry: c.industry,
