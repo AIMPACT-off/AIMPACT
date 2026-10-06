@@ -1,8 +1,11 @@
 export default async (req) => {
   if (req.method !== "POST") return json({ error: "METHOD_NOT_ALLOWED" }, 405);
+
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceRole) return json({ error: "SERVER_DATA_LAYER_NOT_CONFIGURED" }, 503);
+  if (!supabaseUrl || !serviceRole) {
+    return json({ error: "SERVER_DATA_LAYER_NOT_CONFIGURED" }, 503);
+  }
 
   let body;
   try { body = await req.json(); } catch { return json({ error: "INVALID_JSON" }, 400); }
@@ -36,39 +39,28 @@ export default async (req) => {
     severity: score >= 80 ? "CRITICAL" : score >= 65 ? "HIGH" : score >= 50 ? "MEDIUM" : "LOW",
     priority: c.hours >= 40 ? "TIME / WORKFLOW BOTTLENECK" : c.affected ? "REVENUE LEAKAGE" : "MANUAL PROCESS / AUTOMATION"
   };
-  const caseId = crypto.randomUUID().replaceAll("-","").slice(0,24);
+  const caseId = crypto.randomUUID().replaceAll("-", "").slice(0, 24);
+  const actionPlan = [
+    { priority: "P0", title: "Instrument the current workflow", detail: "Capture baseline volume, cycle time, manual touches and rework for 7 days." },
+    { priority: "P1", title: "Automate the highest-repeat step", detail: "Use AI classification/drafting with human approval at material actions." },
+    { priority: "P2", title: "Measure the result", detail: "Compare actual hours, cost, volume and revenue impact against baseline." }
+  ];
 
-  const lead = {
-    email: null, company: c.company, problem: c.problem, industry: c.industry,
-    company_size: String(c.team || ""), current_tools: c.tools, current_process: c.process,
-    desired_automation: "Business X-Ray", budget: "AI Quick Audit ₩200,000",
-    source: "app-v1", consent: true, funnel_stage: "NEW",
-    next_action: "Review X-Ray and sell Quick Audit", session_id: caseId
-  };
-
-  const r = await fetch(`${supabaseUrl}/rest/v1/leads`, {
+  const rpc = await fetch(`${supabaseUrl}/rest/v1/rpc/create_business_xray_case`, {
     method: "POST",
     headers: {
       apikey: serviceRole,
       Authorization: `Bearer ${serviceRole}`,
-      "Content-Type": "application/json",
-      Prefer: "return=minimal"
+      "Content-Type": "application/json"
     },
-    body: JSON.stringify(lead)
+    body: JSON.stringify({ caseId, input: c, diagnosis, actionPlan })
   });
-  if (!r.ok) return json({ error: "LEAD_PERSIST_FAILED", detail: await r.text() }, 502);
 
-  return json({
-    caseId,
-    input: c,
-    diagnosis,
-    actionPlan: [
-      { priority: "P0", title: "Instrument the current workflow", detail: "Capture baseline volume, cycle time, manual touches and rework for 7 days." },
-      { priority: "P1", title: "Automate the highest-repeat step", detail: "Use AI classification/drafting with human approval at material actions." },
-      { priority: "P2", title: "Measure the result", detail: "Compare actual hours, cost, volume and revenue impact against baseline." }
-    ],
-    state: "DIAGNOSIS_READY"
-  });
+  if (!rpc.ok) {
+    return json({ error: "CASE_PERSIST_FAILED", detail: await rpc.text() }, 502);
+  }
+
+  return json({ caseId, input: c, diagnosis, actionPlan, state: "DIAGNOSIS_READY" });
 };
 
 function json(data, status = 200) {
