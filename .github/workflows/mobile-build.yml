@@ -1,6 +1,9 @@
 name: AIMPACT Mobile Build
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       platform:
@@ -43,4 +46,4 @@ jobs:
       - name: Build mobile app
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: npx eas-cli build --platform ${{ inputs.platform }} --profile ${{ inputs.profile }} --non-interactive
+        run: npx eas-cli build --platform ${{ inputs.platform || 'android' }} --profile ${{ inputs.profile || 'preview' }} --non-interactive
