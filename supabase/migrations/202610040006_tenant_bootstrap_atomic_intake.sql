@@ -11,7 +11,7 @@ create or replace function public.create_tenant_with_owner(
 language plpgsql
 security definer
 set search_path = pg_catalog, public
-as $$
+as $function$
 declare
   v_tenant_id uuid;
   v_created boolean := false;
@@ -69,7 +69,7 @@ begin
     'created', v_created
   );
 end;
-$$;
+$function$;
 
 revoke all on function public.create_tenant_with_owner(text,text,uuid)
   from public, anon, authenticated;
