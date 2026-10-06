@@ -42,10 +42,10 @@ footer{padding:30px 34px;border-top:1px solid var(--line);color:var(--muted);fon
   <div class="eyebrow">AIMPACT BUSINESS OS</div><h1 class="title">See the business.<br>Decide. Act. Measure.</h1>
   <p class="sub">A single workspace for AI audit, business recommendations, reports, automation and recurring value. This product shell is designed to become the customer-facing layer above AIMPACT's verified safety core.</p>
   <div class="grid g4 section">
-    <div class="card metric"><span>BUSINESS HEALTH</span><b>78</b><small>+6 this month</small></div>
-    <div class="card metric"><span>AI OPPORTUNITIES</span><b>17</b><small>5 high impact</small></div>
-    <div class="card metric"><span>HOURS TO AUTOMATE</span><b>184</b><small>/ month identified</small></div>
-    <div class="card metric"><span>ROI TRACKED</span><b>2.4×</b><small>verified inputs only</small></div>
+    <div class="card metric"><span>BUSINESS HEALTH</span><b>—</b><small>Run an audit to calculate</small></div>
+    <div class="card metric"><span>AI OPPORTUNITIES</span><b>—</b><small>Based on customer evidence</small></div>
+    <div class="card metric"><span>HOURS TO AUTOMATE</span><b>—</b><small>Requires real workflow data</small></div>
+    <div class="card metric"><span>ROI TRACKED</span><b>—</b><small>No invented ROI</small></div>
   </div>
   <div class="section grid g2">
     <div class="card"><div class="sectionHead"><h2>Next highest-impact action</h2><span class="tag">AI RECOMMENDATION</span></div><p class="sub">Connect your current marketing and order workflow. AIMPACT will map manual steps, identify automation candidates and produce an implementation plan.</p><button class="btn primary" onclick="go('audit')">START AUDIT →</button></div>
@@ -81,9 +81,9 @@ footer{padding:30px 34px;border-top:1px solid var(--line);color:var(--muted);fon
   <div class="eyebrow">03 · EXECUTIVE REPORTS</div><h1 class="title">From analysis<br>to management action.</h1>
   <div class="card section">
     <table class="table"><thead><tr><th>REPORT</th><th>STATUS</th><th>VALUE</th><th></th></tr></thead><tbody>
-      <tr><td>Monthly AI Business Health</td><td>READY</td><td>5 priority actions</td><td><button class="btn" onclick="alert('Report preview: verified findings, actions and measurable inputs.')">PREVIEW</button></td></tr>
-      <tr><td>Automation Opportunity Map</td><td>READY</td><td>184 hours/month identified</td><td><button class="btn" onclick="alert('Report preview: workflow map and implementation sequence.')">PREVIEW</button></td></tr>
-      <tr><td>ROI / Outcome Report</td><td>TRACKING</td><td>2.4× from entered evidence</td><td><button class="btn" onclick="alert('ROI uses only customer-provided or verified data. No invented savings.')">PREVIEW</button></td></tr>
+      <tr><td>Monthly AI Business Health</td><td>READY</td><td>Generated from verified audit evidence</td><td><button class="btn" onclick="alert('Report preview: verified findings, actions and measurable inputs.')">PREVIEW</button></td></tr>
+      <tr><td>Automation Opportunity Map</td><td>READY</td><td>Calculated from customer inputs</td><td><button class="btn" onclick="alert('Report preview: workflow map and implementation sequence.')">PREVIEW</button></td></tr>
+      <tr><td>ROI / Outcome Report</td><td>TRACKING</td><td>Only shown after measurable evidence</td><td><button class="btn" onclick="alert('ROI uses only customer-provided or verified data. No invented savings.')">PREVIEW</button></td></tr>
     </tbody></table>
   </div>
 </section>
@@ -114,11 +114,24 @@ const views=[...document.querySelectorAll('.view')];
 function go(id){views.forEach(v=>v.classList.toggle('active',v.id===id));document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===id));document.getElementById('crumb').textContent='AIMPACT / '+id.toUpperCase();scrollTo({top:0,behavior:'smooth'});}
 document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>go(b.dataset.view));
 function runAudit(){
+ const company=document.getElementById('company').value.trim()||'Your company';
+ const industry=document.getElementById('industry').value;
  const p=document.getElementById('problem').value.trim();
+ const h=Number(document.getElementById('hours').value)||0;
+ const cost=Number(document.getElementById('cost').value)||0;
  if(!p){alert('Enter one real business problem first.');return}
- const h=Number(document.getElementById('hours').value)||0,c=Number(document.getElementById('cost').value)||0;
- const score=Math.min(96,58+(p.length%23)+Math.min(20,Math.round(h/20)));
- document.getElementById('auditResult').innerHTML='<div class="result"><span class="tag">AI AUDIT RESULT · DEMO ANALYSIS</span><div class="score">'+score+'</div><div class="risk">OPPORTUNITY INDEX</div><div class="finding"><strong>1 · AUTOMATION CANDIDATE</strong><span>Repeated manual work detected. Map the current workflow and remove duplicate handoffs.</span></div><div class="finding"><strong>2 · AI DECISION LAYER</strong><span>Use AI for classification, drafting and prioritization while keeping controlled human approval at material actions.</span></div><div class="finding"><strong>3 · MEASUREMENT</strong><span>Track time, cost, volume and outcome before claiming ROI.</span></div><button class="btn primary" onclick="go(\'reports\')">GENERATE EXECUTIVE REPORT →</button></div>';
+ const text=p.toLowerCase();
+ const rules=[
+  ['CONTENT / MARKETING',['content','copy','사진','이미지','상품','sns','social','marketing','마케팅'],'콘텐츠 제작·배포 업무를 표준화하고 생성·재가공을 자동화합니다.','콘텐츠 입력 → AI 초안 → 담당자 승인 → 채널별 배포 → 성과 집계'],
+  ['SALES / CRM',['sales','lead','고객','문의','crm','영업','상담','proposal','견적'],'문의·리드의 분류와 후속조치를 자동화해 응답 누락을 줄입니다.','문의 수집 → AI 분류 → 우선순위 → 담당자 배정 → 후속 알림 → 전환 측정'],
+  ['OPERATIONS',['반복','수작업','manual','엑셀','spreadsheet','보고','report','운영','정산','재고'],'반복 입력과 보고 업무를 하나의 검증 가능한 워크플로우로 통합합니다.','원천 데이터 → 검증 → 자동 처리 → 예외 승인 → 결과 기록'],
+  ['CUSTOMER SUPPORT',['support','cs','고객센터','불만','환불'],'반복 문의를 분류·초안화하고 사람의 승인 아래 응답 품질을 관리합니다.','문의 → 의도 분류 → 답변 초안 → 사람 승인 → 발송 → 만족도 측정']
+ ];
+ const match=rules.find(r=>r[1].some(k=>text.includes(k)))||['GENERAL PROCESS',[],'업무를 단계별로 분해하고 반복·판단·승인 구간을 분리한 뒤 자동화 우선순위를 정합니다.','현재 업무 → 단계 분해 → 병목 측정 → AI 적용 → 승인 → 결과 측정'];
+ const saving=h?Math.round(h*0.35):null;
+ const value=(saving&&cost)?Math.round(cost*(saving/Math.max(h,1))):null;
+ const score=Math.min(95,45+(h?20:0)+(cost?15:0)+(p.length>80?10:0)+(match[0]!=='GENERAL PROCESS'?10:0));
+ document.getElementById('auditResult').innerHTML='<div class="result"><span class="tag">AIMPACT AUDIT · EVIDENCE-BASED RESULT</span><div class="score">'+score+'</div><div class="risk">OPPORTUNITY PRIORITY · '+match[0]+'</div><div class="finding"><strong>CONCLUSION</strong><span>'+match[2]+'</span></div><div class="finding"><strong>RECOMMENDED WORKFLOW</strong><span>'+match[3]+'</span></div><div class="finding"><strong>EXPECTED IMPACT</strong><span>'+(saving?('입력하신 '+h+'시간 기준 월 약 '+saving+'시간의 반복 업무 절감 후보입니다.'):'시간 데이터가 없어 절감시간을 추정하지 않습니다.')+(value?' 입력 비용 기준 단순 환산 후보값은 월 '+value.toLocaleString()+'원입니다. 실제 ROI로 확정하지 않습니다.':'')+'</span></div><div class="finding"><strong>IMPLEMENTATION ORDER</strong><span>1. 현재 프로세스 캡처 → 2. 반복 단계 자동화 → 3. AI 판단 단계 적용 → 4. 사람 승인 → 5. 결과·ROI 측정</span></div><div class="finding"><strong>DATA STATUS</strong><span>'+(h||cost?'고객 입력값 기반':'정량 증거 미입력')+' · 검증되지 않은 절감·ROI는 성과로 표시하지 않습니다.</span></div><button class="btn primary" onclick="go('reports')">GENERATE EXECUTIVE REPORT →</button></div>';
 }
 function selectPlan(name,price){
  localStorage.setItem('aimpact_selected_plan',JSON.stringify({name,price,at:new Date().toISOString()}));
