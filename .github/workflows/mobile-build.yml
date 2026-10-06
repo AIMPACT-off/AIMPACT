@@ -43,6 +43,15 @@ jobs:
         run: npm install
       - name: Validate Expo project
         run: npx expo config --type public
+      - name: Verify Expo authentication
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "EXPO_TOKEN is not available to this workflow."
+            exit 1
+          fi
+          npx eas-cli whoami --non-interactive
       - name: Build mobile app
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
