@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Node dependencies
+        run: npm install --no-audit --no-fund
       - name: Verify customer platform
         run: |
           test -f platform.html
@@ -24,4 +26,3 @@ jobs:
           ! grep -q '2.4×' platform.html
           ! grep -q '<b>78</b>' platform.html
           ! grep -q '<b>184</b>' platform.html
-
