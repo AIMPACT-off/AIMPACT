@@ -24,3 +24,4 @@ jobs:
           ! grep -q '2.4×' platform.html
           ! grep -q '<b>78</b>' platform.html
           ! grep -q '<b>184</b>' platform.html
+
