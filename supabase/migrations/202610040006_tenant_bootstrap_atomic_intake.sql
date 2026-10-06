@@ -11,7 +11,7 @@ create or replace function public.create_tenant_with_owner(
 language plpgsql
 security definer
 set search_path = pg_catalog, public
-as $$
+as $function$
 declare
   v_tenant_id uuid;
   v_created boolean := false;
@@ -69,7 +69,7 @@ begin
     'created', v_created
   );
 end;
-$$;
+$function$;
 
 create or replace function public.create_diagnosis_intake_atomic(
   p_tenant_id uuid,
@@ -83,7 +83,7 @@ create or replace function public.create_diagnosis_intake_atomic(
 language plpgsql
 security definer
 set search_path = pg_catalog, public
-as $$
+as $function$
 declare
   v_submission_id uuid;
   v_job_id uuid;
@@ -146,7 +146,7 @@ begin
     'queued', true
   );
 end;
-$$;
+$function$;
 
 revoke all on function public.create_tenant_with_owner(text,text,uuid)
   from public, anon, authenticated;
