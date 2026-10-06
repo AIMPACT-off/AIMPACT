@@ -66,7 +66,7 @@ create or replace function public.set_autonomous_gate_state_atomic(
   p_gate_id text, p_scope text, p_status text, p_expected_version bigint,
   p_last_evidence_id text, p_readiness jsonb
 ) returns jsonb
-language plpgsql security definer set search_path=pg_catalog,public as $$
+language plpgsql security definer set search_path=pg_catalog,public as $function$
 declare v_version bigint; v_status text;
 begin
   if p_gate_id is null or p_scope not in ('TEST','PRODUCTION')
@@ -88,7 +88,7 @@ begin
   if not found then raise exception 'autonomous gate concurrency conflict' using errcode='40001'; end if;
   return jsonb_build_object('ok',true,'duplicate',false,'version',v_version+1,'status',p_status);
 end;
-$$;
+$function$;
 
 revoke all on function public.set_autonomous_gate_state_atomic(text,text,text,bigint,text,jsonb) from public,anon,authenticated;
 grant execute on function public.set_autonomous_gate_state_atomic(text,text,text,bigint,text,jsonb) to service_role;
