@@ -12,7 +12,7 @@ create or replace function public.create_diagnosis_intake_atomic(
 language plpgsql
 security definer
 set search_path = pg_catalog, public
-as $$
+as $function$
 declare
   v_submission_id uuid;
   v_job_id uuid;
