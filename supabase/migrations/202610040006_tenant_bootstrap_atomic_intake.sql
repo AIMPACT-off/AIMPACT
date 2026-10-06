@@ -1,3 +1,9 @@
+-- Compatibility wrapper for Supabase CLI prepared-statement execution.
+-- This migration intentionally executes its DDL through one DO statement so the
+-- disposable migration runner cannot reject multiple top-level commands.
+do $do$
+begin
+  execute $tenant$
 -- AIMPACT trusted tenant provisioning + atomic diagnosis intake v1
 -- All mutation RPCs are service_role-only. Callers must validate the end-user
 -- Supabase JWT before supplying p_owner_user_id / p_tenant_id.
@@ -70,7 +76,8 @@ begin
   );
 end;
 $$;
-
+$tenant$;
+  execute $diagnosis$
 create or replace function public.create_diagnosis_intake_atomic(
   p_tenant_id uuid,
   p_idempotency_key text,
@@ -147,7 +154,8 @@ begin
   );
 end;
 $$;
-
+$diagnosis$;
+  execute $grants$
 revoke all on function public.create_tenant_with_owner(text,text,uuid)
   from public, anon, authenticated;
 revoke all on function public.create_diagnosis_intake_atomic(uuid,text,text,jsonb,text,timestamptz,uuid)
@@ -159,3 +167,6 @@ comment on function public.create_tenant_with_owner(text,text,uuid) is
   'Atomic trusted-server tenant bootstrap. Caller MUST validate the Supabase Auth JWT and derive owner user id from its verified subject.';
 comment on function public.create_diagnosis_intake_atomic(uuid,text,text,jsonb,text,timestamptz,uuid) is
   'Atomically inserts/recovers one idempotent diagnosis submission and its queue job; service_role only.';
+$grants$;
+end
+$do$;
