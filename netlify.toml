@@ -5,3 +5,8 @@
   from = "/app"
   to = "/platform.html"
   status = 200
+
+[[redirects]]
+  from = "/api/business-xray"
+  to = "/.netlify/functions/business-xray"
+  status = 200
