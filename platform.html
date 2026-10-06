@@ -61,21 +61,6 @@ async function pay(){
   if(!(await initToss()))return;
   if(tossWindow)$("payStatus").textContent="SELECT A PAYMENT METHOD IN THE TOSS WINDOW.";
 }
-  try{
-    const orderId="AIMPACT-QA-"+crypto.randomUUID().replaceAll("-","").slice(0,24);
-    const toss=TossPayments(TOSS_CLIENT_KEY);
-    const widgets=toss.widgets({customerKey:"ANONYMOUS"});
-    await widgets.setAmount({currency:"KRW",value:QUICK_AUDIT_AMOUNT});
-    $("payStatus").textContent="OPENING TOSS PAYMENTS CHECKOUT…";
-    await widgets.requestPayment({
-      method:"CARD",
-      amount:{currency:"KRW",value:QUICK_AUDIT_AMOUNT},
-      orderId,
-      orderName:"AIMPACT AI Quick Audit",
-      successUrl:location.origin+"/payment-success.html",
-      failUrl:location.origin+"/payment-fail.html"
-    });
-  }catch(e){$("payStatus").textContent="PAYMENT REQUEST FAILED · "+(e?.message||"UNKNOWN_ERROR")}
-}
+
 render();
 </script></body></html>
