@@ -8,3 +8,8 @@
   from = "/app"
   to = "/platform.html"
   status = 200
+
+[[redirects]]
+  from = "/api/audit"
+  to = "/.netlify/functions/audit"
+  status = 200
