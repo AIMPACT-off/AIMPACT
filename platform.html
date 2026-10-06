@@ -36,7 +36,7 @@ footer{padding:30px 34px;border-top:1px solid var(--line);color:var(--muted);fon
   <div class="sideBottom">TENANT<br><b id="tenantName">Demo Company</b><br><br>PLATFORM STATUS<br><span style="color:#9df0bd">SAFE CORE · READY</span></div>
 </aside>
 <main>
-<header class="top"><span id="crumb">AIMPACT / OVERVIEW</span><span class="pill" id="commercialStatus">AUDIT READY · BILLING CONTROLLED</span></header>
+<header class="top"><span id="crumb">AIMPACT / OVERVIEW</span><span class="pill" id="commercialStatus">LIVE CHECKOUT · QUICK AUDIT ₩99,000</span></header>
 
 <section id="dashboard" class="view active">
   <div class="eyebrow">AIMPACT BUSINESS OS</div><h1 class="title">See the business.<br>Decide. Act. Measure.</h1>
@@ -74,7 +74,7 @@ footer{padding:30px 34px;border-top:1px solid var(--line);color:var(--muted);fon
     <article class="card product"><span class="tag">GROW</span><h3>Business AI Platform</h3><p>Recurring audit, reports, ROI tracking, workflow recommendations and continuous improvement workspace.</p><div class="price">₩490,000 <small>/ month · draft</small></div><button class="btn primary" onclick="selectPlan('Business AI Platform','₩490,000 / month')">SUBSCRIBE</button></article>
     <article class="card product"><span class="tag">ENTERPRISE</span><h3>AI Transformation</h3><p>Custom tenant, integrations, implementation, security package and enterprise operating support.</p><div class="price">CUSTOM <small>contract</small></div><button class="btn" onclick="go('billing')">REQUEST PROPOSAL</button></article>
   </div>
-  <div class="notice section" id="checkoutNotice">Checkout is controlled by the production billing gate. When a live payment link is configured, the selected plan will open the verified checkout destination.</div>
+  <div class="notice section" id="checkoutNotice">AI Quick Audit checkout is LIVE. Business AI Platform remains closed until its recurring billing link is verified.</div>
 </section>
 
 <section id="reports" class="view">
@@ -99,17 +99,19 @@ footer{padding:30px 34px;border-top:1px solid var(--line);color:var(--muted);fon
 <section id="billing" class="view">
   <div class="eyebrow">05 · BILLING</div><h1 class="title">Revenue is part<br>of the product.</h1>
   <div class="grid g3 section">
-    <div class="card metric"><span>PLAN</span><b>DEMO</b><small>No live entitlement</small></div>
+    <div class="card metric"><span>QUICK AUDIT</span><b>₩99K</b><small>LIVE checkout</small></div>
     <div class="card metric"><span>USAGE</span><b>27</b><small>audit/report events</small></div>
-    <div class="card metric"><span>STATUS</span><b style="font-size:22px">NOT LIVE</b><small>Production payment gate closed</small></div>
+    <div class="card metric"><span>STATUS</span><b style="font-size:22px">LIVE</b><small>Quick Audit payment active</small></div>
   </div>
-  <div class="card section"><h2>Commercial flow</h2><p class="sub">Plan selection → checkout → payment confirmation → tenant provisioning → entitlement → usage metering → invoice/settlement → renewal. The UI is ready to receive the live billing engine; production payment credentials have not been activated.</p><button class="btn primary" onclick="selectPlan('Business AI Platform','₩490,000 / month')">TEST CHECKOUT FLOW →</button></div>
+  <div class="card section"><h2>Commercial flow</h2><p class="sub">Quick Audit → live checkout → payment confirmation → customer audit → report delivery. The Quick Audit payment destination is verified LIVE; recurring Business AI Platform remains closed until its billing destination is verified.</p><button class="btn primary" onclick="selectPlan('Business AI Platform','₩490,000 / month')">TEST CHECKOUT FLOW →</button></div>
 </section>
 
 <footer>AIMPACT · AI × BUSINESS × GROWTH · PRODUCT PLATFORM V1 · SAFETY CORE REMAINS CONTROLLED</footer>
 </main>
 </div>
 <script>
+window.AIMPACT_CHECKOUT_QUICK_AUDIT="https://buy.stripe.com/eVq7sLdq33gOgNm9wH1Fe00";
+window.AIMPACT_CHECKOUT_BUSINESS_PLATFORM="";
 const views=[...document.querySelectorAll('.view')];
 function go(id){views.forEach(v=>v.classList.toggle('active',v.id===id));document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===id));document.getElementById('crumb').textContent='AIMPACT / '+id.toUpperCase();scrollTo({top:0,behavior:'smooth'});}
 document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>go(b.dataset.view));
