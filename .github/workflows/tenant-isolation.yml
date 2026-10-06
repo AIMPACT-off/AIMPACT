@@ -1,13 +1,51 @@
 name: Tenant isolation tests
+    # Dispatcher CI execution explicitly included
 
 on:
   workflow_dispatch:
   pull_request:
     paths:
       - "scripts/test-tenant-isolation.mjs"
+      - "scripts/check-test-secret-injection.mjs"
+      - "scripts/phase2-auth-jwt-audit.mjs"
+      - "scripts/test-billing-entitlement.mjs"
+      - "tests/phase2-product-surface.test.mjs"
+      - "tests/customer-app-v1-data-flow.test.mjs"
+      - "tests/stripe-billing.test.mjs"
+      - "tests/control-plane-lifecycle.test.mjs"
+      - "tests/control-plane-policy.test.mjs"
+      - "tests/control-plane-router-dispatcher.test.mjs"
+      - "tests/control-plane-runtime-persistence.test.mjs"
+      - "tests/control-plane-action-ledger.test.mjs"
+      - "tests/control-plane-learning.test.mjs"
+      - "tests/control-plane-execution-outbox.test.mjs"
+      - "tests/control-plane-execution-outbox-claim.test.mjs"
+      - "tests/control-plane-execution-outbox-schema.test.mjs"
+      - "tests/control-plane-execution-outbox-complete.test.mjs"
+      - "tests/control-plane-execution-outbox-retry.test.mjs"
+      - "tests/control-plane-execution-outbox-dlq.test.mjs"
+      - "tests/control-plane-autonomous-event-loop.test.mjs tests/autonomous-github-webhook.test.mjs tests/control-plane-autonomous-dispatcher.test.mjs tests/control-plane-autonomous-e2e.test.mjs"
+      - "phase2/control-plane/**"
+      - "portal/**"
+      - "netlify/functions/**"
+      - "phase2/**"
+      - "supabase/migrations/**"
+      - "package.json"
       - ".github/workflows/tenant-isolation.yml"
 
 jobs:
+  code-surface-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run Phase 2 product surface tests
+        run: node --test tests/phase2-product-surface.test.mjs tests/customer-app-v1-data-flow.test.mjs tests/stripe-billing.test.mjs tests/control-plane-lifecycle.test.mjs tests/control-plane-policy.test.mjs tests/control-plane-router-dispatcher.test.mjs tests/control-plane-runtime-persistence.test.mjs tests/control-plane-action-ledger.test.mjs tests/control-plane-learning.test.mjs tests/control-plane-execution-outbox.test.mjs tests/control-plane-execution-outbox-schema.test.mjs tests/control-plane-execution-outbox-complete.test.mjs tests/control-plane-execution-outbox-retry.test.mjs tests/control-plane-execution-outbox-dlq.test.mjs tests/control-plane-autonomous-event-loop.test.mjs tests/control-plane-autonomous-dispatcher.test.mjs tests/control-plane-autonomous-e2e.test.mjs
+      - name: Syntax check portal and server functions
+        run: node --check portal/app.js && node --check netlify/functions/billing-status.mjs && node --check netlify/functions/workflow-status.mjs && node --check netlify/functions/workflow-start.mjs && node --check netlify/functions/outcome-submit.mjs
+
   rls-negative-tests:
     if: ${{ vars.RLS_TESTS_ENABLED == 'true' }}
     runs-on: ubuntu-latest
@@ -24,3 +62,48 @@ jobs:
           TENANT_B_JWT: ${{ secrets.TENANT_B_JWT }}
           RLS_TEST_CASES: ${{ secrets.RLS_TEST_CASES }}
         run: node scripts/test-tenant-isolation.mjs
+
+  real-auth-jwt-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify TEST secret injection (values never printed)
+        env:
+          TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+          TEST_SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
+          TEST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+          TEST_DB_DISPOSABLE: ${{ secrets.TEST_DB_DISPOSABLE }}
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+        run: node scripts/check-test-secret-injection.mjs
+
+      - name: Run real Supabase Auth JWT audit
+        env:
+          TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+          TEST_SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
+          TEST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+          TEST_DB_DISPOSABLE: ${{ secrets.TEST_DB_DISPOSABLE }}
+        run: node scripts/phase2-auth-jwt-audit.mjs
+
+  billing-entitlement-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify TEST secret injection for billing
+        env:
+          TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+          TEST_SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
+          TEST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+          TEST_DB_DISPOSABLE: ${{ secrets.TEST_DB_DISPOSABLE }}
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+        run: node scripts/check-test-secret-injection.mjs
+      - name: Run disposable billing entitlement test
+        env:
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+          TEST_DB_DISPOSABLE: ${{ secrets.TEST_DB_DISPOSABLE }}
+        run: node scripts/test-billing-entitlement.mjs

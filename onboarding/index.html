@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AIMPACT — Business Onboarding</title>
+<meta name="description" content="Register your company with AIMPACT and start an AI Business Diagnosis.">
+<link rel="stylesheet" href="./styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../config.js"></script>
+</head>
+<body>
+<main class="wrap">
+<header><a class="logo" href="/">AIMPACT</a><span>AI × BUSINESS × GROWTH</span></header>
+<section class="hero">
+<p class="eyebrow">BUSINESS ONBOARDING</p>
+<h1>Register your company.<br>Start with the real problem.</h1>
+<p>Complete your company identity once. AIMPACT uses the verified business context to build your AI Business Diagnosis, recommendations and implementation path.</p>
+</section>
+
+<section class="card" id="authCard">
+<h2>01 · ACCOUNT</h2>
+<form id="authForm">
+<label>BUSINESS EMAIL<input name="email" type="email" required autocomplete="email" placeholder="you@company.com"></label>
+<label>PASSWORD<input name="password" type="password" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters"></label>
+<div class="actions"><button class="primary" id="signup" type="button">CREATE ACCOUNT</button><button id="signin" type="button">SIGN IN</button></div>
+<p id="authNote" class="note">Create or sign in to continue.</p>
+</form>
+</section>
+
+<section class="card locked" id="companyCard">
+<h2>02 · COMPANY & BUSINESS REGISTRATION</h2>
+<form id="companyForm">
+<div class="grid">
+<label>LEGAL COMPANY NAME<input name="legal_name" required maxlength="160"></label>
+<label>BUSINESS REGISTRATION NUMBER<input name="business_registration_number" required inputmode="numeric" pattern="[0-9-]{8,20}" placeholder="000-00-00000"></label>
+<label>REPRESENTATIVE<input name="representative_name" required maxlength="100"></label>
+<label>INDUSTRY<input name="industry" required maxlength="120" placeholder="e.g. Fashion / Retail / SaaS"></label>
+<label class="wide">BUSINESS ADDRESS<input name="business_address" required maxlength="300"></label>
+<label class="wide">WEBSITE<input name="website" type="url" placeholder="https://"></label>
+<label>WORKSPACE SLUG<input name="slug" required pattern="[a-z0-9][a-z0-9-]{1,62}[a-z0-9]" placeholder="your-company"></label>
+</div>
+<button class="primary" type="submit">CREATE / CONNECT COMPANY →</button>
+<p id="companyNote" class="note"></p>
+</form>
+</section>
+
+<section class="card locked" id="verificationCard">
+<h2>03 · BUSINESS VERIFICATION & PAYOUT</h2>
+<p class="muted">Business registration certificate and payout information are transmitted only after authentication and tenant verification. Bank account numbers are never returned to the browser after submission.</p>
+<form id="verificationForm">
+<label>BANK<input name="bank_name" required placeholder="Bank name"></label>
+<label>ACCOUNT HOLDER<input name="account_holder" required placeholder="Legal account holder"></label>
+<label>BANK ACCOUNT NUMBER<input name="bank_account" required inputmode="numeric" autocomplete="off" pattern="[0-9 ]{8,24}" placeholder="Numbers only"></label>
+<label>BUSINESS REGISTRATION CERTIFICATE<input name="certificate" type="file" required accept="application/pdf,image/jpeg,image/png"></label>
+<div class="consent"><input id="confirm" type="checkbox" required><label for="confirm">I confirm that the company and payout information submitted here belongs to this business and may be used for AIMPACT verification and settlement administration.</label></div>
+<button class="primary" id="submitVerification" type="submit">SUBMIT BUSINESS VERIFICATION →</button>
+<p id="verificationNote" class="note"></p>
+</form>
+</section>
+
+<section class="card locked" id="nextCard">
+<h2>04 · CUSTOMER APP</h2>
+<p>Your business identity is submitted. Continue to the AIMPACT Customer App for diagnosis, reports, matching, workflow and measurement.</p>
+<a class="primary link" href="/portal/">OPEN AIMPACT CUSTOMER APP →</a>
+</section>
+<footer>AIMPACT · EVIDENCE-FIRST · BUSINESS DATA FAIL-CLOSED · NO UNVERIFIED OUTCOME CLAIMS</footer>
+</main>
+<script src="./app.js"></script>
+</body></html>

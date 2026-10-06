@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AIMPACT — Client Portal</title>
+<meta name="description" content="AIMPACT B2B AI operations client portal.">
+<link rel="stylesheet" href="./styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../config.js"></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">AIMPACT<span>AI × BUSINESS × GROWTH</span></div>
+    <nav>
+      <button class="nav active" data-view="overview">COMMAND CENTER</button>
+      <button class="nav" data-view="discover">DISCOVER</button>
+      <button class="nav" data-view="diagnosis">DIAGNOSE</button>
+      <button class="nav" data-view="reports">REPORT</button>
+      <button class="nav" data-view="match">MATCH</button>
+      <button class="nav" data-view="workflows">EXECUTE</button>
+      <button class="nav" data-view="roi">MEASURE</button>
+      <button class="nav" data-view="billing">BILLING</button>
+    </nav>
+    <div class="tenant">
+      <small>TENANT</small>
+      <strong id="tenant">Not authenticated</strong>
+      <em id="connection">BACKEND LOCKED</em>
+    </div>
+  </aside>
+
+  <main>
+    <section class="panel auth-panel" id="authPanel">
+      <p class="eyebrow">SECURE CLIENT ACCESS</p>
+      <h2>Welcome to AIMPACT.</h2>
+      <p class="lead">Sign in to your workspace. Business data, diagnosis evidence and workflow state remain isolated to your verified organization.</p>
+      <div class="auth-grid">
+        <form id="loginForm" class="auth-form">
+          <label>EMAIL<input name="email" type="email" autocomplete="email" required placeholder="you@company.com"></label>
+          <label>PASSWORD<input name="password" type="password" autocomplete="current-password" required minlength="8" placeholder="Your password"></label>
+          <button class="button primary" type="submit">SIGN IN</button>
+          <button class="button" type="button" id="signupButton">CREATE ACCOUNT</button>
+          <button class="button" type="button" id="oauthButton">CONTINUE WITH GOOGLE</button>
+        </form>
+        <div class="tenant-access">
+          <label>ACTIVE WORKSPACE<select id="tenantSelect" disabled><option value="">Sign in to load workspaces</option></select></label>
+          <button class="button primary" id="connectTenant" type="button" disabled>CONNECT WORKSPACE</button>
+          <details>
+            <summary>Create a new workspace</summary>
+            <form id="tenantForm">
+              <label>COMPANY / WORKSPACE NAME<input name="name" required maxlength="160" placeholder="Your company"></label>
+              <label>WORKSPACE URL NAME<input name="slug" required pattern="[a-z0-9][a-z0-9-]{1,62}[a-z0-9]" placeholder="your-company"></label>
+              <button class="button" type="submit">CREATE WORKSPACE</button>
+            </form>
+          </details>
+          <button class="button quiet" id="signoutButton" type="button" hidden>Sign out</button>
+        </div>
+      </div>
+      <p class="formnote" id="authNote" role="status">Authentication required. Customer data remains locked until workspace membership is verified.</p>
+    </section>
+
+    <header class="topbar">
+      <div><small id="crumb">AIMPACT / COMMAND CENTER</small><h1 id="heading">Business Command Center</h1></div>
+      <div class="top-actions"><span class="status" id="status">FAIL-CLOSED</span><button class="button quiet" id="signoutTop" type="button" hidden>SIGN OUT</button></div>
+    </header>
+
+    <section class="view active" id="overview">
+      <p class="eyebrow">AIMPACT CLIENT OS · V1</p>
+      <h2>From business problem<br>to measurable outcome.</h2>
+      <p class="lead">AIMPACT does not start with an AI tool. It starts with your business problem, verifies the evidence, matches the right solution, executes the workflow and measures what changed.</p>
+      <div class="grid four">
+        <article class="card"><small>DIAGNOSIS</small><b id="metricDiagnosis">READY</b><span>problem context and success measure</span></article>
+        <article class="card"><small>APPROVED REPORTS</small><b id="metricReports">—</b><span>human-reviewed intelligence</span></article>
+        <article class="card"><small>ACTIVE WORKFLOWS</small><b id="metricWorkflows">—</b><span>server-controlled execution state</span></article>
+        <article class="card"><small>OUTCOMES</small><b id="metricRoi">—</b><span>verified measurements only</span></article>
+      </div>
+      <div class="grid three">
+        <article class="card"><small>01 · DISCOVER</small><b>Find the problem</b><span>Start from the business result you need.</span></article>
+        <article class="card"><small>02 · MATCH</small><b>Choose with evidence</b><span>Compare verified recommendations, cost and risk.</span></article>
+        <article class="card"><small>03 · MEASURE</small><b>Prove the outcome</b><span>Feed real measurements back into the loop.</span></article>
+      </div>
+      <div class="panel gate"><strong>ONE COMMERCIAL LOOP</strong><p>One Customer → One Problem → One Solution → One Workflow → One Outcome. No invented metrics. No unverified recommendation is presented as fact.</p><button class="button primary" data-view-target="discover">DISCOVER A BUSINESS OPPORTUNITY →</button></div>
+    </section>
+
+    <section class="view" id="discover">
+      <p class="eyebrow">01 · DISCOVER</p>
+      <h2>Start with the<br>business problem.</h2>
+      <p class="lead">Tell AIMPACT what should improve. The system turns that context into a structured diagnosis request instead of forcing you to browse an AI tool directory.</p>
+      <div class="grid three">
+        <article class="card"><small>OUTCOME</small><b>What must improve?</b><span>Revenue, cost, speed, conversion, operations or another measurable result.</span></article>
+        <article class="card"><small>WORKFLOW</small><b>Where does work break?</b><span>Map the current process, systems and manual steps.</span></article>
+        <article class="card"><small>CONSTRAINT</small><b>What cannot change?</b><span>Budget, people, systems, compliance and implementation limits.</span></article>
+      </div>
+      <div class="panel gate"><strong>DISCOVERY GATE</strong><p>AIMPACT only recommends a solution after sufficient business context is submitted and the resulting diagnosis passes the review gate.</p><button class="button primary" data-view-target="diagnosis">START DIAGNOSIS →</button></div>
+    </section>
+
+    <section class="view" id="diagnosis">
+      <p class="eyebrow">02 · DIAGNOSE</p>
+      <h2>One problem.<br>Full business context.</h2>
+      <div class="panel">
+        <form id="diagnosisForm">
+          <label>DESIRED OUTCOME<textarea name="outcome" required placeholder="What business result should improve?"></textarea></label>
+          <label>CURRENT WORKFLOW<textarea name="current_workflow" required placeholder="Describe the process from start to finish."></textarea></label>
+          <label>BOTTLENECK<textarea name="bottleneck" required placeholder="Where is the largest delay, error or manual burden?"></textarea></label>
+          <label>SYSTEMS<input name="systems" required placeholder="e.g. Shopify, Notion, Excel, Slack"></label>
+          <label>SUCCESS MEASURE<input name="success_measure" required placeholder="How will you know the pilot worked?"></label>
+          <button class="button primary" type="submit">SUBMIT DIAGNOSIS →</button>
+          <p class="formnote" id="formnote">Submission is locked until authenticated tenant API integration is verified.</p>
+        </form>
+      </div>
+    </section>
+
+    <section class="view" id="reports">
+      <p class="eyebrow">03 · REPORT</p>
+      <h2>Evidence before<br>recommendation.</h2>
+      <div class="panel" id="reportsPanel"><b>NO REPORT DATA LOADED</b><p>Reports appear only after server-side tenant verification and an APPROVED review decision.</p></div>
+    </section>
+
+    <section class="view" id="match">
+      <p class="eyebrow">04 · MATCH</p>
+      <h2>Match the problem<br>to the right action.</h2>
+      <div class="panel"><strong>DECISION MOAT</strong><p>Approved diagnosis reports are the source for solution candidates, workflow recommendations and evidence. AIMPACT does not expose an unverified supplier as a verified result.</p></div>
+      <div class="panel" style="margin-top:12px"><b>HOW MATCHING WORKS</b><p>Problem category → constraints → solution candidates → evidence → implementation fit → expected effect → review approval.</p><button class="button primary" data-view-target="reports">OPEN APPROVED REPORTS →</button></div>
+    </section>
+
+    <section class="view" id="workflows">
+      <p class="eyebrow">05 · EXECUTE</p>
+      <h2>Turn the decision<br>into a workflow.</h2>
+      <div class="grid three">
+        <article class="card"><small>READY</small><b>Gate</b><span>Approved report + review + active entitlement.</span></article>
+        <article class="card"><small>ACTIVE</small><b>Operate</b><span>Server-controlled workflow state and current step.</span></article>
+        <article class="card"><small>RESULT</small><b>Record</b><span>Outcome measurements become part of the learning loop.</span></article>
+      </div>
+      <div class="panel gate"><strong>EXECUTION CONTROL</strong><p>Workflow execution remains fail-closed. A customer cannot bypass the entitlement, approval or tenant boundary.</p></div>
+      <div class="panel" id="workflowPanel" style="margin-top:12px"><b>WORKFLOW DATA NOT LOADED</b><p>Workflow state appears after authenticated tenant verification.</p></div>
+    </section>
+
+    <section class="view" id="roi">
+      <p class="eyebrow">06 · MEASURE</p>
+      <h2>Measure what<br>actually changed.</h2>
+      <div class="grid three">
+        <article class="card"><small>BASELINE</small><b>Before</b><span>Customer-provided starting measurement.</span></article>
+        <article class="card"><small>CURRENT</small><b>After</b><span>Current measurement from the active workflow.</span></article>
+        <article class="card"><small>VERIFICATION</small><b>Proof</b><span>Only verified outcome records count as evidence.</span></article>
+      </div>
+      <div class="panel empty"><b>NO VERIFIED OUTCOMES YET</b><p>AIMPACT will never manufacture ROI. Verified outcome metrics become the evidence that improves future matching and renewal decisions.</p></div>
+    </section>
+
+    <section class="view" id="billing">
+      <p class="eyebrow">07 · BILLING</p>
+      <h2>Commercial<br>control.</h2>
+      <div class="grid three">
+        <article class="card"><small>ENTITLEMENT</small><b id="billingPlan">LOCKED</b><span id="billingStatus">Awaiting authenticated billing state</span></article>
+        <article class="card"><small>PAYMENT</small><b>TEST</b><span>Live credentials remain off.</span></article>
+        <article class="card"><small>RENEWAL</small><b id="billingRenewal">—</b><span>Current period end from verified billing state.</span></article>
+      </div>
+      <div class="panel" id="billingPanel"><b>BILLING DATA NOT LOADED</b><p>Billing state is server-verified and tenant-scoped.</p></div>
+    </section>
+
+    <footer>AIMPACT · CUSTOMER OS V1 · EVIDENCE-FIRST · CUSTOMER DATA FAIL-CLOSED · PRODUCTION NOT ACTIVATED</footer>
+  </main>
+</div>
+<script src="./app.js"></script>
+</body>
+</html>

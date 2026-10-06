@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aimpact.ai/schemas/business-diagnosis-request.v1.json",
+  "title": "AIMPACT B2B Business Diagnosis Request",
+  "description": "Versioned intake contract. Do not submit credentials, personal records, customer-level data, or confidential source files.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "answers"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "answers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome","current_workflow","frequency_volume","time_cost","bottleneck","systems","inputs_outputs","exceptions","data_sensitivity","current_ai_use","success_measure","stakeholders","timing"],
+      "properties": {
+        "outcome":{"type":"string","minLength":1,"maxLength":2000},
+        "current_workflow":{"type":"string","minLength":1,"maxLength":4000},
+        "frequency_volume":{"type":"string","minLength":1,"maxLength":1000},
+        "time_cost":{"type":"string","minLength":1,"maxLength":1500},
+        "bottleneck":{"type":"string","minLength":1,"maxLength":2000},
+        "systems":{"type":"array","minItems":1,"maxItems":30,"items":{"type":"string","minLength":1,"maxLength":120}},
+        "inputs_outputs":{"type":"string","minLength":1,"maxLength":3000},
+        "exceptions":{"type":"string","minLength":1,"maxLength":3000},
+        "data_sensitivity":{"type":"object","additionalProperties":false,"required":["contains_restricted_data","categories"],"properties":{"contains_restricted_data":{"type":"boolean"},"categories":{"type":"array","maxItems":10,"uniqueItems":true,"items":{"enum":["personal","financial","health","children","confidential","other","none"]}},"notes":{"type":"string","maxLength":1000}}},
+        "current_ai_use":{"type":"string","minLength":1,"maxLength":2000},
+        "success_measure":{"type":"string","minLength":1,"maxLength":2000},
+        "stakeholders":{"type":"string","minLength":1,"maxLength":1500},
+        "timing":{"type":"string","minLength":1,"maxLength":1000},
+        "budget_range":{"type":"string","maxLength":500}
+      }
+    }
+  }
+}

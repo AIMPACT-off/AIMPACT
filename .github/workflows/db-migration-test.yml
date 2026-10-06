@@ -1,9 +1,9 @@
 name: Disposable Supabase migration test
 on:
   pull_request:
-    paths: ["supabase/**", ".github/workflows/db-migration-test.yml"]
+    paths: ["supabase/**", "scripts/phase2-test-db.mjs", "scripts/control-plane-true-closed-loop.mjs", ".github/workflows/db-migration-test.yml"]
   push:
-    paths: ["supabase/**", ".github/workflows/db-migration-test.yml"]
+    paths: ["supabase/**", "scripts/phase2-test-db.mjs", "scripts/control-plane-true-closed-loop.mjs", ".github/workflows/db-migration-test.yml"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -15,14 +15,24 @@ jobs:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.58.5
       - name: Initialize local config when absent
         run: |
           if [ ! -f supabase/config.toml ]; then supabase init; fi
       - name: Start disposable local stack
-        run: supabase start --exclude studio,edge-runtime,logflare,vector,analytics,supavisor,imgproxy,inbucket,storage-api,rest,realtime,auth
+        run: supabase start --exclude studio,edge-runtime,logflare,vector,supavisor,imgproxy,storage-api,realtime,postgrest,kong,mailpit,postgres-meta
       - name: Apply all migrations from clean database
         run: supabase db reset
+      - name: Run Phase 2 database, idempotency and rollback checks
+        run: |
+          DB_URL="$(supabase status -o env | sed -n 's/^DB_URL=//p' | tr -d '"')"
+          test -n "$DB_URL"
+          TEST_DATABASE_URL="$DB_URL" TEST_DB_DISPOSABLE=YES npm run test:phase2-db
+      - name: Run true closed-loop runtime integration
+        run: |
+          DB_URL="$(supabase status -o env | sed -n 's/^DB_URL=//p' | tr -d '"')"
+          test -n "$DB_URL"
+          TEST_DATABASE_URL="$DB_URL" TEST_DB_DISPOSABLE=YES node scripts/control-plane-true-closed-loop.mjs
       - name: Verify audit chain objects
         run: supabase db query --local "select to_regclass('public.audit_logs'), to_regprocedure('public.verify_audit_log_chain()'), to_regprocedure('public.aimpact_renew_execution_lock(text,uuid,integer)'), to_regprocedure('public.aimpact_claim_execution_lock(text,uuid,integer)');"
       - name: Exercise rollback in disposable database
