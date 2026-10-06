@@ -1,130 +1,66 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AIMPACT — Business AI Platform</title>
-<meta name="description" content="AIMPACT turns business problems into AI audits, actions, reports and measurable growth.">
-<style>
-:root{--bg:#08090b;--panel:#101216;--panel2:#15171c;--line:#292c33;--text:#f5f6f7;--muted:#9298a3;--accent:#fff;--good:#9df0bd;--warn:#ffd58a}
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,textarea,select{font:inherit}button{cursor:pointer}a{color:inherit;text-decoration:none}
-.app{min-height:100vh;display:grid;grid-template-columns:230px 1fr}.side{border-right:1px solid var(--line);padding:24px 16px;position:sticky;top:0;height:100vh}.brand{font-weight:900;letter-spacing:.18em;font-size:15px;padding:10px 12px 28px}.brand small{display:block;color:var(--muted);font-weight:500;letter-spacing:.08em;margin-top:8px;font-size:9px}.nav{display:grid;gap:5px}.nav button{background:transparent;color:var(--muted);border:0;text-align:left;padding:12px;border-radius:8px;font-size:12px}.nav button.active,.nav button:hover{background:var(--panel2);color:var(--text)}.sideBottom{position:absolute;bottom:20px;left:16px;right:16px;border-top:1px solid var(--line);padding-top:16px;color:var(--muted);font-size:10px;line-height:1.6}
-main{min-width:0}.top{height:72px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 34px;position:sticky;top:0;background:#08090bee;backdrop-filter:blur(12px);z-index:5}.top span{font-size:11px;color:var(--muted)}.pill{border:1px solid var(--line);padding:8px 11px;border-radius:999px;font-size:10px;color:var(--muted)}
-.view{display:none;padding:34px;max-width:1300px}.view.active{display:block}.eyebrow{font-size:9px;letter-spacing:.18em;color:var(--muted);font-weight:800}.title{font-size:clamp(34px,5vw,70px);letter-spacing:-.055em;line-height:.95;margin:14px 0}.sub{color:var(--muted);max-width:700px;line-height:1.6;font-size:14px}
-.grid{display:grid;gap:12px}.g4{grid-template-columns:repeat(4,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px}.metric b{font-size:30px;display:block;margin:10px 0 3px}.metric span{font-size:9px;letter-spacing:.12em;color:var(--muted)}.section{margin-top:26px}.sectionHead{display:flex;justify-content:space-between;align-items:end;margin-bottom:12px}.sectionHead h2{font-size:19px;margin:0;letter-spacing:-.03em}
-.btn{border:1px solid var(--line);background:transparent;color:var(--text);padding:11px 14px;border-radius:7px;font-size:10px;letter-spacing:.06em}.btn.primary{background:#fff;color:#08090b;border-color:#fff}.btn:hover{transform:translateY(-1px)}
-.auditBox{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:grid;gap:7px}.field label{font-size:9px;letter-spacing:.12em;color:var(--muted)}.field input,.field textarea,.field select{width:100%;background:#0b0c0f;border:1px solid var(--line);color:var(--text);padding:12px;border-radius:7px;outline:none}.field textarea{min-height:130px;resize:vertical}.span2{grid-column:1/-1}.result{border:1px solid var(--line);border-radius:10px;padding:20px;background:#0c0e11}.score{font-size:52px;font-weight:800;letter-spacing:-.05em}.risk{color:var(--warn);font-size:10px;letter-spacing:.1em}.finding{border-top:1px solid var(--line);padding:14px 0;display:flex;gap:16px;justify-content:space-between}.finding strong{font-size:13px}.finding span{font-size:11px;color:var(--muted);text-align:right;max-width:420px}
-.product{display:flex;flex-direction:column;min-height:220px}.product h3{margin:8px 0;font-size:18px}.product p{color:var(--muted);font-size:12px;line-height:1.5;flex:1}.price{font-size:24px;font-weight:800}.price small{font-size:10px;color:var(--muted);font-weight:400}.tag{font-size:9px;color:var(--muted);letter-spacing:.13em}
-.table{width:100%;border-collapse:collapse;font-size:11px}.table th,.table td{text-align:left;padding:13px 8px;border-bottom:1px solid var(--line)}.table th{color:var(--muted);font-size:9px;letter-spacing:.12em}
-.notice{padding:13px;border:1px solid #4b4028;background:#17140e;color:#d9c79c;border-radius:8px;font-size:11px;line-height:1.5}
-footer{padding:30px 34px;border-top:1px solid var(--line);color:var(--muted);font-size:9px;letter-spacing:.12em}
-@media(max-width:900px){.app{grid-template-columns:1fr}.side{height:auto;position:sticky;top:0;z-index:10;display:flex;align-items:center;border-right:0;border-bottom:1px solid var(--line);padding:12px}.brand{padding:5px 10px}.brand small{display:none}.nav{display:flex;overflow:auto}.nav button{white-space:nowrap}.sideBottom{display:none}.top{display:none}.view{padding:22px 16px}.g4,.g3,.g2,.auditBox{grid-template-columns:1fr}.span2{grid-column:auto}}
-</style>
-</head>
-<body>
-<div class="app">
-<aside class="side">
-  <div class="brand">AIMPACT<small>AI × BUSINESS × GROWTH</small></div>
-  <nav class="nav">
-    <button class="active" data-view="dashboard">OVERVIEW</button>
-    <button data-view="audit">AI AUDIT</button>
-    <button data-view="market">PRODUCTS</button>
-    <button data-view="reports">REPORTS</button>
-    <button data-view="automation">AUTOMATION</button>
-    <button data-view="billing">BILLING</button>
-  </nav>
-  <div class="sideBottom">TENANT<br><b id="tenantName">Demo Company</b><br><br>PLATFORM STATUS<br><span style="color:#9df0bd">SAFE CORE · READY</span></div>
-</aside>
-<main>
-<header class="top"><span id="crumb">AIMPACT / OVERVIEW</span><span class="pill">DEMO TENANT · NOT LIVE BILLING</span></header>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AIMPACT Business X-Ray</title><style>
+:root{--b:#070809;--p:#101215;--l:#292d34;--t:#f6f7f8;--m:#9299a5;--g:#9df0bd;--w:#ffd58a}*{box-sizing:border-box}body{margin:0;background:var(--b);color:var(--t);font:14px Inter,system-ui,sans-serif}.app{min-height:100vh;display:grid;grid-template-columns:220px 1fr}.side{border-right:1px solid var(--l);padding:22px 14px;position:sticky;top:0;height:100vh}.brand{font-weight:900;letter-spacing:.18em;padding:10px 12px 26px}.brand small{display:block;color:var(--m);font-size:9px;margin-top:7px}.nav{display:grid;gap:4px}.nav button{background:none;border:0;color:var(--m);text-align:left;padding:11px;border-radius:7px;cursor:pointer}.nav button.active,.nav button:hover{background:var(--p);color:var(--t)}.bottom{position:absolute;bottom:18px;color:var(--m);font-size:10px;border-top:1px solid var(--l);padding-top:14px;left:14px;right:14px}.main{min-width:0}.top{height:68px;border-bottom:1px solid var(--l);display:flex;justify-content:space-between;align-items:center;padding:0 30px;position:sticky;top:0;background:#070809ee;z-index:5}.top span{font-size:10px;color:var(--m)}.pill,.tag{border:1px solid var(--l);padding:7px 10px;border-radius:99px;font-size:9px;color:var(--m)}.view{display:none;padding:32px;max-width:1300px}.view.active{display:block}.ey{font-size:9px;letter-spacing:.18em;color:var(--m);font-weight:800}.title{font-size:clamp(38px,5vw,72px);line-height:.94;letter-spacing:-.06em;margin:15px 0}.sub{max-width:760px;color:var(--m);line-height:1.65}.grid{display:grid;gap:12px}.g4{grid-template-columns:repeat(4,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g2{grid-template-columns:repeat(2,1fr)}.card{background:var(--p);border:1px solid var(--l);border-radius:10px;padding:19px}.metric span{display:block;color:var(--m);font-size:9px;letter-spacing:.12em}.metric b{display:block;font-size:29px;margin:9px 0}.section{margin-top:24px}.head{display:flex;justify-content:space-between;align-items:end;gap:15px;margin-bottom:12px}.head h2{margin:0;font-size:19px}.btn{background:transparent;color:var(--t);border:1px solid var(--l);padding:11px 14px;border-radius:7px;font-size:10px;cursor:pointer}.primary{background:#fff;color:#070809;border-color:#fff}.good{color:var(--g)}.warn{color:var(--w)}.field{display:grid;gap:6px}.field label{font-size:9px;color:var(--m);letter-spacing:.12em}.field input,.field textarea,.field select{width:100%;background:#0b0c0f;color:var(--t);border:1px solid var(--l);border-radius:7px;padding:12px;outline:none}.field textarea{min-height:110px;resize:vertical}.form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.span{grid-column:1/-1}.result{border:1px solid var(--l);background:#0c0e11;border-radius:9px;padding:20px}.score{font-size:58px;font-weight:900}.finding{border-top:1px solid var(--l);padding:14px 0;display:flex;justify-content:space-between;gap:20px}.finding span{color:var(--m);font-size:11px;max-width:620px;text-align:right;line-height:1.5}.notice{border:1px solid #4b4028;background:#17140e;color:#d9c79c;padding:13px;border-radius:8px;font-size:11px;line-height:1.5}.action{padding:15px;border:1px solid var(--l);border-radius:8px;margin-top:9px}.action h3{margin:0 0 6px;font-size:13px}.action p{margin:0;color:var(--m);font-size:11px;line-height:1.5}.table{width:100%;border-collapse:collapse;font-size:11px}.table td{padding:12px 7px;border-bottom:1px solid var(--l)}footer{padding:28px 32px;border-top:1px solid var(--l);color:var(--m);font-size:9px;letter-spacing:.12em}@media(max-width:900px){.app{grid-template-columns:1fr}.side{height:auto;position:sticky;z-index:10;display:flex;align-items:center;padding:10px;border-right:0;border-bottom:1px solid var(--l)}.brand{padding:5px 9px}.brand small,.bottom{display:none}.nav{display:flex;overflow:auto}.nav button{white-space:nowrap}.top{display:none}.view{padding:22px 15px}.g4,.g3,.g2,.form{grid-template-columns:1fr}.span{grid-column:auto}.finding{display:block}.finding span{display:block;text-align:left;margin-top:7px}}
+</style></head><body><div class="app"><aside class="side"><div class="brand">AIMPACT<small>AI × BUSINESS × GROWTH</small></div><nav class="nav">
+<button class="active" data-v="xray">BUSINESS X-RAY</button><button data-v="intake">INTAKE</button><button data-v="diagnosis">DIAGNOSIS</button><button data-v="action">ACTION PLAN</button><button data-v="roi">ROI</button><button data-v="account">ACCOUNT</button><button data-v="control">COMMAND CENTER</button></nav><div class="bottom">STATE<br><b id="state">INTAKE_REQUIRED</b><br><br>DATA MODE<br><span class="good">EVIDENCE FIRST</span></div></aside><main class="main"><header class="top"><span id="crumb">AIMPACT / BUSINESS X-RAY</span><span class="pill">APP V1 · EVIDENCE FIRST</span></header>
 
-<section id="dashboard" class="view active">
-  <div class="eyebrow">AIMPACT BUSINESS OS</div><h1 class="title">See the business.<br>Decide. Act. Measure.</h1>
-  <p class="sub">A single workspace for AI audit, business recommendations, reports, automation and recurring value. This product shell is designed to become the customer-facing layer above AIMPACT's verified safety core.</p>
-  <div class="grid g4 section">
-    <div class="card metric"><span>BUSINESS HEALTH</span><b>78</b><small>+6 this month</small></div>
-    <div class="card metric"><span>AI OPPORTUNITIES</span><b>17</b><small>5 high impact</small></div>
-    <div class="card metric"><span>HOURS TO AUTOMATE</span><b>184</b><small>/ month identified</small></div>
-    <div class="card metric"><span>ROI TRACKED</span><b>2.4×</b><small>verified inputs only</small></div>
-  </div>
-  <div class="section grid g2">
-    <div class="card"><div class="sectionHead"><h2>Next highest-impact action</h2><span class="tag">AI RECOMMENDATION</span></div><p class="sub">Connect your current marketing and order workflow. AIMPACT will map manual steps, identify automation candidates and produce an implementation plan.</p><button class="btn primary" onclick="go('audit')">START AUDIT →</button></div>
-    <div class="card"><div class="sectionHead"><h2>Value loop</h2><span class="tag">RECURRING</span></div><p class="sub">Audit → Action → Result → ROI → Continuous Monitoring. The platform is designed so continued use creates new measurable value instead of a one-off report.</p><button class="btn" onclick="go('reports')">VIEW REPORTS →</button></div>
-  </div>
-</section>
+<section id="xray" class="view active"><div class="ey">AIMPACT BUSINESS X-RAY</div><h1 class="title">See the business.<br>Find the leak.<br>Fix what pays.</h1><p class="sub">AIMPACT turns actual operating information into a prioritized map of revenue opportunity, cost leakage, time waste and automation candidates. Estimates remain estimates until Before/After evidence is verified.</p><div class="grid g4 section"><div class="card metric"><span>REVENUE OPPORTUNITY</span><b id="mRev">—</b><small>estimated / month</small></div><div class="card metric"><span>COST OPPORTUNITY</span><b id="mCost">—</b><small>estimated / month</small></div><div class="card metric"><span>TIME RECOVERY</span><b id="mHours">—</b><small>estimated hours / month</small></div><div class="card metric"><span>OPPORTUNITY SCORE</span><b id="mScore">—</b><small>diagnostic index</small></div></div><div class="grid g2 section"><div class="card"><div class="head"><h2>Start the X-Ray</h2><span class="tag">10–15 MIN</span></div><p class="sub">Enter one real business problem first. AIMPACT will find the highest-impact intervention.</p><a id="startIntakeBtn" class="btn primary" href="#intake" onclick="go('intake');return false;">START BUSINESS INTAKE →</a></div><div class="card"><div class="head"><h2>Operating principle</h2><span class="tag">NO DATA · NO CLAIM</span></div><p class="sub">Customer facts, verified source data and model estimates are kept distinct. No invented savings, revenue or success states.</p></div></div></section>
 
-<section id="audit" class="view">
-  <div class="eyebrow">01 · AI AUDIT</div><h1 class="title">Start with one<br>real problem.</h1>
-  <div class="card auditBox section">
-    <div class="field"><label>COMPANY</label><input id="company" placeholder="Your company"></div>
-    <div class="field"><label>INDUSTRY</label><select id="industry"><option>Retail</option><option>E-commerce</option><option>Fashion</option><option>Marketing</option><option>Content</option><option>Other</option></select></div>
-    <div class="field span2"><label>BUSINESS PROBLEM</label><textarea id="problem" placeholder="Example: product photography, copy, social content and reporting take too much manual time every week."></textarea></div>
-    <div class="field"><label>MONTHLY MANUAL HOURS (OPTIONAL)</label><input id="hours" type="number" placeholder="100"></div>
-    <div class="field"><label>MONTHLY PROCESS COST (OPTIONAL)</label><input id="cost" type="number" placeholder="3000000"></div>
-    <div class="span2"><button class="btn primary" onclick="runAudit()">RUN AI AUDIT →</button></div>
-  </div>
-  <div id="auditResult" class="section"></div>
-</section>
+<section id="intake" class="view"><div class="ey">01 · BUSINESS INTAKE</div><h1 class="title">Tell AIMPACT<br>how the work happens.</h1><div class="card form section">
+<div class="field"><label>COMPANY</label><input id="company" placeholder="Company name"></div><div class="field"><label>INDUSTRY</label><select id="industry"><option>Retail</option><option>E-commerce</option><option>Fashion</option><option>Marketing</option><option>Content</option><option>SaaS</option><option>Professional Services</option><option>Other</option></select></div>
+<div class="field"><label>MONTHLY REVENUE (OPTIONAL)</label><input id="revenue" type="number" min="0" placeholder="10000000"></div><div class="field"><label>TEAM SIZE</label><input id="team" type="number" min="1" placeholder="10"></div>
+<div class="field span"><label>PRIMARY BUSINESS PROBLEM</label><textarea id="problem" placeholder="What is costing the company money, time or capacity?"></textarea></div>
+<div class="field"><label>MONTHLY HOURS ON THIS PROCESS</label><input id="hours" type="number" min="0" placeholder="80"></div><div class="field"><label>MONTHLY PROCESS COST</label><input id="cost" type="number" min="0" placeholder="3000000"></div>
+<div class="field"><label>REVENUE AFFECTED / MONTH</label><input id="affected" type="number" min="0" placeholder="15000000"></div><div class="field"><label>ERROR / REWORK RATE %</label><input id="error" type="number" min="0" max="100" placeholder="10"></div>
+<div class="field span"><label>CURRENT TOOLS</label><input id="tools" placeholder="Excel, CRM, email, Shopify, Notion, etc."></div><div class="field span"><label>CURRENT REPEATED WORKFLOW</label><textarea id="process" placeholder="Describe the repeated steps, handoffs and approvals."></textarea></div>
+<div class="span"><button class="btn primary" onclick="runXray()">RUN BUSINESS X-RAY →</button> <span id="save" class="tag"></span></div></div></section>
 
-<section id="market" class="view">
-  <div class="eyebrow">02 · AIMPACT PRODUCTS</div><h1 class="title">Buy the outcome.<br>Use the platform.</h1>
-  <p class="sub">The storefront is part of the product. Customers choose a service, pay, receive a tenant entitlement and use the same workspace to track results.</p>
-  <div class="grid g3 section">
-    <article class="card product"><span class="tag">START</span><h3>AI Quick Audit</h3><p>One business process mapped into AI opportunities, tools, workflow and next actions.</p><div class="price">₩99,000 <small>one-time</small></div><button class="btn primary" onclick="selectPlan('AI Quick Audit','₩99,000')">BUY / START</button></article>
-    <article class="card product"><span class="tag">GROW</span><h3>Business AI Platform</h3><p>Recurring audit, reports, ROI tracking, workflow recommendations and continuous improvement workspace.</p><div class="price">₩490,000 <small>/ month · draft</small></div><button class="btn primary" onclick="selectPlan('Business AI Platform','₩490,000 / month')">SUBSCRIBE</button></article>
-    <article class="card product"><span class="tag">ENTERPRISE</span><h3>AI Transformation</h3><p>Custom tenant, integrations, implementation, security package and enterprise operating support.</p><div class="price">CUSTOM <small>contract</small></div><button class="btn" onclick="go('billing')">REQUEST PROPOSAL</button></article>
-  </div>
-  <div class="notice section">Payment is intentionally marked DEMO in this first product shell. Live payment credentials, tax/settlement configuration and production activation remain separate controlled gates.</div>
-</section>
-
-<section id="reports" class="view">
-  <div class="eyebrow">03 · EXECUTIVE REPORTS</div><h1 class="title">From analysis<br>to management action.</h1>
-  <div class="card section">
-    <table class="table"><thead><tr><th>REPORT</th><th>STATUS</th><th>VALUE</th><th></th></tr></thead><tbody>
-      <tr><td>Monthly AI Business Health</td><td>READY</td><td>5 priority actions</td><td><button class="btn" onclick="alert('Report preview: verified findings, actions and measurable inputs.')">PREVIEW</button></td></tr>
-      <tr><td>Automation Opportunity Map</td><td>READY</td><td>184 hours/month identified</td><td><button class="btn" onclick="alert('Report preview: workflow map and implementation sequence.')">PREVIEW</button></td></tr>
-      <tr><td>ROI / Outcome Report</td><td>TRACKING</td><td>2.4× from entered evidence</td><td><button class="btn" onclick="alert('ROI uses only customer-provided or verified data. No invented savings.')">PREVIEW</button></td></tr>
-    </tbody></table>
-  </div>
-</section>
-
-<section id="automation" class="view">
-  <div class="eyebrow">04 · AUTOMATION</div><h1 class="title">Let AIMPACT<br>operate the loop.</h1>
-  <div class="grid g2 section">
-    <div class="card"><span class="tag">CUSTOMER LIFECYCLE</span><h2>Lead → Contract → Tenant → Usage → Renewal</h2><p class="sub">The intended automation layer tracks customer state, entitlement, usage and renewal signals without claiming that live billing or production CRM is connected yet.</p><button class="btn primary" onclick="alert('Automation blueprint saved for this demo tenant.')">ENABLE BLUEPRINT</button></div>
-    <div class="card"><span class="tag">VALUE LOOP</span><h2>Audit → Action → Result → ROI → Next Action</h2><p class="sub">Each completed workflow becomes a new evidence point for the next recommendation and customer-success cycle.</p><button class="btn" onclick="go('reports')">OPEN ROI →</button></div>
-  </div>
-</section>
-
-<section id="billing" class="view">
-  <div class="eyebrow">05 · BILLING</div><h1 class="title">Revenue is part<br>of the product.</h1>
-  <div class="grid g3 section">
-    <div class="card metric"><span>PLAN</span><b>DEMO</b><small>No live entitlement</small></div>
-    <div class="card metric"><span>USAGE</span><b>27</b><small>audit/report events</small></div>
-    <div class="card metric"><span>STATUS</span><b style="font-size:22px">NOT LIVE</b><small>Production payment gate closed</small></div>
-  </div>
-  <div class="card section"><h2>Commercial flow</h2><p class="sub">Plan selection → checkout → payment confirmation → tenant provisioning → entitlement → usage metering → invoice/settlement → renewal. The UI is ready to receive the live billing engine; production payment credentials have not been activated.</p><button class="btn primary" onclick="selectPlan('Business AI Platform','₩490,000 / month')">TEST CHECKOUT FLOW →</button></div>
-</section>
-
-<footer>AIMPACT · AI × BUSINESS × GROWTH · PRODUCT PLATFORM V1 · SAFETY CORE REMAINS CONTROLLED</footer>
-</main>
-</div>
-<script>
-const views=[...document.querySelectorAll('.view')];
-function go(id){views.forEach(v=>v.classList.toggle('active',v.id===id));document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===id));document.getElementById('crumb').textContent='AIMPACT / '+id.toUpperCase();scrollTo({top:0,behavior:'smooth'});}
-document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>go(b.dataset.view));
-function runAudit(){
- const p=document.getElementById('problem').value.trim();
- if(!p){alert('Enter one real business problem first.');return}
- const h=Number(document.getElementById('hours').value)||0,c=Number(document.getElementById('cost').value)||0;
- const score=Math.min(96,58+(p.length%23)+Math.min(20,Math.round(h/20)));
- document.getElementById('auditResult').innerHTML='<div class="result"><span class="tag">AI AUDIT RESULT · DEMO ANALYSIS</span><div class="score">'+score+'</div><div class="risk">OPPORTUNITY INDEX</div><div class="finding"><strong>1 · AUTOMATION CANDIDATE</strong><span>Repeated manual work detected. Map the current workflow and remove duplicate handoffs.</span></div><div class="finding"><strong>2 · AI DECISION LAYER</strong><span>Use AI for classification, drafting and prioritization while keeping controlled human approval at material actions.</span></div><div class="finding"><strong>3 · MEASUREMENT</strong><span>Track time, cost, volume and outcome before claiming ROI.</span></div><button class="btn primary" onclick="go(\'reports\')">GENERATE EXECUTIVE REPORT →</button></div>';
+<section id="diagnosis" class="view"><div class="ey">02 · FIND + DIAGNOSE</div><h1 class="title">What is actually<br>wrong?</h1><div id="diag"></div></section>
+<section id="action" class="view"><div class="ey">03 · PRIORITIZE + FIX</div><h1 class="title">Do this first.</h1><div id="actions"></div></section>
+<section id="roi" class="view"><div class="ey">04 · MEASURE</div><h1 class="title">Before / After.<br>Then prove it.</h1><div id="roiBox"></div></section>
+<section id="account" class="view"><div class="ey">05 · CUSTOMER ACCOUNT</div><h1 class="title">Your business<br>operating view.</h1><div class="grid g4 section"><div class="card metric"><span>COMPANY</span><b id="aCompany">—</b></div><div class="card metric"><span>STATE</span><b id="aState">—</b></div><div class="card metric"><span>TOP PRIORITY</span><b id="aPriority">—</b></div><div class="card metric"><span>QUICK AUDIT</span><b>₩200K</b><small>one-time</small></div></div><div class="card section"><h2>Commercial path</h2><p class="sub">Business X-Ray → AI Quick Audit → detailed result → implementation → measured outcome → ongoing optimization.</p><div id="tossPaymentWindow" style="margin:14px 0"></div><button class="btn primary" onclick="pay()">GET AI QUICK AUDIT — ₩200,000 →</button><div id="payStatus" class="tag" style="margin-top:12px"></div></div></section>
+<section id="control" class="view"><div class="ey">06 · AIMPACT COMMAND CENTER</div><h1 class="title">Control the loop.</h1><div class="grid g4 section"><div class="card metric"><span>LEADS</span><b id="cLead">0</b></div><div class="card metric"><span>DIAGNOSES</span><b id="cDiag">0</b></div><div class="card metric"><span>PAYMENT VERIFIED</span><b>$0</b></div><div class="card metric"><span>OUTCOMES VERIFIED</span><b>0</b></div></div><div class="card section"><table class="table"><tbody><tr><td>LEAD_CREATED</td><td id="e1">PENDING</td></tr><tr><td>DIAGNOSIS_STARTED</td><td id="e2">PENDING</td></tr><tr><td>PRIORITY_SET</td><td id="e3">PENDING</td></tr><tr><td>CHECKOUT_CREATED</td><td id="e4">PENDING</td></tr><tr><td>PAYMENT_SUCCEEDED</td><td>PENDING</td></tr><tr><td>OUTCOME_VERIFIED</td><td>PENDING</td></tr></tbody></table></div><div class="notice section">This V1 does not fabricate live payment or outcome states. Server-side central control and live billing remain separate production gates.</div></section>
+<footer>AIMPACT · SEE → FIND → DIAGNOSE → PRIORITIZE → FIX → MEASURE → GROW → REPEAT</footer></main></div>
+<script src="https://js.tosspayments.com/v2/standard"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="config.js"></script><script>
+const KEY="aimpact_v1_case", TOSS_CLIENT_KEY=window.AIMPACT_CONFIG?.tossClientKey||"", QUICK_AUDIT_AMOUNT=200000;let C=JSON.parse(localStorage.getItem(KEY)||"null"),views=[...document.querySelectorAll(".view")],$=id=>document.getElementById(id);
+function go(id){const target=document.getElementById(id);if(!target)return;if(id==="account")initToss();views.forEach(v=>v.classList.toggle("active",v.id===id));document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.v===id));$("crumb").textContent="AIMPACT / "+id.toUpperCase();window.scrollTo(0,0);render()}
+document.querySelectorAll(".nav button").forEach(b=>b.addEventListener("click",()=>go(b.dataset.v)));document.getElementById("startIntakeBtn")?.addEventListener("click",e=>{e.preventDefault();go("intake")});
+function money(n){return Number(n||0).toLocaleString("en-US",{maximumFractionDigits:0})}
+function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function calc(c){let h=+c.hours||0,cost=+c.cost||0,aff=+c.affected||0,err=+c.error||0,auto=Math.min(.6,Math.max(.15,.25+(h>100?.2:0)+(err>15?.1:0))),hs=h*auto,cs=cost*auto,ro=aff*Math.min(.2,Math.max(.03,err/100*.5+.03)),score=Math.min(99,Math.round(35+Math.min(25,h/8)+Math.min(20,err)+Math.min(15,aff?10:0)+Math.min(10,(+c.team||1)/5)));return{auto,hs,cs,ro,score,severity:score>=80?"CRITICAL":score>=65?"HIGH":score>=50?"MEDIUM":"LOW",priority:h>=40?"TIME / WORKFLOW BOTTLENECK":aff?"REVENUE LEAKAGE":"MANUAL PROCESS / AUTOMATION"}}
+async function sendLead(c){try{if(!window.supabase||!window.AIMPACT_CONFIG?.supabaseUrl||!window.AIMPACT_CONFIG?.supabaseKey)return;let db=supabase.createClient(AIMPACT_CONFIG.supabaseUrl,AIMPACT_CONFIG.supabaseKey);await db.from("leads").insert({email:null,company:c.company,problem:c.problem,industry:c.industry,company_size:String(c.team||""),current_tools:c.tools,current_process:c.process,desired_automation:"Business X-Ray",budget:"AI Quick Audit $150",source:"app-v1",consent:true,funnel_stage:"NEW",next_action:"Review X-Ray and sell Quick Audit",session_id:crypto.randomUUID()})}catch(e){}}
+async function runXray(){let c={company:$("company").value.trim(),industry:$("industry").value, revenue:+$("revenue").value||0,team:+$("team").value||0,problem:$("problem").value.trim(),hours:+$("hours").value||0,cost:+$("cost").value||0,affected:+$("affected").value||0,error:+$("error").value||0,tools:$("tools").value.trim(),process:$("process").value.trim(),at:new Date().toISOString()};if(!c.company||!c.problem){$("save").textContent="COMPANY + PRIMARY BUSINESS PROBLEM REQUIRED";return}c.x=calc(c);C=c;localStorage.setItem(KEY,JSON.stringify(C));$("save").textContent="CASE SAVED · DIAGNOSIS READY";await sendLead(c);go("diagnosis")}
+function render(){if(!C){$("diag").innerHTML='<div class="notice section">Complete Business Intake first. No diagnosis without a real input case.</div>';$("actions").innerHTML=$("diag").innerHTML;$("roiBox").innerHTML=$("diag").innerHTML;return}let x=C.x;$("state").textContent="DIAGNOSIS_READY";$("mRev").textContent=money(x.ro);$("mCost").textContent=money(x.cs);$("mHours").textContent=money(x.hs);$("mScore").textContent=x.score;$("aCompany").textContent=C.company;$("aState").textContent="DIAGNOSIS_READY";$("aPriority").textContent=x.severity;$("cLead").textContent=1;$("cDiag").textContent=1;$("e1").textContent="RECORDED";$("e2").textContent="READY";$("e3").textContent="SET";if(document.getElementById("diag"))$("diag").innerHTML='<div class="grid g4 section"><div class="card metric"><span>SCORE</span><b>'+x.score+'</b><small>'+x.severity+'</small></div><div class="card metric"><span>TIME RECOVERY</span><b>'+money(x.hs)+'h</b><small>estimate / month</small></div><div class="card metric"><span>COST OPPORTUNITY</span><b>'+money(x.cs)+'</b><small>estimate / month</small></div><div class="card metric"><span>REVENUE OPPORTUNITY</span><b>'+money(x.ro)+'</b><small>estimate / month</small></div></div><div class="result section"><span class="tag">ROOT-CAUSE DIAGNOSIS · '+esc(C.company)+'</span><div class="score">'+x.score+'</div><div class="warn">'+x.severity+' · '+x.priority+'</div><div class="finding"><strong>VISIBILITY GAP</strong><span>The workflow is not measured as one system. Establish a baseline before changing tools.</span></div><div class="finding"><strong>BOTTLENECK</strong><span>'+esc(C.problem)+'</span></div><div class="finding"><strong>AUTOMATION POTENTIAL</strong><span>Estimated '+Math.round(x.auto*100)+'% of stated process time may be a candidate. Not a verified saving.</span></div><div class="finding"><strong>EVIDENCE GATE</strong><span>Confirm actual time, cost, volume and revenue impact before calling ROI realized.</span></div><button class="btn primary" onclick="go(\'action\')">SET PRIORITY →</button></div>';if(document.getElementById("actions"))$("actions").innerHTML='<div class="card section"><div class="head"><h2>DO THIS FIRST</h2><span class="tag">'+x.severity+' · '+x.priority+'</span></div><div class="action"><h3>P0 · Instrument the current workflow</h3><p>Capture baseline volume, cycle time, manual touches and rework for 7 days.</p></div><div class="action"><h3>P1 · Automate the highest-repeat step</h3><p>Use AI classification/drafting with human approval at material actions.</p></div><div class="action"><h3>P2 · Measure the result</h3><p>Compare actual hours, cost, volume and revenue impact against baseline.</p></div><button class="btn primary" onclick="go(\'roi\')">OPEN ROI CONTROL →</button> <button class="btn good" onclick="pay()">BUY ₩200,000 QUICK AUDIT →</button></div>';if(document.getElementById("roiBox"))$("roiBox").innerHTML='<div class="grid g3"><div class="card metric"><span>BASELINE HOURS</span><b>'+money(C.hours)+'</b></div><div class="card metric"><span>EST. HOURS AFTER</span><b>'+money(Math.max(0,C.hours-x.hs))+'</b></div><div class="card metric"><span>EST. MONTHLY VALUE</span><b>'+money(x.cs+x.ro)+'</b></div></div><div class="notice section">These are model estimates from supplied inputs. They are not realized savings, revenue or verified ROI. OUTCOME VERIFIED requires actual Before/After evidence.</div>';if(document.getElementById("control"))$("e3").textContent="SET"}
+let tossWidgets=null,tossWindow=null;
+async function initToss(){
+  if(!TOSS_CLIENT_KEY){$("payStatus").textContent="TOSS CLIENT KEY NOT CONFIGURED. PAYMENT RAIL IS READY BUT ACTIVATION IS CONTROLLED.";return false}
+  if(tossWidgets)return true;
+  try{
+    const toss=TossPayments(TOSS_CLIENT_KEY);
+    tossWidgets=toss.widgets({customerKey:"ANONYMOUS"});
+    await tossWidgets.setAmount({currency:"KRW",value:QUICK_AUDIT_AMOUNT});
+    tossWindow=await tossWidgets.renderPaymentWindow({selector:"#tossPaymentWindow",orderName:"AIMPACT AI Quick Audit"});
+    tossWindow.on("cancel",()=>{$("payStatus").textContent="PAYMENT WINDOW CLOSED."});
+    tossWindow.on("paymentRequest",()=>requestTossPayment());
+    $("payStatus").textContent="TOSS PAYMENT WINDOW READY · ₩200,000";
+    return true;
+  }catch(e){$("payStatus").textContent="TOSS INIT FAILED · "+(e?.message||"UNKNOWN_ERROR");return false}
 }
-function selectPlan(name,price){
- localStorage.setItem('aimpact_selected_plan',JSON.stringify({name,price,at:new Date().toISOString()}));
- alert(name+' selected. Next production step: connect the approved billing provider and create the live checkout/entitlement transaction. No live charge was made.');
- go('billing');
+async function requestTossPayment(){
+  try{
+    const orderId="AIMPACT-QA-"+crypto.randomUUID().replaceAll("-","").slice(0,24);
+    $("payStatus").textContent="REQUESTING PAYMENT…";
+    await tossWidgets.requestPayment({
+      orderId,
+      orderName:"AIMPACT AI Quick Audit",
+      successUrl:location.origin+"/payment-success.html",
+      failUrl:location.origin+"/payment-fail.html"
+    });
+  }catch(e){$("payStatus").textContent="PAYMENT REQUEST FAILED · "+(e?.message||"UNKNOWN_ERROR")}
 }
-document.getElementById('company').addEventListener('input',e=>document.getElementById('tenantName').textContent=e.target.value||'Demo Company');
-</script>
-</body></html>
+async function pay(){
+  if(!(await initToss()))return;
+  if(tossWindow)$("payStatus").textContent="SELECT A PAYMENT METHOD IN THE TOSS WINDOW.";
+}
+
+render();
+</script></body></html>
