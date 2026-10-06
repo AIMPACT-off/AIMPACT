@@ -159,3 +159,5 @@ comment on function public.create_tenant_with_owner(text,text,uuid) is
   'Atomic trusted-server tenant bootstrap. Caller MUST validate the Supabase Auth JWT and derive owner user id from its verified subject.';
 comment on function public.create_diagnosis_intake_atomic(uuid,text,text,jsonb,text,timestamptz,uuid) is
   'Atomically inserts/recovers one idempotent diagnosis submission and its queue job; service_role only.';
+
+-- Revenue loop migration hardening checkpoint.
