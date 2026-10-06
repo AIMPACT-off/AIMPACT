@@ -58,3 +58,5 @@ jobs:
           npx eas-cli whoami --non-interactive
       - name: Build mobile app
         run: npx eas-cli build --platform ${{ inputs.platform || 'android' }} --profile ${{ inputs.profile || 'preview' }} --non-interactive
+
+# trigger verification: 2026-10-06T19:11 KST
