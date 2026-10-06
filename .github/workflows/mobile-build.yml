@@ -5,38 +5,19 @@ on:
     branches:
       - main
   workflow_dispatch:
-    inputs:
-      platform:
-        description: "Build platform"
-        required: true
-        default: "android"
-        type: choice
-        options:
-          - android
-          - ios
-          - all
-      profile:
-        description: "EAS build profile"
-        required: true
-        default: "preview"
-        type: choice
-        options:
-          - preview
-          - preview-ios-simulator
-          - production
 
 jobs:
-  build:
+  android-apk:
     runs-on: ubuntu-latest
-    env:
-      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN || secrets.AIMPACT_EXPO_TOKEN || secrets.EXPO_PAT }}
     defaults:
       run:
         working-directory: mobile
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
@@ -48,64 +29,24 @@ jobs:
       - name: Validate Expo project
         run: npx expo config --type public
 
-      - name: Verify Expo authentication
-        run: |
-          echo "Event: $GITHUB_EVENT_NAME"
-          echo "Ref: $GITHUB_REF"
-          echo "Actor: $GITHUB_ACTOR"
-          if [ -z "$EXPO_TOKEN" ]; then
-            echo "No Expo token was injected. Checked EXPO_TOKEN, AIMPACT_EXPO_TOKEN, EXPO_PAT."
-            exit 1
-          fi
-          echo "Expo token injection detected."
-          npx eas-cli whoami --non-interactive
+      - name: Generate native Android project
+        run: npx expo prebuild --platform android --non-interactive
 
-      - name: Build mobile app
-        run: |
-          PLATFORM="${{ inputs.platform || 'android' }}"
-          PROFILE="${{ inputs.profile || 'preview' }}"
-          npx eas-cli build --platform "$PLATFORM" --profile "$PROFILE" --non-interactive --wait
+      - name: Build installable Android APK
+        working-directory: mobile/android
+        run: ./gradlew assembleDebug --no-daemon
 
-      - name: Collect Android APK
-        if: ${{ (inputs.platform || 'android') == 'android' || (inputs.platform || 'android') == 'all' }}
+      - name: Verify APK
+        working-directory: mobile
         run: |
-          BUILDS="$(npx eas-cli build:list --platform android --build-profile preview --git-commit-hash "$GITHUB_SHA" --status finished --limit 1 --json --non-interactive)"
-          echo "$BUILDS" > build-list.json
-          URL="$(jq -r 'if type == "array" then .[0].artifacts.buildUrl else .builds[0].artifacts.buildUrl end // empty' build-list.json)"
-          if [ -z "$URL" ] || [ "$URL" = "null" ]; then
-            echo "Finished Android build artifact URL not found."
-            cat build-list.json
-            exit 1
-          fi
-          curl -fL "$URL" -o AIMPACT-Android.apk
-          test -s AIMPACT-Android.apk
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          echo "APK_READY=$APK"
+          ls -lh "$APK"
 
-      - name: Collect iOS simulator build
-        if: ${{ (inputs.platform || 'android') == 'ios' && (inputs.profile || 'preview') == 'preview-ios-simulator' }}
-        run: |
-          BUILDS="$(npx eas-cli build:list --platform ios --build-profile preview-ios-simulator --git-commit-hash "$GITHUB_SHA" --status finished --limit 1 --json --non-interactive)"
-          echo "$BUILDS" > build-list-ios.json
-          URL="$(jq -r 'if type == "array" then .[0].artifacts.buildUrl else .builds[0].artifacts.buildUrl end // empty' build-list-ios.json)"
-          if [ -z "$URL" ] || [ "$URL" = "null" ]; then
-            echo "Finished iOS simulator artifact URL not found."
-            cat build-list-ios.json
-            exit 1
-          fi
-          curl -fL "$URL" -o AIMPACT-iOS-Simulator.tar.gz
-          test -s AIMPACT-iOS-Simulator.tar.gz
-
-      - name: Upload Android APK
-        if: ${{ (inputs.platform || 'android') == 'android' || (inputs.platform || 'android') == 'all' }}
+      - name: Upload AIMPACT Android APK
         uses: actions/upload-artifact@v4
         with:
           name: AIMPACT-Android-APK
-          path: mobile/AIMPACT-Android.apk
-          if-no-files-found: error
-
-      - name: Upload iOS simulator build
-        if: ${{ (inputs.platform || 'android') == 'ios' && (inputs.profile || 'preview') == 'preview-ios-simulator' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: AIMPACT-iOS-Simulator
-          path: mobile/AIMPACT-iOS-Simulator.tar.gz
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
