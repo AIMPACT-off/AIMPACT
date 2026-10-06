@@ -81,9 +81,9 @@ footer{padding:30px 34px;border-top:1px solid var(--line);color:var(--muted);fon
   <div class="eyebrow">03 · EXECUTIVE REPORTS</div><h1 class="title">From analysis<br>to management action.</h1>
   <div class="card section">
     <table class="table"><thead><tr><th>REPORT</th><th>STATUS</th><th>VALUE</th><th></th></tr></thead><tbody>
-      <tr><td>Monthly AI Business Health</td><td>READY</td><td>Generated from verified audit evidence</td><td><button class="btn" onclick="alert('Report preview: verified findings, actions and measurable inputs.')">PREVIEW</button></td></tr>
-      <tr><td>Automation Opportunity Map</td><td>READY</td><td>Calculated from customer inputs</td><td><button class="btn" onclick="alert('Report preview: workflow map and implementation sequence.')">PREVIEW</button></td></tr>
-      <tr><td>ROI / Outcome Report</td><td>TRACKING</td><td>Only shown after measurable evidence</td><td><button class="btn" onclick="alert('ROI uses only customer-provided or verified data. No invented savings.')">PREVIEW</button></td></tr>
+      <tr><td>Monthly AI Business Health</td><td>GATED</td><td>Generated only from completed audit evidence</td><td><button class="btn" onclick="go('audit')">RUN AUDIT</button></td></tr>
+      <tr><td>Automation Opportunity Map</td><td>GATED</td><td>Calculated only from customer inputs</td><td><button class="btn" onclick="go('audit')">RUN AUDIT</button></td></tr>
+      <tr><td>ROI / Outcome Report</td><td>GATED</td><td>Only shown after measurable evidence</td><td><button class="btn" onclick="go('audit')">ADD EVIDENCE</button></td></tr>
     </tbody></table>
   </div>
 </section>
@@ -91,7 +91,7 @@ footer{padding:30px 34px;border-top:1px solid var(--line);color:var(--muted);fon
 <section id="automation" class="view">
   <div class="eyebrow">04 · AUTOMATION</div><h1 class="title">Let AIMPACT<br>operate the loop.</h1>
   <div class="grid g2 section">
-    <div class="card"><span class="tag">CUSTOMER LIFECYCLE</span><h2>Lead → Contract → Tenant → Usage → Renewal</h2><p class="sub">The intended automation layer tracks customer state, entitlement, usage and renewal signals without claiming that live billing or production CRM is connected yet.</p><button class="btn primary" onclick="alert('Automation blueprint saved for this demo tenant.')">ENABLE BLUEPRINT</button></div>
+    <div class="card"><span class="tag">CUSTOMER LIFECYCLE</span><h2>Lead → Contract → Tenant → Usage → Renewal</h2><p class="sub">The automation layer remains gated until verified billing, tenant and usage events are available. No customer entitlement is claimed from browser state alone.</p><button class="btn primary" onclick="alert('Automation remains gated until a verified customer tenant exists.')">ENABLE BLUEPRINT</button></div>
     <div class="card"><span class="tag">VALUE LOOP</span><h2>Audit → Action → Result → ROI → Next Action</h2><p class="sub">Each completed workflow becomes a new evidence point for the next recommendation and customer-success cycle.</p><button class="btn" onclick="go('reports')">OPEN ROI →</button></div>
   </div>
 </section>
@@ -100,10 +100,10 @@ footer{padding:30px 34px;border-top:1px solid var(--line);color:var(--muted);fon
   <div class="eyebrow">05 · BILLING</div><h1 class="title">Revenue is part<br>of the product.</h1>
   <div class="grid g3 section">
     <div class="card metric"><span>QUICK AUDIT</span><b>₩99K</b><small>LIVE checkout</small></div>
-    <div class="card metric"><span>USAGE</span><b>27</b><small>audit/report events</small></div>
+    <div class="card metric"><span>USAGE</span><b>—</b><small>Live events appear after verified customer activity</small></div>
     <div class="card metric"><span>STATUS</span><b style="font-size:22px">LIVE</b><small>Quick Audit payment active</small></div>
   </div>
-  <div class="card section"><h2>Commercial flow</h2><p class="sub">Quick Audit → live checkout → payment confirmation → customer audit → report delivery. The Quick Audit payment destination is verified LIVE; recurring Business AI Platform remains closed until its billing destination is verified.</p><button class="btn primary" onclick="selectPlan('Business AI Platform','₩490,000 / month')">TEST CHECKOUT FLOW →</button></div>
+  <div class="card section"><h2>Commercial flow</h2><p class="sub">Quick Audit → live checkout → payment confirmation → customer audit → report delivery. The Quick Audit payment destination is LIVE. Customer fulfillment is not marked complete until payment is independently verified and the audit is delivered.</p><button class="btn primary" onclick="selectPlan('Business AI Platform','₩490,000 / month')">TEST CHECKOUT FLOW →</button></div>
 </section>
 
 <footer>AIMPACT · AI × BUSINESS × GROWTH · PRODUCT PLATFORM V1 · SAFETY CORE REMAINS CONTROLLED</footer>
@@ -140,6 +140,12 @@ function selectPlan(name,price){
  const checkoutUrl = name==='AI Quick Audit' ? window.AIMPACT_CHECKOUT_QUICK_AUDIT : name==='Business AI Platform' ? window.AIMPACT_CHECKOUT_BUSINESS_PLATFORM : '';
  if(checkoutUrl){ window.location.href=checkoutUrl; return; }
  document.getElementById('auditResult').innerHTML='<div class="result"><div class="risk">PLAN READY</div><h2>'+name+'</h2><p class="sub">'+price+'</p><div class="finding"><strong>CHECKOUT GATE</strong><span>Payment destination is not activated. Your selection is saved, but no payment is reported as completed.</span></div><button class="btn primary" onclick="go(\'billing\')">OPEN BILLING →</button></div>';
+ go('billing');
+}
+const params=new URLSearchParams(location.search);
+if(params.get('payment')==='success'){
+ document.getElementById('commercialStatus').textContent='CHECKOUT RETURN · VERIFICATION PENDING';
+ document.getElementById('checkoutNotice').textContent='Checkout returned successfully. This browser signal is not proof of payment. AIMPACT fulfillment requires independent payment verification before marking the customer paid.';
  go('billing');
 }
 document.getElementById('company').addEventListener('input',e=>document.getElementById('tenantName').textContent=e.target.value||'Demo Company');
