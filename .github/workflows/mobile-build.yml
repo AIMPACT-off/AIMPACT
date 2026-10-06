@@ -27,6 +27,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     defaults:
       run:
         working-directory: mobile
@@ -44,15 +46,15 @@ jobs:
       - name: Validate Expo project
         run: npx expo config --type public
       - name: Verify Expo authentication
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
+          echo "Event: $GITHUB_EVENT_NAME"
+          echo "Ref: $GITHUB_REF"
+          echo "Actor: $GITHUB_ACTOR"
           if [ -z "$EXPO_TOKEN" ]; then
-            echo "EXPO_TOKEN is not available to this workflow."
+            echo "EXPO_TOKEN injection failed."
             exit 1
           fi
+          echo "EXPO_TOKEN injection detected."
           npx eas-cli whoami --non-interactive
       - name: Build mobile app
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx eas-cli build --platform ${{ inputs.platform || 'android' }} --profile ${{ inputs.profile || 'preview' }} --non-interactive
