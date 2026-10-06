@@ -135,7 +135,9 @@ function runAudit(){
 }
 function selectPlan(name,price){
  localStorage.setItem('aimpact_selected_plan',JSON.stringify({name,price,at:new Date().toISOString()}));
- alert(name+' selected. Next production step: connect the approved billing provider and create the live checkout/entitlement transaction. No live charge was made.');
+ const checkoutUrl = name==='AI Quick Audit' ? window.AIMPACT_CHECKOUT_QUICK_AUDIT : name==='Business AI Platform' ? window.AIMPACT_CHECKOUT_BUSINESS_PLATFORM : '';
+ if(checkoutUrl){ window.location.href=checkoutUrl; return; }
+ document.getElementById('auditResult').innerHTML='<div class="result"><div class="risk">PLAN READY</div><h2>'+name+'</h2><p class="sub">'+price+'</p><div class="finding"><strong>CHECKOUT GATE</strong><span>Payment destination is not activated. Your selection is saved, but no payment is reported as completed.</span></div><button class="btn primary" onclick="go(\'billing\')">OPEN BILLING →</button></div>';
  go('billing');
 }
 document.getElementById('company').addEventListener('input',e=>document.getElementById('tenantName').textContent=e.target.value||'Demo Company');
