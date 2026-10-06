@@ -29,7 +29,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN || secrets.AIMPACT_EXPO_TOKEN || secrets.EXPO_PAT }}
     defaults:
       run:
         working-directory: mobile
@@ -54,10 +54,10 @@ jobs:
           echo "Ref: $GITHUB_REF"
           echo "Actor: $GITHUB_ACTOR"
           if [ -z "$EXPO_TOKEN" ]; then
-            echo "EXPO_TOKEN injection failed."
+            echo "No Expo token was injected. Checked EXPO_TOKEN, AIMPACT_EXPO_TOKEN, EXPO_PAT."
             exit 1
           fi
-          echo "EXPO_TOKEN injection detected."
+          echo "Expo token injection detected."
           npx eas-cli whoami --non-interactive
 
       - name: Build mobile app
