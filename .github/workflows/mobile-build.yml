@@ -22,6 +22,7 @@ on:
         type: choice
         options:
           - preview
+          - preview-ios-simulator
           - production
 
 jobs:
@@ -34,17 +35,19 @@ jobs:
         working-directory: mobile
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: feat/mobile-app-v1
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: mobile/package.json
+
       - name: Install dependencies
         run: npm install
+
       - name: Validate Expo project
         run: npx expo config --type public
+
       - name: Verify Expo authentication
         run: |
           echo "Event: $GITHUB_EVENT_NAME"
@@ -56,7 +59,53 @@ jobs:
           fi
           echo "EXPO_TOKEN injection detected."
           npx eas-cli whoami --non-interactive
-      - name: Build mobile app
-        run: npx eas-cli build --platform ${{ inputs.platform || 'android' }} --profile ${{ inputs.profile || 'preview' }} --non-interactive
 
-# trigger verification: 2026-10-06T19:20 KST
+      - name: Build mobile app
+        run: |
+          PLATFORM="${{ inputs.platform || 'android' }}"
+          PROFILE="${{ inputs.profile || 'preview' }}"
+          npx eas-cli build --platform "$PLATFORM" --profile "$PROFILE" --non-interactive --wait
+
+      - name: Collect Android APK
+        if: ${{ (inputs.platform || 'android') == 'android' || (inputs.platform || 'android') == 'all' }}
+        run: |
+          BUILDS="$(npx eas-cli build:list --platform android --build-profile preview --git-commit-hash "$GITHUB_SHA" --status finished --limit 1 --json --non-interactive)"
+          echo "$BUILDS" > build-list.json
+          URL="$(jq -r 'if type == "array" then .[0].artifacts.buildUrl else .builds[0].artifacts.buildUrl end // empty' build-list.json)"
+          if [ -z "$URL" ] || [ "$URL" = "null" ]; then
+            echo "Finished Android build artifact URL not found."
+            cat build-list.json
+            exit 1
+          fi
+          curl -fL "$URL" -o AIMPACT-Android.apk
+          test -s AIMPACT-Android.apk
+
+      - name: Collect iOS simulator build
+        if: ${{ (inputs.platform || 'android') == 'ios' && (inputs.profile || 'preview') == 'preview-ios-simulator' }}
+        run: |
+          BUILDS="$(npx eas-cli build:list --platform ios --build-profile preview-ios-simulator --git-commit-hash "$GITHUB_SHA" --status finished --limit 1 --json --non-interactive)"
+          echo "$BUILDS" > build-list-ios.json
+          URL="$(jq -r 'if type == "array" then .[0].artifacts.buildUrl else .builds[0].artifacts.buildUrl end // empty' build-list-ios.json)"
+          if [ -z "$URL" ] || [ "$URL" = "null" ]; then
+            echo "Finished iOS simulator artifact URL not found."
+            cat build-list-ios.json
+            exit 1
+          fi
+          curl -fL "$URL" -o AIMPACT-iOS-Simulator.tar.gz
+          test -s AIMPACT-iOS-Simulator.tar.gz
+
+      - name: Upload Android APK
+        if: ${{ (inputs.platform || 'android') == 'android' || (inputs.platform || 'android') == 'all' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: AIMPACT-Android-APK
+          path: mobile/AIMPACT-Android.apk
+          if-no-files-found: error
+
+      - name: Upload iOS simulator build
+        if: ${{ (inputs.platform || 'android') == 'ios' && (inputs.profile || 'preview') == 'preview-ios-simulator' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: AIMPACT-iOS-Simulator
+          path: mobile/AIMPACT-iOS-Simulator.tar.gz
+          if-no-files-found: error
