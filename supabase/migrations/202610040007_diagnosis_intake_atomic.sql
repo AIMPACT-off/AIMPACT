@@ -75,7 +75,7 @@ begin
     'queued', true
   );
 end;
-$$;
+$function$;
 
 revoke all on function public.create_diagnosis_intake_atomic(uuid,text,text,jsonb,text,timestamptz,uuid)
   from public, anon, authenticated;
