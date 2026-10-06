@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "AIMPACT",
+    "slug": "aimpact",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "aimpact",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "ai.aimpact.app"
+    },
+    "android": {
+      "package": "ai.aimpact.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#070809"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
