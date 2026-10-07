@@ -19,33 +19,25 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: mobile/package.json
-
       - name: Install dependencies
         run: npm install
-
       - name: Validate Expo project
         run: npx expo config --type public
-
       - name: Expo Doctor
         run: npx expo-doctor
-
       - name: Validate Android JavaScript bundle
         run: npx expo export --platform android --output-dir .expo-export --clear
-
       - name: Generate native Android project
         run: npx expo prebuild --platform android --non-interactive
-
       - name: Build installable Android APK
         working-directory: mobile/android
         run: ./gradlew assembleRelease --no-daemon
-
       - name: Verify APK
         working-directory: mobile
         run: |
@@ -53,7 +45,6 @@ jobs:
           test -s "$APK"
           echo "APK_READY=$APK"
           ls -lh "$APK"
-
       - name: Upload AIMPACT Android APK
         uses: actions/upload-artifact@v4
         with:
@@ -68,26 +59,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: mobile/package.json
-
       - name: Install dependencies
         run: npm install
         working-directory: mobile
-
       - name: Generate native Android project
         run: npx expo prebuild --platform android --non-interactive
         working-directory: mobile
-
       - name: Build APK for runtime
         run: ./gradlew assembleRelease --no-daemon
         working-directory: mobile/android
-
       - name: Launch AIMPACT on Android Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -101,10 +87,83 @@ jobs:
             adb shell am force-stop ai.aimpact.app
             adb shell monkey -p ai.aimpact.app 1
             sleep 15
-            adb shell pidof ai.aimpact.app || true
+            adb shell pidof ai.aimpact.app
             adb shell dumpsys activity activities | grep -q "ai.aimpact.app"
             if adb logcat -d | grep -E "FATAL EXCEPTION|Process: ai.aimpact.app" | tail -100 | grep -q "FATAL EXCEPTION"; then
               echo "AIMPACT_RUNTIME_CRASH=1"
               exit 1
             fi
             echo "AIMPACT_RUNTIME=PASS"
+
+  ios-simulator:
+    runs-on: macos-14
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/package.json
+      - name: Install dependencies
+        run: npm install
+      - name: Validate Expo project
+        run: npx expo config --type public
+      - name: Expo Doctor
+        run: npx expo-doctor
+      - name: Validate iOS JavaScript bundle
+        run: npx expo export --platform ios --output-dir .expo-export-ios --clear
+      - name: Generate native iOS project
+        run: npx expo prebuild --platform ios --non-interactive
+      - name: Build iOS Simulator app
+        run: |
+          PROJECT=$(find ios -maxdepth 1 -name "*.xcodeproj" -print -quit)
+          test -n "$PROJECT"
+          SCHEME=$(basename "$PROJECT" .xcodeproj)
+          xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration Debug -sdk iphonesimulator -derivedDataPath ios/build -destination "platform=iOS Simulator,name=iPhone 15,OS=latest" CODE_SIGNING_ALLOWED=NO build
+      - name: Launch AIMPACT on iOS Simulator
+        run: |
+          PROJECT=$(find ios -maxdepth 1 -name "*.xcodeproj" -print -quit)
+          SCHEME=$(basename "$PROJECT" .xcodeproj)
+          APP_PATH=$(find ios/build/Build/Products -type d -name "$SCHEME.app" -print -quit)
+          test -n "$APP_PATH"
+          xcrun simctl boot "iPhone 15" 2>/dev/null || true
+          xcrun simctl bootstatus "iPhone 15" -b
+          xcrun simctl install "iPhone 15" "$APP_PATH"
+          xcrun simctl launch "iPhone 15" "ai.aimpact.app"
+          sleep 12
+          xcrun simctl spawn "iPhone 15" launchctl print system | grep -q "com.apple.CoreSimulator"
+          echo "AIMPACT_IOS_RUNTIME=PASS"
+      - name: Upload iOS simulator artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AIMPACT-iOS-Simulator
+          path: mobile/ios/build/Build/Products
+          if-no-files-found: error
+
+  mobile-release-gate:
+    needs:
+      - android-apk
+      - android-runtime
+      - ios-simulator
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce mobile release gate
+        env:
+          ANDROID_BUILD: ${{ needs.android-apk.result }}
+          ANDROID_RUNTIME: ${{ needs.android-runtime.result }}
+          IOS_RUNTIME: ${{ needs.ios-simulator.result }}
+        run: |
+          echo "ANDROID_BUILD=$ANDROID_BUILD"
+          echo "ANDROID_RUNTIME=$ANDROID_RUNTIME"
+          echo "IOS_RUNTIME=$IOS_RUNTIME"
+          test "$ANDROID_BUILD" = "success"
+          test "$ANDROID_RUNTIME" = "success"
+          test "$IOS_RUNTIME" = "success"
+          echo "AIMPACT_MOBILE_RELEASE_GATE=PASS"
