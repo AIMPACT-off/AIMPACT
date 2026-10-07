@@ -10,7 +10,7 @@ on:
     - cron: "17 * * * *"
     - cron: "47 * * * *"
   workflow_run:
-    workflows: ["AIMPACT Mobile Build"]
+    workflows: ["AIMPACT Mobile Build", "AIMPACT Payment Control"]
     types: [completed]
     branches: [main]
 
@@ -125,4 +125,39 @@ jobs:
           fi
 
           echo "AIMPACT_MOBILE_AUTONOMOUS_CONTROL=HUMAN_ACTION_REQUIRED" >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+
+  payment-autonomous-control:
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'AIMPACT Payment Control' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Evaluate payment control completion deterministically
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          set -euo pipefail
+          JOBS="$(gh run view "$RUN_ID" --json jobs --jq '.jobs[] | [.name,.status,.conclusion] | @tsv')"
+          echo "$JOBS"
+          CODE_GATE="$(printf '%s\n' "$JOBS" | awk -F '\t' '$1=="payment-code-gate"{print $3}')"
+          if [ "$CODE_GATE" = "success" ] && { [ "$RUN_CONCLUSION" = "success" ] || [ "$RUN_CONCLUSION" = "failure" ]; }; then
+            if printf '%s\n' "$JOBS" | grep -q $'payment-configuration-status\t.*\tsuccess'; then
+              echo "PAYMENT_AUTONOMOUS_CONTROL=CODE_PASS_CREDENTIAL_BOUNDARY" >> "$GITHUB_STEP_SUMMARY"
+            elif [ "$RUN_CONCLUSION" = "success" ]; then
+              echo "PAYMENT_AUTONOMOUS_CONTROL=PASS" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "PAYMENT_AUTONOMOUS_CONTROL=API_OBSERVATION_FAILED" >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
+            exit 0
+          fi
+          if [ "$RUN_ATTEMPT" -lt 2 ]; then
+            echo "PAYMENT_AUTONOMOUS_CONTROL=AUTO_RECOVERY" >> "$GITHUB_STEP_SUMMARY"
+            gh run rerun "$RUN_ID" --failed
+            exit 0
+          fi
+          echo "PAYMENT_AUTONOMOUS_CONTROL=HUMAN_ACTION_REQUIRED" >> "$GITHUB_STEP_SUMMARY"
           exit 1
