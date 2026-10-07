@@ -127,19 +127,19 @@ jobs:
           PROJECT=$(find ios -maxdepth 1 -name "*.xcodeproj" -print -quit)
           test -n "$PROJECT"
           SCHEME=$(basename "$PROJECT" .xcodeproj)
-          xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration Debug -sdk iphonesimulator -derivedDataPath ios/build -destination "platform=iOS Simulator,name=iPhone 15,OS=latest" CODE_SIGNING_ALLOWED=NO build
+          xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration Debug -sdk iphonesimulator -derivedDataPath ios/build -destination "platform=iOS Simulator,name=iPhone 17,OS=latest" CODE_SIGNING_ALLOWED=NO build
       - name: Launch AIMPACT on iOS Simulator
         run: |
           PROJECT=$(find ios -maxdepth 1 -name "*.xcodeproj" -print -quit)
           SCHEME=$(basename "$PROJECT" .xcodeproj)
           APP_PATH=$(find ios/build/Build/Products -type d -name "$SCHEME.app" -print -quit)
           test -n "$APP_PATH"
-          xcrun simctl boot "iPhone 15" 2>/dev/null || true
-          xcrun simctl bootstatus "iPhone 15" -b
-          xcrun simctl install "iPhone 15" "$APP_PATH"
-          xcrun simctl launch "iPhone 15" "ai.aimpact.app"
+          xcrun simctl boot "iPhone 17" 2>/dev/null || true
+          xcrun simctl bootstatus "iPhone 17" -b
+          xcrun simctl install "iPhone 17" "$APP_PATH"
+          xcrun simctl launch "iPhone 17" "ai.aimpact.app"
           sleep 12
-          xcrun simctl spawn "iPhone 15" launchctl print system | grep -q "com.apple.CoreSimulator"
+          xcrun simctl spawn "iPhone 17" launchctl print system | grep -q "com.apple.CoreSimulator"
           echo "AIMPACT_IOS_RUNTIME=PASS"
       - name: Upload iOS simulator artifact
         uses: actions/upload-artifact@v4
