@@ -21,22 +21,22 @@ export async function handler(event) {
   const sessionId = event.queryStringParameters?.session_id?.trim();
   const email = event.queryStringParameters?.email?.trim().toLowerCase();
 
-  if (!sessionId || !email) {
-    return json(400, { verified: false, error: "session_id_and_email_required" });
+  if (!sessionId) {
+    return json(400, { verified: false, error: "session_id_required" });
   }
 
   try {
     const base = env("SUPABASE_URL").replace(/\/$/, "");
     const serviceRoleKey = env("SUPABASE_SERVICE_ROLE_KEY");
-    const params = new URLSearchParams({
-      select: "product_key,status,paid_at,checkout_session_id",
+    const filters = new URLSearchParams({
+      select: "product_key,status,paid_at,checkout_session_id,customer_email",
       checkout_session_id: "eq." + sessionId,
-      customer_email: "eq." + email,
       status: "eq.paid",
       limit: "1"
     });
+    if (email) filters.set("customer_email", "eq." + email);
 
-    const response = await fetch(base + "/rest/v1/payment_entitlements?" + params.toString(), {
+    const response = await fetch(base + "/rest/v1/payment_entitlements?" + filters.toString(), {
       headers: {
         apikey: serviceRoleKey,
         Authorization: "Bearer " + serviceRoleKey
