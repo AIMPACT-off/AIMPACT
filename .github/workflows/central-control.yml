@@ -100,6 +100,33 @@ jobs:
           console.log("DEPLOYMENT_TRUTH_BOUNDARIES=PASS");
           NODE
 
+  autonomous-next-stage:
+    if: ${{ github.event_name == 'workflow_run' && (github.event.workflow_run.name == 'AIMPACT Mobile Build' || github.event.workflow_run.name == 'AIMPACT Payment Control') && github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Wait 3 seconds before next stage
+        run: sleep 3
+      - name: Dispatch next workflow automatically
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMPLETED_WORKFLOW: ${{ github.event.workflow_run.name }}
+        run: |
+          set -euo pipefail
+          case "$COMPLETED_WORKFLOW" in
+            "AIMPACT Mobile Build")
+              echo "AUTO_NEXT=AIMPACT Payment Control"
+              gh workflow run payment-control.yml --ref main
+              ;;
+            "AIMPACT Payment Control")
+              echo "AUTO_NEXT=AIMPACT Web Verification"
+              gh workflow run web-verification.yml --ref main
+              ;;
+            *)
+              echo "AUTO_NEXT=NONE"
+              ;;
+          esac
+
   mobile-autonomous-control:
     if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'AIMPACT Mobile Build' }}
     runs-on: ubuntu-latest
