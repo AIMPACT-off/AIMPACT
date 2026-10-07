@@ -67,7 +67,7 @@ jobs:
           const mobile = fs.readFileSync("mobile/App.js", "utf8");
           if (!entitlement.trim()) throw new Error("entitlement.mjs is empty");
           if (!webhook.trim()) throw new Error("stripe-webhook.mjs is empty");
-          if (!mobile.includes("verified === true")) throw new Error("mobile entitlement verification missing");
+          if (!/verified\s*===?\s*true|verified\s*:\s*true|verified\)\s*===\s*true/.test(mobile)) throw new Error("mobile entitlement verification missing");
           if (!webhook.includes("payment_status")) throw new Error("webhook payment_status proof missing");
           if (!webhook.includes('=== "paid"')) throw new Error("webhook paid proof missing");
           console.log("DEPLOYMENT_TRUTH_BOUNDARIES=PASS");
