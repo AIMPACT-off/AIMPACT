@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Linking, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 
-const CHECKOUT = "https://buy.stripe.com/eVq7sLdq33gOgNm9wH1Fe00";
+const CHECKOUT = "https://buy.stripe.com/test_7sY7sL1Gz1dI7ohg1ofrW04";
 const AUDIT_API = "https://aimpact-ai.netlify.app/api/audit";
 const ENTITLEMENT_API = "https://aimpact-ai.netlify.app/api/entitlement";
 
