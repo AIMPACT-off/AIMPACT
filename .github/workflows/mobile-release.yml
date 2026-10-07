@@ -1,0 +1,47 @@
+name: AIMPACT Mobile Release Asset
+
+on:
+  workflow_run:
+    workflows: ["AIMPACT Mobile Build"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish-android-apk:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download verified Android APK artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name AIMPACT-Android-APK --dir release
+          APK="$(find release -type f -name '*.apk' -print -quit)"
+          test -n "$APK"
+          test -s "$APK"
+          mv "$APK" "release/AIMPACT-${RUN_ID}.apk"
+          sha256sum "release/AIMPACT-${RUN_ID}.apk"
+          ls -lh "release/AIMPACT-${RUN_ID}.apk"
+
+      - name: Publish APK as GitHub Release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          TAG="mobile-${RUN_ID}"
+          TITLE="AIMPACT Android APK ${RUN_ID}"
+          gh release create "$TAG" "release/AIMPACT-${RUN_ID}.apk" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$TITLE" \
+            --notes "Verified by AIMPACT Mobile Build run ${RUN_ID}. Android APK release asset." \
+            --latest=false
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY"
