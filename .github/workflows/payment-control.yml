@@ -24,13 +24,20 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Observe configured Stripe account
+      - name: Observe configured Stripe account with bounded retry
         env:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           PAYMENT_LINK_ID: plink_1UNpJEGeNSkj4zfGecYTrM3u
         run: |
           set -euo pipefail
-          code=$(curl -sS -o /tmp/payment-link.json -w "%{http_code}" -u "$STRIPE_SECRET_KEY:" "https://api.stripe.com/v1/payment_links/$PAYMENT_LINK_ID")
+          for attempt in 1 2 3; do
+            code=$(curl -sS -o /tmp/payment-link.json -w "%{http_code}" -u "$STRIPE_SECRET_KEY:" "https://api.stripe.com/v1/payment_links/$PAYMENT_LINK_ID" || true)
+            if [ "$code" = "200" ]; then
+              break
+            fi
+            echo "STRIPE_PAYMENT_LINK_OBSERVATION_RETRY=$attempt HTTP=$code"
+            sleep $((attempt * 5))
+          done
           test "$code" = "200"
           python - <<'PY'
           import json
