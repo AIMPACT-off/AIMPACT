@@ -1,9 +1,17 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Linking, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 
 const CHECKOUT = "https://buy.stripe.com/eVq7sLdq33gOgNm9wH1Fe00";
 const AUDIT_API = "https://aimpact-ai.netlify.app/api/audit";
+const ENTITLEMENT_API = "https://aimpact-ai.netlify.app/api/entitlement";
+
+async function verifyPaidEntitlement(sessionId, email) {
+  const response = await fetch(ENTITLEMENT_API + "?session_id=" + encodeURIComponent(sessionId) + "&email=" + encodeURIComponent(email));
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || body.verified !== true) throw new Error(body.error || "Payment entitlement is not verified.");
+  return body;
+}
 
 async function runServerAudit(input) {
   const controller = new AbortController();
@@ -34,12 +42,65 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [entitlement, setEntitlement] = useState(null);
+  const [sessionId, setSessionId] = useState("");
+
+  useEffect(() => {
+    const handleUrl = async (url) => {
+      try {
+        if (!url) return;
+        const parsed = new URL(url);
+        const sid = parsed.searchParams.get("session_id");
+        if (!sid) return;
+        setSessionId(sid);
+        if (!email.trim()) {
+          setError("Enter the same checkout email used for payment, then verify entitlement.");
+          setTab("billing");
+          return;
+        }
+        const verified = await verifyPaidEntitlement(sid, email.trim());
+        setEntitlement(verified);
+        setError("");
+        setTab("reports");
+      } catch (e) {
+        setEntitlement(null);
+        setError(e?.message || "Payment entitlement could not be verified.");
+        setTab("billing");
+      }
+    };
+    Linking.getInitialURL().then(handleUrl);
+    const subscription = Linking.addEventListener("url", ({ url }) => handleUrl(url));
+    return () => subscription.remove();
+  }, [email]);
+
+  const verifyPayment = async () => {
+    if (!sessionId || !email.trim()) {
+      setError("Checkout session and payment email are required.");
+      return;
+    }
+    setError("");
+    setBusy(true);
+    try {
+      const verified = await verifyPaidEntitlement(sessionId, email.trim());
+      setEntitlement(verified);
+    } catch (e) {
+      setEntitlement(null);
+      setError(e?.message || "Payment entitlement could not be verified.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const run = async () => {
     if (busy) return;
     setError("");
     if (!company.trim() || !email.trim() || !problem.trim()) {
       setError("Company, email and business problem are required.");
+      return;
+    }
+    if (!entitlement?.verified) {
+      setError("Verified payment is required before running the paid Quick Audit.");
+      setTab("billing");
       return;
     }
     setBusy(true);
@@ -108,7 +169,7 @@ export default function App() {
           <TouchableOpacity style={[s.primary, busy && s.disabled]} onPress={run} disabled={busy}>
             <Text style={s.primaryText}>{busy ? "RUNNING AUDIT…" : "RUN SERVER AUDIT →"}</Text>
           </TouchableOpacity>
-          <Text style={s.muted}>Current engine: server-side diagnostic. AI provider and production outcome verification remain gated until separately verified.</Text>
+          <Text style={s.muted}>PAID ACCESS: {entitlement?.verified ? "VERIFIED" : "LOCKED"} · server-side diagnostic remains separately marked UNVERIFIED until external AI/outcome verification is proven.</Text>
         </View>
       </View>}
 
@@ -120,7 +181,7 @@ export default function App() {
 
       {tab==="reports" && <View>
         <Text style={s.eyebrow}>03 · EXECUTIVE REPORT</Text><Text style={s.title}>Your business{ "\n" }answer.</Text>
-        {!result ? <View style={s.card}><Text style={s.cardTitle}>REPORT EMPTY</Text><Text style={s.sub}>Run a server audit to generate the diagnosis.</Text><TouchableOpacity style={s.primary} onPress={() => setTab("audit")}><Text style={s.primaryText}>RUN AUDIT →</Text></TouchableOpacity></View> :
+        {!entitlement?.verified ? <View style={s.card}><Text style={s.cardTitle}>REPORT LOCKED</Text><Text style={s.sub}>A verified payment entitlement is required. Checkout return alone is never treated as payment proof.</Text><TouchableOpacity style={s.primary} onPress={() => setTab("billing")}><Text style={s.primaryText}>VERIFY PAYMENT →</Text></TouchableOpacity></View> : !result ? <View style={s.card}><Text style={s.cardTitle}>REPORT EMPTY</Text><Text style={s.sub}>Run a server audit to generate the diagnosis.</Text><TouchableOpacity style={s.primary} onPress={() => setTab("audit")}><Text style={s.primaryText}>RUN AUDIT →</Text></TouchableOpacity></View> :
         <View style={s.card}>
           <Text style={s.label}>AIMPACT DIAGNOSIS · {result.customer?.company || "CUSTOMER"}</Text>
           <Text style={s.score}>{result.diagnosis?.score ?? "—"}</Text>
@@ -139,7 +200,7 @@ export default function App() {
       {tab==="billing" && <View>
         <Text style={s.eyebrow}>04 · BILLING</Text><Text style={s.title}>Revenue is part{ "\n" }of the product.</Text>
         <View style={s.card}><Text style={s.label}>QUICK AUDIT</Text><Text style={s.price}>₩99,000</Text><Text style={s.sub}>AI Quick Audit · one-time</Text><TouchableOpacity style={s.primary} onPress={buy}><Text style={s.primaryText}>OPEN CHECKOUT →</Text></TouchableOpacity></View>
-        <View style={s.card}><Text style={s.label}>ENTITLEMENT</Text><Text style={s.cardTitle}>FAIL-CLOSED</Text><Text style={s.sub}>Checkout return is not treated as proof of payment. Verified webhook + server-side entitlement is required before paid access is granted.</Text></View>
+        <View style={s.card}><Text style={s.label}>ENTITLEMENT</Text><Text style={s.cardTitle}>{entitlement?.verified ? "VERIFIED" : "FAIL-CLOSED"}</Text><Text style={s.sub}>Checkout return is not treated as proof of payment. Verified webhook + server-side entitlement is required before paid access is granted.</Text>{sessionId ? <Text style={s.muted}>SESSION DETECTED · {sessionId.slice(0, 18)}…</Text> : null}<TouchableOpacity style={s.primary} onPress={verifyPayment} disabled={busy}><Text style={s.primaryText}>{busy ? "VERIFYING…" : "VERIFY PAYMENT →"}</Text></TouchableOpacity></View>
       </View>}
     </ScrollView>
   </SafeAreaView>;
