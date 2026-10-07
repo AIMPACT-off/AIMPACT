@@ -120,6 +120,8 @@ jobs:
         run: npx expo export --platform ios --output-dir .expo-export-ios --clear
       - name: Generate native iOS project
         run: npx expo prebuild --platform ios --non-interactive
+      - name: Install CocoaPods dependencies
+        run: pod install --project-directory=ios
       - name: Build iOS Simulator app
         run: |
           PROJECT=$(find ios -maxdepth 1 -name "*.xcodeproj" -print -quit)
