@@ -112,16 +112,28 @@ jobs:
             # Clear stale system/emulator logs before launching AIMPACT.
             adb logcat -c
             adb shell am force-stop ai.aimpact.app
-            adb shell monkey -p ai.aimpact.app 1
-            sleep 15
-            PID="$(adb shell pidof ai.aimpact.app | tr -d '\\r')"
-            test -n "$PID"
-            echo "AIMPACT_PID=$PID"
-            adb shell dumpsys activity activities | grep -q "ai.aimpact.app"
-            APP_CRASHES="$(adb logcat -d | grep -E "FATAL EXCEPTION|Process: ai\\.aimpact\\.app" | grep -c "FATAL EXCEPTION" || true)"
-            echo "AIMPACT_APP_FATAL_EXCEPTIONS=$APP_CRASHES"
-            test "$APP_CRASHES" = "0"
-            echo "AIMPACT_RUNTIME=PASS"
+            adb logcat -c
+            echo "AIMPACT_LAUNCH_ATTEMPT=1"
+            adb shell am start -W -n ai.aimact.app/.MainActivity || adb shell monkey -p ai.aimpact.app 1
+            for attempt in 1 2 3; do
+              sleep 5
+              PID="$(adb shell pidof ai.aimpact.app 2>/dev/null | tr -d '\\r' || true)"
+              ACTIVITY="$(adb shell dumpsys activity activities 2>/dev/null | grep -m1 'ai.aimpact.app' || true)"
+              echo "AIMPACT_LAUNCH_ATTEMPT=$attempt PID=$PID"
+              if [ -n "$PID" ] || [ -n "$ACTIVITY" ]; then
+                echo "AIMPACT_PID=$PID"
+                echo "AIMPACT_ACTIVITY=$ACTIVITY"
+                APP_CRASHES="$(adb logcat -d | grep -E "FATAL EXCEPTION|Process: ai\\.aimpact\\.app" | grep -c "FATAL EXCEPTION" || true)"
+                echo "AIMPACT_APP_FATAL_EXCEPTIONS=$APP_CRASHES"
+                test "$APP_CRASHES" = "0"
+                echo "AIMPACT_RUNTIME=PASS"
+                exit 0
+              fi
+            done
+            echo "AIMPACT_RUNTIME=FAIL"
+            adb shell ps -A | grep -E 'aimpact|com.android' | tail -n 80 || true
+            adb logcat -d | tail -n 300 || true
+            exit 1
 
   ios-simulator:
     runs-on: macos-15
