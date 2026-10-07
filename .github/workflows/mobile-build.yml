@@ -137,9 +137,13 @@ jobs:
           xcrun simctl boot "iPhone 17" 2>/dev/null || true
           xcrun simctl bootstatus "iPhone 17" -b
           xcrun simctl install "iPhone 17" "$APP_PATH"
-          xcrun simctl launch "iPhone 17" "ai.aimpact.app"
+          LAUNCH_OUTPUT=$(xcrun simctl launch "iPhone 17" "ai.aimpact.app")
+          echo "$LAUNCH_OUTPUT"
+          PID=$(echo "$LAUNCH_OUTPUT" | awk '{print $NF}')
+          test -n "$PID"
           sleep 12
-          xcrun simctl spawn "iPhone 17" launchctl print system | grep -q "com.apple.CoreSimulator"
+          xcrun simctl spawn "iPhone 17" ps -p "$PID" | grep -q "$PID"
+          xcrun simctl listapps "iPhone 17" | grep -q "ai.aimpact.app"
           echo "AIMPACT_IOS_RUNTIME=PASS"
       - name: Upload iOS simulator artifact
         uses: actions/upload-artifact@v4
