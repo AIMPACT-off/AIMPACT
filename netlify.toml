@@ -18,3 +18,8 @@
   from = "/api/stripe-webhook"
   to = "/.netlify/functions/stripe-webhook"
   status = 200
+
+[[redirects]]
+  from = "/api/entitlement"
+  to = "/.netlify/functions/entitlement"
+  status = 200
