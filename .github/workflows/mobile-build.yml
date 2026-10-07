@@ -124,7 +124,7 @@ jobs:
         run: pod install --project-directory=ios
       - name: Select available iOS Simulator
         run: |
-          python3 - <<'PY' >> "$GITHUB_ENV"
+          python3 - <<'PY' > /tmp/ios-sim.env
           import json, subprocess
           data = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "--json"]))
           found = [(d.get("name"), d.get("udid")) for devices in data["devices"].values() for d in devices if d.get("isAvailable") and "iPhone" in d.get("name", "")]
@@ -133,12 +133,9 @@ jobs:
           name, udid = found[0]
           print(f"IOS_SIMULATOR_NAME={name}")
           print(f"IOS_SIMULATOR_UDID={udid}")
-          print(f"Selected iOS simulator: {name} ({udid})")
           PY
-          test -n "$IOS_SIMULATOR_NAME"
-          test -n "$IOS_SIMULATOR_UDID"
-          echo "IOS_SIMULATOR_NAME=$IOS_SIMULATOR_NAME"
-          echo "IOS_SIMULATOR_UDID=$IOS_SIMULATOR_UDID"
+          cat /tmp/ios-sim.env >> "$GITHUB_ENV"
+          cat /tmp/ios-sim.env
       - name: Boot selected iOS Simulator
         run: |
           xcrun simctl boot "$IOS_SIMULATOR_UDID" 2>/dev/null || true
