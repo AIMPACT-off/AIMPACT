@@ -1,0 +1,70 @@
+name: AIMPACT iOS Device Release
+
+on:
+  workflow_run:
+    workflows: ["AIMPACT Mobile Build"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  ios-device-release:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/package.json
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm install
+      - name: Verify EAS credentials are configured
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${EXPO_TOKEN}" || { echo "IOS_DEVICE_RELEASE_BLOCKED=EXPO_TOKEN_NOT_CONFIGURED"; exit 1; }
+      - name: Install EAS CLI
+        run: npm install --global eas-cli
+      - name: Build signed iOS production IPA
+        working-directory: mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          eas build --platform ios --profile production --non-interactive --wait
+      - name: Download iOS IPA
+        working-directory: mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p ../release
+          eas build:list --platform ios --status finished --limit 1 --json > ../release/eas-build.json
+          URL="$(node -e 'const x=require("../release/eas-build.json"); const a=Array.isArray(x)?x[0]:x; process.stdout.write(a.artifacts?.buildUrl||a.artifacts?.applicationArchiveUrl||"")')"
+          test -n "$URL"
+          curl -L "$URL" -o ../release/AIMPACT-iOS.ipa
+          test -s ../release/AIMPACT-iOS.ipa
+          file ../release/AIMPACT-iOS.ipa
+      - name: Publish iOS IPA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="ios-${GITHUB_RUN_ID}"
+          gh release create "$TAG" release/AIMPACT-iOS.ipa \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "AIMPACT iOS IPA ${GITHUB_RUN_ID}" \
+            --notes "Signed iOS device build produced by EAS. Installability depends on the provisioning profile/device distribution method." \
+            --latest=false
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY"
