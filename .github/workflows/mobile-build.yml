@@ -114,7 +114,7 @@ jobs:
             adb shell am force-stop ai.aimpact.app
             adb logcat -c
             echo "AIMPACT_LAUNCH_ATTEMPT=1"
-            adb shell am start -W -n ai.aimact.app/.MainActivity || adb shell monkey -p ai.aimpact.app 1
+            adb shell am start -W -n ai.aimpact.app/.MainActivity || adb shell monkey -p ai.aimpact.app 1
             for attempt in 1 2 3; do
               sleep 5
               PID="$(adb shell pidof ai.aimpact.app 2>/dev/null | tr -d '\\r' || true)"
