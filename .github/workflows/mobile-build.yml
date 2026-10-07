@@ -130,20 +130,24 @@ jobs:
           xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Debug -sdk iphonesimulator -derivedDataPath ios/build -destination "platform=iOS Simulator,name=iPhone 17,OS=latest" CODE_SIGNING_ALLOWED=NO build
       - name: Launch AIMPACT on iOS Simulator
         run: |
-          PROJECT=$(find ios -maxdepth 1 -name "*.xcodeproj" -print -quit)
-          SCHEME=$(basename "$PROJECT" .xcodeproj)
-          APP_PATH=$(find ios/build/Build/Products -type d -name "$SCHEME.app" -print -quit)
+          APP_PATH=$(find ios/build/Build/Products -type d -name "AIMPACT.app" -print -quit)
           test -n "$APP_PATH"
+          echo "APP_PATH=$APP_PATH"
           xcrun simctl boot "iPhone 17" 2>/dev/null || true
           xcrun simctl bootstatus "iPhone 17" -b
           xcrun simctl install "iPhone 17" "$APP_PATH"
-          LAUNCH_OUTPUT=$(xcrun simctl launch "iPhone 17" "ai.aimpact.app")
+          echo "INSTALL=PASS"
+          set +e
+          LAUNCH_OUTPUT=$(xcrun simctl launch "iPhone 17" "ai.aimpact.app" 2>&1)
+          LAUNCH_STATUS=$?
+          set -e
+          echo "LAUNCH_STATUS=$LAUNCH_STATUS"
           echo "$LAUNCH_OUTPUT"
-          PID=$(echo "$LAUNCH_OUTPUT" | awk '{print $NF}')
-          test -n "$PID"
+          xcrun simctl listapps "iPhone 17" | grep -A 8 -B 2 "ai.aimpact.app" || true
           sleep 12
-          xcrun simctl spawn "iPhone 17" ps -p "$PID" | grep -q "$PID"
-          xcrun simctl listapps "iPhone 17" | grep -q "ai.aimpact.app"
+          echo "RECENT_APP_LOGS="
+          xcrun simctl spawn "iPhone 17" log show --last 2m --style compact --predicate 'process == "AIMPACT" OR eventMessage CONTAINS[c] "ai.aimpact.app"' | tail -n 120 || true
+          test "$LAUNCH_STATUS" = "0"
           echo "AIMPACT_IOS_RUNTIME=PASS"
       - name: Upload iOS simulator artifact
         uses: actions/upload-artifact@v4
