@@ -93,19 +93,8 @@ jobs:
             adb wait-for-device
             echo "ADB_DEVICE=$(adb get-state)"
             echo "WAITING_FOR_PACKAGE_MANAGER=1"
-            for i in $(seq 1 90); do
-              if adb shell cmd package list packages >/dev/null 2>&1; then
-                echo "PACKAGE_MANAGER=READY"
-                break
-              fi
-              if [ "$i" = "90" ]; then
-                echo "PACKAGE_MANAGER=TIMEOUT"
-                adb shell getprop | grep -E "sys.boot_completed|init.svc.system_server|init.svc.bootanim" || true
-                adb shell service list | head -80 || true
-                exit 1
-              fi
-              sleep 2
-            done
+            timeout 180 sh -c 'until adb shell cmd package list packages >/dev/null 2>&1; do sleep 2; done'
+            echo "PACKAGE_MANAGER=READY"
             adb shell cmd package list packages | grep -q "package:"
             adb install -r mobile/android/app/build/outputs/apk/release/app-release.apk
             adb shell am force-stop ai.aimpact.app
