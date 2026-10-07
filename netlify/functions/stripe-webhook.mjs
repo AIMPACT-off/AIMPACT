@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 
-const PAYMENT_LINK_ID = "plink_1UNaLsGiFhip6B2FIcpPrnOj";
+const PAYMENT_LINK_ID = process.env.AIMPACT_QUICK_AUDIT_PAYMENT_LINK_ID || "";
 const QUICK_AUDIT_AMOUNT = 99000;
 const QUICK_AUDIT_CURRENCY = "krw";
 
@@ -28,8 +28,11 @@ function json(statusCode, body) {
   return { statusCode, headers: { "content-type": "application/json" }, body: JSON.stringify(body) };
 }
 
-function isEligiblePaidSession(session) {
-  return session.payment_link === PAYMENT_LINK_ID &&
+export function isEligiblePaidSession(session) {
+  const configuredPaymentLink = PAYMENT_LINK_ID && session.payment_link === PAYMENT_LINK_ID;
+  const productMetadataMatch = session.metadata?.product_key === "AI_QUICK_AUDIT";
+  const paymentLinkMatch = configuredPaymentLink || productMetadataMatch;
+  return paymentLinkMatch &&
     session.payment_status === "paid" &&
     Number(session.amount_total) === QUICK_AUDIT_AMOUNT &&
     String(session.currency || "").toLowerCase() === QUICK_AUDIT_CURRENCY;
