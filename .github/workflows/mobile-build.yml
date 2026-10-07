@@ -146,8 +146,14 @@ jobs:
           xcrun simctl listapps "iPhone 17" | grep -A 8 -B 2 "ai.aimpact.app" || true
           sleep 12
           echo "RECENT_APP_LOGS="
-          xcrun simctl spawn "iPhone 17" log show --last 2m --style compact --predicate 'process == "AIMPACT" OR eventMessage CONTAINS[c] "ai.aimpact.app"' | tail -n 120 || true
+          xcrun simctl spawn "iPhone 17" log show --last 2m --style compact --predicate 'process == "AIMPACT" OR eventMessage CONTAINS[c] "ai.aimpact.app"' | tail -n 200 || true
           test "$LAUNCH_STATUS" = "0"
+          sleep 3
+          if ! xcrun simctl spawn "iPhone 17" pgrep -x AIMPACT >/dev/null 2>&1; then
+            echo "AIMPACT_IOS_PROCESS_NOT_RUNNING=1"
+            exit 1
+          fi
+          echo "AIMPACT_IOS_RUNTIME=PASS"
           echo "AIMPACT_IOS_RUNTIME=PASS"
       - name: Upload iOS simulator artifact
         uses: actions/upload-artifact@v4
