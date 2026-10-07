@@ -160,3 +160,18 @@ jobs:
           fi
           if [ "$RUN_ATTEMPT" -lt 2 ]; then gh run rerun "$RUN_ID" --failed; exit 0; fi
           exit 1
+
+  commercial-e2e-observation:
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'AIMPACT Payment Control' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Observe payment verification boundary
+        env:
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          set -euo pipefail
+          echo "PAYMENT_CONTROL_CONCLUSION=$RUN_CONCLUSION"
+          echo "PAYMENT_E2E_MODE=OBSERVE_ONLY"
+          echo "PAYMENT_E2E_RULE=never_fake_paid_state"
+          echo "PAYMENT_E2E_NEXT=await_verified_checkout_entitlement"
