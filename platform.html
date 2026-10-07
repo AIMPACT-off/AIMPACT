@@ -144,9 +144,11 @@ function selectPlan(name,price){
 }
 const params=new URLSearchParams(location.search);
 if(params.get('payment')==='success'){
+ const sid=params.get('session_id')||'';
  document.getElementById('commercialStatus').textContent='CHECKOUT RETURN · VERIFICATION PENDING';
- document.getElementById('checkoutNotice').textContent='Checkout returned successfully. This browser signal is not proof of payment. AIMPACT fulfillment requires independent payment verification before marking the customer paid.';
+ document.getElementById('checkoutNotice').innerHTML='Checkout returned. This browser signal is not proof of payment. AIMPACT fulfillment requires independent payment verification. <a class="btn primary" href="aimpact://payment/success?session_id='+encodeURIComponent(sid)+'">OPEN AIMPACT APP →</a>';
  go('billing');
+ if(sid){ setTimeout(()=>{ window.location.href='aimpact://payment/success?session_id='+encodeURIComponent(sid); },800); }
 }
 document.getElementById('company').addEventListener('input',e=>document.getElementById('tenantName').textContent=e.target.value||'Demo Company');
 </script>
