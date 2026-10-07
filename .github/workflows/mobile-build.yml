@@ -74,6 +74,18 @@ jobs:
       - name: Build APK for runtime
         run: ./gradlew assembleRelease --no-daemon
         working-directory: mobile/android
+      - name: Prepare Linux KVM for Android Emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm
+            echo "KVM_DEVICE=/dev/kvm"
+            ls -l /dev/kvm
+          else
+            echo "KVM_DEVICE=ABSENT"
+          fi
+
       - name: Launch AIMPACT on Android Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -86,7 +98,7 @@ jobs:
           heap-size: 512M
           emulator-boot-timeout: 600
           force-avd-creation: true
-          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none -accel off
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           disable-animations: false
           script: |
             set -e
