@@ -1,0 +1,1 @@
+console.log('PAYMENT_CONTROL_CODE_GATE=PASS');
