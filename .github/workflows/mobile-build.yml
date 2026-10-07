@@ -122,34 +122,42 @@ jobs:
         run: npx expo prebuild --platform ios --non-interactive
       - name: Install CocoaPods dependencies
         run: pod install --project-directory=ios
+      - name: Select available iOS Simulator
+        run: |
+          read -r SIMULATOR_NAME SIMULATOR_UDID <<< "$(xcrun simctl list devices available --json | python3 -c 'import json,sys; d=json.load(sys.stdin); found=[]; [found.extend([(x.get("name"),x.get("udid")) for x in devices if x.get("isAvailable") and "iPhone" in x.get("name")]) for devices in d["devices"].values()]; print(*found[0]) if found else sys.exit(1)')"
+          test -n "$SIMULATOR_NAME"
+          test -n "$SIMULATOR_UDID"
+          echo "IOS_SIMULATOR_NAME=$SIMULATOR_NAME" >> "$GITHUB_ENV"
+          echo "IOS_SIMULATOR_UDID=$SIMULATOR_UDID" >> "$GITHUB_ENV"
+          echo "IOS_SIMULATOR_NAME=$SIMULATOR_NAME"
+          echo "IOS_SIMULATOR_UDID=$SIMULATOR_UDID"
       - name: Build iOS Simulator app
         run: |
           WORKSPACE=$(find ios -maxdepth 1 -name "*.xcworkspace" -print -quit)
           test -n "$WORKSPACE"
           SCHEME=$(basename "$WORKSPACE" .xcworkspace)
-          xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Release -sdk iphonesimulator -derivedDataPath ios/build -destination "platform=iOS Simulator,name=iPhone 17,OS=latest" CODE_SIGNING_ALLOWED=NO build
+          xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Release -sdk iphonesimulator -derivedDataPath ios/build -destination "id=$IOS_SIMULATOR_UDID" CODE_SIGNING_ALLOWED=NO build
       - name: Launch AIMPACT on iOS Simulator
         run: |
           APP_PATH=$(find ios/build/Build/Products -type d -name "AIMPACT.app" -print -quit)
           test -n "$APP_PATH"
           echo "APP_PATH=$APP_PATH"
-          xcrun simctl boot "iPhone 17" 2>/dev/null || true
-          xcrun simctl bootstatus "iPhone 17" -b
-          xcrun simctl install "iPhone 17" "$APP_PATH"
+          xcrun simctl boot "$IOS_SIMULATOR_UDID" 2>/dev/null || true
+          xcrun simctl bootstatus "$IOS_SIMULATOR_UDID" -b
+          xcrun simctl install "$IOS_SIMULATOR_UDID" "$APP_PATH"
           echo "INSTALL=PASS"
           set +e
-          LAUNCH_OUTPUT=$(xcrun simctl launch "iPhone 17" "ai.aimpact.app" 2>&1)
+          LAUNCH_OUTPUT=$(xcrun simctl launch "$IOS_SIMULATOR_UDID" "ai.aimpact.app" 2>&1)
           LAUNCH_STATUS=$?
           set -e
           echo "LAUNCH_STATUS=$LAUNCH_STATUS"
           echo "$LAUNCH_OUTPUT"
-          xcrun simctl listapps "iPhone 17" | grep -A 8 -B 2 "ai.aimpact.app" || true
+          xcrun simctl listapps "$IOS_SIMULATOR_UDID" | grep -A 8 -B 2 "ai.aimpact.app" || true
           sleep 12
           echo "RECENT_APP_LOGS="
-          xcrun simctl spawn "iPhone 17" log show --last 2m --style compact --predicate 'process == "AIMPACT" OR eventMessage CONTAINS[c] "ai.aimpact.app"' | tail -n 200 || true
+          xcrun simctl spawn "$IOS_SIMULATOR_UDID" log show --last 2m --style compact --predicate 'process == "AIMPACT" OR eventMessage CONTAINS[c] "ai.aimpact.app"' | tail -n 200 || true
           test "$LAUNCH_STATUS" = "0"
-          test "$LAUNCH_STATUS" = "0"
-          xcrun simctl get_app_container "iPhone 17" "ai.aimpact.app" app >/dev/null
+          xcrun simctl get_app_container "$IOS_SIMULATOR_UDID" "ai.aimpact.app" app >/dev/null
           echo "AIMPACT_IOS_RUNTIME=PASS"
       - name: Upload iOS simulator artifact
         uses: actions/upload-artifact@v4
