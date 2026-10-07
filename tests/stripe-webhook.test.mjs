@@ -3,18 +3,25 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { verifyStripeSignature } from "../netlify/functions/stripe-webhook.mjs";
 
+function signed(body, secret = "whsec_test") {
+  const timestamp = Math.floor(Date.now() / 1000);
+  const signature = crypto.createHmac("sha256", secret).update(timestamp + "." + body).digest("hex");
+  return "t=" + timestamp + ",v1=" + signature;
+}
+
 test("accepts a correctly signed Stripe webhook", () => {
   const body = JSON.stringify({ id: "evt_test", type: "checkout.session.completed" });
-  const timestamp = Math.floor(Date.now() / 1000);
-  const secret = "whsec_test";
-  const signature = crypto.createHmac("sha256", secret).update(timestamp + "." + body).digest("hex");
-  assert.equal(verifyStripeSignature(body, "t=" + timestamp + ",v1=" + signature, secret), true);
+  assert.equal(verifyStripeSignature(body, signed(body), "whsec_test"), true);
 });
 
 test("rejects a tampered Stripe webhook", () => {
   const body = JSON.stringify({ id: "evt_test", type: "checkout.session.completed" });
-  const timestamp = Math.floor(Date.now() / 1000);
-  const secret = "whsec_test";
-  const signature = crypto.createHmac("sha256", secret).update(timestamp + "." + body).digest("hex");
-  assert.equal(verifyStripeSignature(body + "x", "t=" + timestamp + ",v1=" + signature, secret), false);
+  assert.equal(verifyStripeSignature(body + "x", signed(body), "whsec_test"), false);
+});
+
+test("rejects an expired Stripe webhook signature", () => {
+  const body = JSON.stringify({ id: "evt_test", type: "checkout.session.completed" });
+  const timestamp = Math.floor(Date.now() / 1000) - 301;
+  const signature = crypto.createHmac("sha256", "whsec_test").update(timestamp + "." + body).digest("hex");
+  assert.equal(verifyStripeSignature(body, "t=" + timestamp + ",v1=" + signature, "whsec_test"), false);
 });
