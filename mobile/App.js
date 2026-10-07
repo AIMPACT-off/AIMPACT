@@ -6,8 +6,9 @@ const CHECKOUT = "https://buy.stripe.com/eVq7sLdq33gOgNm9wH1Fe00";
 const AUDIT_API = "https://aimpact-ai.netlify.app/api/audit";
 const ENTITLEMENT_API = "https://aimpact-ai.netlify.app/api/entitlement";
 
-async function verifyPaidEntitlement(sessionId, email) {
-  const response = await fetch(ENTITLEMENT_API + "?session_id=" + encodeURIComponent(sessionId) + "&email=" + encodeURIComponent(email));
+async function verifyPaidEntitlement(sessionId, email = "") {
+  const query = "?session_id=" + encodeURIComponent(sessionId) + (email ? "&email=" + encodeURIComponent(email) : "");
+  const response = await fetch(ENTITLEMENT_API + query);
   const body = await response.json().catch(() => ({}));
   if (!response.ok || body.verified !== true) throw new Error(body.error || "Payment entitlement is not verified.");
   return body;
@@ -53,11 +54,6 @@ export default function App() {
         const sid = parsed.searchParams.get("session_id");
         if (!sid) return;
         setSessionId(sid);
-        if (!email.trim()) {
-          setError("Enter the same checkout email used for payment, then verify entitlement.");
-          setTab("billing");
-          return;
-        }
         const verified = await verifyPaidEntitlement(sid, email.trim());
         setEntitlement(verified);
         setError("");
@@ -74,8 +70,8 @@ export default function App() {
   }, [email]);
 
   const verifyPayment = async () => {
-    if (!sessionId || !email.trim()) {
-      setError("Checkout session and payment email are required.");
+    if (!sessionId) {
+      setError("Checkout session is required.");
       return;
     }
     setError("");
