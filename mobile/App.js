@@ -1,34 +1,215 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Linking, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 
-const CHECKOUT = "https://buy.stripe.com/eVq7sLdq33gOgNm9wH1Fe00";
-const rules = [
-  ["CONTENT / MARKETING", ["content","copy","사진","이미지","상품","sns","social","marketing","마케팅"], "콘텐츠 제작·배포 업무를 표준화하고 생성·재가공을 자동화합니다.", "콘텐츠 입력 → AI 초안 → 담당자 승인 → 채널별 배포 → 성과 집계"],
-  ["SALES / CRM", ["sales","lead","고객","문의","crm","영업","상담","proposal","견적"], "문의·리드의 분류와 후속조치를 자동화해 응답 누락을 줄입니다.", "문의 수집 → AI 분류 → 우선순위 → 담당자 배정 → 후속 알림 → 전환 측정"],
-  ["OPERATIONS", ["반복","수작업","manual","엑셀","spreadsheet","보고","report","운영","정산","재고"], "반복 입력과 보고 업무를 검증 가능한 워크플로우로 통합합니다.", "원천 데이터 → 검증 → 자동 처리 → 예외 승인 → 결과 기록"],
-  ["CUSTOMER SUPPORT", ["support","cs","고객센터","불만","환불"], "반복 문의를 분류·초안화하고 사람의 승인 아래 응답 품질을 관리합니다.", "문의 → 의도 분류 → 답변 초안 → 사람 승인 → 발송 → 만족도 측정"]
-];
-function makeAudit(problem,hours,cost,industry){
- const t=problem.toLowerCase();
- const m=rules.find(r=>r[1].some(k=>t.includes(k)))||["GENERAL PROCESS",[],"업무를 단계별로 분해하고 반복·판단·승인 구간을 분리한 뒤 자동화 우선순위를 정합니다.","현재 업무 → 단계 분해 → 병목 측정 → AI 적용 → 승인 → 결과 측정"];
- const h=Number(hours)||0,c=Number(cost)||0,saving=h?Math.round(h*.35):null,value=saving&&c?Math.round(c*(saving/Math.max(h,1))):null;
- return {score:Math.min(95,45+(h?20:0)+(c?15:0)+(problem.length>80?10:0)+(m[0]!=="GENERAL PROCESS"?10:0)),category:m[0],conclusion:m[2],workflow:m[3],saving,value,industry};
+const CHECKOUT = "https://buy.stripe.com/test_7sY7sL1Gz1dI7ohg1ofrW04";
+const AUDIT_API = "https://aimpact-ai.netlify.app/api/audit";
+const ENTITLEMENT_API = "https://aimpact-ai.netlify.app/api/entitlement";
+
+async function verifyPaidEntitlement(sessionId, email = "") {
+  const query = "?session_id=" + encodeURIComponent(sessionId) + (email ? "&email=" + encodeURIComponent(email) : "");
+  const response = await fetch(ENTITLEMENT_API + query);
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || body.verified !== true) throw new Error(body.error || "Payment entitlement is not verified.");
+  return body;
 }
-export default function App(){
- const [tab,setTab]=useState("overview"),[company,setCompany]=useState(""),[industry,setIndustry]=useState("Retail"),[problem,setProblem]=useState(""),[hours,setHours]=useState(""),[cost,setCost]=useState(""),[result,setResult]=useState(null);
- const run=()=>{if(!problem.trim())return;setResult(makeAudit(problem.trim(),hours,cost,industry));setTab("reports");};
- const buy=()=>Linking.openURL(CHECKOUT);
- const nav=[["overview","OVERVIEW"],["audit","AI AUDIT"],["products","PRODUCTS"],["reports","REPORTS"],["billing","BILLING"]];
- return <SafeAreaView style={s.safe}><StatusBar style="light"/>
-  <View style={s.header}><Text style={s.logo}>AIMPACT</Text><Text style={s.status}>LIVE · QUICK AUDIT ₩99K</Text></View>
-  <View style={s.nav}>{nav.map(([id,label])=><TouchableOpacity key={id} onPress={()=>setTab(id)} style={[s.navItem,tab===id&&s.navActive]}><Text style={[s.navText,tab===id&&s.navTextActive]}>{label}</Text></TouchableOpacity>)}</View>
-  <ScrollView contentContainerStyle={s.content}>
-   {tab==="overview"&&<View><Text style={s.eyebrow}>AIMPACT BUSINESS OS</Text><Text style={s.title}>See the business.{"\n"}Decide. Act. Measure.</Text><Text style={s.sub}>Business Problem → AI Decision → Business Outcome</Text><View style={s.grid}>{[["BUSINESS HEALTH","—"],["AI OPPORTUNITIES","—"],["HOURS TO AUTOMATE","—"],["ROI TRACKED","—"]].map(x=><View style={s.card} key={x[0]}><Text style={s.label}>{x[0]}</Text><Text style={s.metric}>{x[1]}</Text><Text style={s.muted}>Verified evidence required</Text></View>)}</View><TouchableOpacity style={s.primary} onPress={()=>setTab("audit")}><Text style={s.primaryText}>START AI AUDIT →</Text></TouchableOpacity><View style={s.card}><Text style={s.cardTitle}>VALUE LOOP</Text><Text style={s.sub}>Audit → Action → Result → ROI → Next Action</Text></View></View>}
-   {tab==="audit"&&<View><Text style={s.eyebrow}>01 · AI AUDIT</Text><Text style={s.title}>Start with one{"\n"}real problem.</Text><View style={s.card}><Text style={s.label}>COMPANY</Text><TextInput value={company} onChangeText={setCompany} placeholder="Your company" placeholderTextColor="#656a73" style={s.input}/><Text style={s.label}>INDUSTRY</Text><TextInput value={industry} onChangeText={setIndustry} placeholder="Retail / E-commerce / Fashion" placeholderTextColor="#656a73" style={s.input}/><Text style={s.label}>BUSINESS PROBLEM</Text><TextInput value={problem} onChangeText={setProblem} placeholder="What takes too much time or money?" placeholderTextColor="#656a73" multiline style={[s.input,s.textarea]}/><Text style={s.label}>MONTHLY MANUAL HOURS</Text><TextInput value={hours} onChangeText={setHours} keyboardType="numeric" placeholder="100" placeholderTextColor="#656a73" style={s.input}/><Text style={s.label}>MONTHLY PROCESS COST</Text><TextInput value={cost} onChangeText={setCost} keyboardType="numeric" placeholder="3000000" placeholderTextColor="#656a73" style={s.input}/><TouchableOpacity style={s.primary} onPress={run}><Text style={s.primaryText}>RUN AI AUDIT →</Text></TouchableOpacity></View></View>}
-   {tab==="products"&&<View><Text style={s.eyebrow}>02 · PRODUCTS</Text><Text style={s.title}>Buy the outcome.{"\n"}Use the platform.</Text><View style={s.card}><Text style={s.label}>START</Text><Text style={s.cardTitle}>AI Quick Audit</Text><Text style={s.sub}>One real business process mapped into AI opportunities, workflow and next actions.</Text><Text style={s.price}>₩99,000</Text><Text style={s.muted}>one-time</Text><TouchableOpacity style={s.primary} onPress={buy}><Text style={s.primaryText}>BUY / START →</Text></TouchableOpacity></View><View style={s.card}><Text style={s.label}>GROW · CLOSED</Text><Text style={s.cardTitle}>Business AI Platform</Text><Text style={s.sub}>Recurring billing will open after live verification.</Text><Text style={s.price}>₩490,000</Text><Text style={s.muted}>/ month · not live</Text></View></View>}
-   {tab==="reports"&&<View><Text style={s.eyebrow}>03 · EXECUTIVE REPORT</Text><Text style={s.title}>Your business{"\n"}answer.</Text>{!result?<View style={s.card}><Text style={s.cardTitle}>REPORT GATED</Text><Text style={s.sub}>Run an AI Audit with your real business problem first.</Text><TouchableOpacity style={s.primary} onPress={()=>setTab("audit")}><Text style={s.primaryText}>RUN AUDIT →</Text></TouchableOpacity></View>:<View style={s.card}><Text style={s.label}>AIMPACT AUDIT · {company||"CUSTOMER"}</Text><Text style={s.score}>{result.score}</Text><Text style={s.priority}>OPPORTUNITY PRIORITY · {result.category}</Text><Text style={s.label}>CONCLUSION</Text><Text style={s.answer}>{result.conclusion}</Text><Text style={s.label}>RECOMMENDED WORKFLOW</Text><Text style={s.answer}>{result.workflow}</Text><Text style={s.label}>EXPECTED IMPACT</Text><Text style={s.answer}>{result.saving?"월 약 "+result.saving+"시간 절감 후보":"정량 데이터가 없어 절감시간을 추정하지 않습니다."}{result.value?" · 비용 기준 환산 후보 "+result.value.toLocaleString()+"원/월":""}</Text><Text style={s.label}>IMPLEMENTATION ORDER</Text><Text style={s.answer}>1. 현재 프로세스 캡처 → 2. 반복 단계 자동화 → 3. AI 판단 → 4. 사람 승인 → 5. 결과·ROI 측정</Text><Text style={s.muted}>검증되지 않은 절감·ROI는 성과로 표시하지 않습니다.</Text></View>}</View>}
-   {tab==="billing"&&<View><Text style={s.eyebrow}>04 · BILLING</Text><Text style={s.title}>Revenue is part{"\n"}of the product.</Text><View style={s.card}><Text style={s.label}>LIVE CHECKOUT</Text><Text style={s.price}>₩99,000</Text><Text style={s.sub}>AI Quick Audit · one-time</Text><TouchableOpacity style={s.primary} onPress={buy}><Text style={s.primaryText}>OPEN LIVE CHECKOUT →</Text></TouchableOpacity></View><View style={s.card}><Text style={s.label}>PAYMENT STATUS</Text><Text style={s.cardTitle}>Verification required</Text><Text style={s.sub}>Stripe checkout return is not treated as proof of payment. Verified payment creates the customer entitlement.</Text></View></View>}
-  </ScrollView></SafeAreaView>;
+
+async function runServerAudit(input) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const response = await fetch(AUDIT_API, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+      signal: controller.signal
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.message || "AIMPACT audit service rejected the request.");
+    return body;
+  } finally {
+    clearTimeout(timer);
+  }
 }
-const s=StyleSheet.create({safe:{flex:1,backgroundColor:"#08090b"},header:{height:64,paddingHorizontal:18,flexDirection:"row",alignItems:"center",justifyContent:"space-between",borderBottomWidth:1,borderBottomColor:"#292c33"},logo:{color:"#fff",fontWeight:"900",letterSpacing:3,fontSize:16},status:{color:"#9df0bd",fontSize:9,letterSpacing:1},nav:{height:48,borderBottomWidth:1,borderBottomColor:"#292c33",flexDirection:"row",paddingHorizontal:8},navItem:{paddingHorizontal:10,justifyContent:"center"},navActive:{borderBottomWidth:2,borderBottomColor:"#fff"},navText:{color:"#777d88",fontSize:9,letterSpacing:.8},navTextActive:{color:"#fff"},content:{padding:20,paddingBottom:50},eyebrow:{color:"#9298a3",fontSize:9,letterSpacing:2,fontWeight:"800",marginBottom:12},title:{color:"#f5f6f7",fontSize:38,fontWeight:"800",letterSpacing:-1.5,lineHeight:39,marginBottom:14},sub:{color:"#9298a3",fontSize:13,lineHeight:20,marginBottom:16},grid:{gap:10,marginVertical:18},card:{backgroundColor:"#101216",borderWidth:1,borderColor:"#292c33",borderRadius:12,padding:18,marginBottom:12},label:{color:"#9298a3",fontSize:9,letterSpacing:1.4,fontWeight:"800",marginTop:8,marginBottom:8},metric:{color:"#fff",fontSize:28,fontWeight:"800",marginBottom:3},muted:{color:"#777d88",fontSize:10,lineHeight:16},cardTitle:{color:"#fff",fontSize:18,fontWeight:"700",marginBottom:8},primary:{backgroundColor:"#fff",borderRadius:8,padding:14,alignItems:"center",marginTop:10},primaryText:{color:"#08090b",fontSize:10,fontWeight:"900",letterSpacing:1},input:{backgroundColor:"#0b0c0f",borderWidth:1,borderColor:"#292c33",borderRadius:7,color:"#fff",padding:12,marginBottom:12},textarea:{minHeight:120,textAlignVertical:"top"},price:{color:"#fff",fontSize:28,fontWeight:"900",marginTop:8},score:{color:"#fff",fontSize:64,fontWeight:"900",marginTop:8},priority:{color:"#ffd58a",fontSize:10,letterSpacing:1.2,marginBottom:18},answer:{color:"#e6e8eb",fontSize:13,lineHeight:21,marginBottom:16}});
+
+export default function App() {
+  const [tab, setTab] = useState("overview");
+  const [company, setCompany] = useState("");
+  const [email, setEmail] = useState("");
+  const [industry, setIndustry] = useState("Retail");
+  const [problem, setProblem] = useState("");
+  const [hours, setHours] = useState("");
+  const [cost, setCost] = useState("");
+  const [result, setResult] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [entitlement, setEntitlement] = useState(null);
+  const [sessionId, setSessionId] = useState("");
+
+  useEffect(() => {
+    const handleUrl = async (url) => {
+      try {
+        if (!url) return;
+        const parsed = new URL(url);
+        const sid = parsed.searchParams.get("session_id");
+        if (!sid) return;
+        setSessionId(sid);
+        const verified = await verifyPaidEntitlement(sid, email.trim());
+        setEntitlement(verified);
+        setError("");
+        setTab("reports");
+      } catch (e) {
+        setEntitlement(null);
+        setError(e?.message || "Payment entitlement could not be verified.");
+        setTab("billing");
+      }
+    };
+    Linking.getInitialURL().then(handleUrl);
+    const subscription = Linking.addEventListener("url", ({ url }) => handleUrl(url));
+    return () => subscription.remove();
+  }, [email]);
+
+  const verifyPayment = async () => {
+    if (!sessionId) {
+      setError("Checkout session is required.");
+      return;
+    }
+    setError("");
+    setBusy(true);
+    try {
+      const verified = await verifyPaidEntitlement(sessionId, email.trim());
+      setEntitlement(verified);
+    } catch (e) {
+      setEntitlement(null);
+      setError(e?.message || "Payment entitlement could not be verified.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const run = async () => {
+    if (busy) return;
+    setError("");
+    if (!company.trim() || !email.trim() || !problem.trim()) {
+      setError("Company, email and business problem are required.");
+      return;
+    }
+    if (!entitlement?.verified) {
+      setError("Verified payment is required before running the paid Quick Audit.");
+      setTab("billing");
+      return;
+    }
+    setBusy(true);
+    try {
+      const data = await runServerAudit({
+        company: company.trim(),
+        email: email.trim(),
+        industry: industry.trim(),
+        problem: problem.trim(),
+        monthlyManualHours: hours,
+        monthlyProcessCost: cost
+      });
+      setResult(data);
+      setTab("reports");
+    } catch (e) {
+      setError(e?.name === "AbortError" ? "Audit timed out. Please try again." : (e?.message || "Audit failed. Please try again."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const buy = () => Linking.openURL(CHECKOUT);
+  const nav = [["overview","OVERVIEW"],["audit","AI AUDIT"],["products","PRODUCTS"],["reports","REPORTS"],["billing","BILLING"]];
+
+  return <SafeAreaView style={s.safe}>
+    <StatusBar style="light" />
+    <View style={s.header}>
+      <Text style={s.logo}>AIMPACT</Text>
+      <Text style={s.status}>PRODUCT · VERIFICATION IN PROGRESS</Text>
+    </View>
+    <View style={s.nav}>
+      {nav.map(([id,label]) => <TouchableOpacity key={id} onPress={() => setTab(id)} style={[s.navItem, tab===id && s.navActive]}>
+        <Text style={[s.navText, tab===id && s.navTextActive]}>{label}</Text>
+      </TouchableOpacity>)}
+    </View>
+    <ScrollView contentContainerStyle={s.content}>
+      {tab==="overview" && <View>
+        <Text style={s.eyebrow}>AIMPACT BUSINESS OS</Text>
+        <Text style={s.title}>Find the work.{ "\n" }Change the system.</Text>
+        <Text style={s.sub}>Business Problem → AI Decision → Business Outcome</Text>
+        <View style={s.card}>
+          <Text style={s.cardTitle}>ONE REAL PROBLEM</Text>
+          <Text style={s.answer}>AIMPACT identifies the operational bottleneck, maps an AI opportunity and turns it into a workflow you can actually implement.</Text>
+        </View>
+        <TouchableOpacity style={s.primary} onPress={() => setTab("audit")}><Text style={s.primaryText}>START AI AUDIT →</Text></TouchableOpacity>
+        <View style={s.card}><Text style={s.label}>VALUE LOOP</Text><Text style={s.sub}>AUDIT → ACTION → RESULT → ROI → NEXT ACTION</Text></View>
+      </View>}
+
+      {tab==="audit" && <View>
+        <Text style={s.eyebrow}>01 · AI AUDIT</Text>
+        <Text style={s.title}>Start with one{ "\n" }real problem.</Text>
+        <View style={s.card}>
+          <Text style={s.label}>COMPANY</Text>
+          <TextInput value={company} onChangeText={setCompany} placeholder="Your company" placeholderTextColor="#656a73" style={s.input}/>
+          <Text style={s.label}>WORK EMAIL</Text>
+          <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="you@company.com" placeholderTextColor="#656a73" style={s.input}/>
+          <Text style={s.label}>INDUSTRY</Text>
+          <TextInput value={industry} onChangeText={setIndustry} placeholder="Retail / E-commerce / Fashion" placeholderTextColor="#656a73" style={s.input}/>
+          <Text style={s.label}>BUSINESS PROBLEM</Text>
+          <TextInput value={problem} onChangeText={setProblem} placeholder="What takes too much time or money?" placeholderTextColor="#656a73" multiline style={[s.input,s.textarea]}/>
+          <Text style={s.label}>MONTHLY MANUAL HOURS · OPTIONAL</Text>
+          <TextInput value={hours} onChangeText={setHours} keyboardType="numeric" placeholder="100" placeholderTextColor="#656a73" style={s.input}/>
+          <Text style={s.label}>MONTHLY PROCESS COST · OPTIONAL</Text>
+          <TextInput value={cost} onChangeText={setCost} keyboardType="numeric" placeholder="3000000" placeholderTextColor="#656a73" style={s.input}/>
+          {error ? <Text style={s.error}>{error}</Text> : null}
+          <TouchableOpacity style={[s.primary, busy && s.disabled]} onPress={run} disabled={busy}>
+            <Text style={s.primaryText}>{busy ? "RUNNING AUDIT…" : "RUN SERVER AUDIT →"}</Text>
+          </TouchableOpacity>
+          <Text style={s.muted}>PAID ACCESS: {entitlement?.verified ? "VERIFIED" : "LOCKED"} · server-side diagnostic remains separately marked UNVERIFIED until external AI/outcome verification is proven.</Text>
+        </View>
+      </View>}
+
+      {tab==="products" && <View>
+        <Text style={s.eyebrow}>02 · PRODUCTS</Text><Text style={s.title}>Buy the outcome.{ "\n" }Use the platform.</Text>
+        <View style={s.card}><Text style={s.label}>START</Text><Text style={s.cardTitle}>AI Quick Audit</Text><Text style={s.sub}>One real business process mapped into an AI opportunity, workflow and next action.</Text><Text style={s.price}>₩99,000</Text><Text style={s.muted}>one-time</Text><TouchableOpacity style={s.primary} onPress={buy}><Text style={s.primaryText}>BUY / START →</Text></TouchableOpacity></View>
+        <View style={s.card}><Text style={s.label}>GROW · NOT LIVE</Text><Text style={s.cardTitle}>Business AI Platform</Text><Text style={s.sub}>Recurring access remains closed until live payment and entitlement verification passes.</Text><Text style={s.price}>₩490,000</Text><Text style={s.muted}>/ month</Text></View>
+      </View>}
+
+      {tab==="reports" && <View>
+        <Text style={s.eyebrow}>03 · EXECUTIVE REPORT</Text><Text style={s.title}>Your business{ "\n" }answer.</Text>
+        {!entitlement?.verified ? <View style={s.card}><Text style={s.cardTitle}>REPORT LOCKED</Text><Text style={s.sub}>A verified payment entitlement is required. Checkout return alone is never treated as payment proof.</Text><TouchableOpacity style={s.primary} onPress={() => setTab("billing")}><Text style={s.primaryText}>VERIFY PAYMENT →</Text></TouchableOpacity></View> : !result ? <View style={s.card}><Text style={s.cardTitle}>REPORT EMPTY</Text><Text style={s.sub}>Run a server audit to generate the diagnosis.</Text><TouchableOpacity style={s.primary} onPress={() => setTab("audit")}><Text style={s.primaryText}>RUN AUDIT →</Text></TouchableOpacity></View> :
+        <View style={s.card}>
+          <Text style={s.label}>AIMPACT DIAGNOSIS · {result.customer?.company || "CUSTOMER"}</Text>
+          <Text style={s.score}>{result.diagnosis?.score ?? "—"}</Text>
+          <Text style={s.priority}>OPPORTUNITY PRIORITY · {result.diagnosis?.category || "UNVERIFIED"}</Text>
+          <Text style={s.label}>PROBLEM</Text><Text style={s.answer}>{result.diagnosis?.problem}</Text>
+          <Text style={s.label}>WHY IT MATTERS</Text><Text style={s.answer}>{result.diagnosis?.whyItMatters}</Text>
+          <Text style={s.label}>BUSINESS IMPACT</Text><Text style={s.answer}>{result.diagnosis?.businessImpact}</Text>
+          <Text style={s.label}>AI OPPORTUNITY</Text><Text style={s.answer}>{result.diagnosis?.aiOpportunity}</Text>
+          <Text style={s.label}>RECOMMENDED WORKFLOW</Text><Text style={s.answer}>{result.diagnosis?.recommendedWorkflow}</Text>
+          <Text style={s.label}>NEXT ACTION</Text><Text style={s.answer}>{result.diagnosis?.nextAction}</Text>
+          <Text style={s.label}>IMPACT ESTIMATE</Text><Text style={s.answer}>{result.impact?.monthlyHoursSavedEstimate != null ? "월 약 " + result.impact.monthlyHoursSavedEstimate + "시간 후보" : "정량 데이터 없음"}{result.impact?.monthlyValueEstimateKrw ? " · 약 " + Number(result.impact.monthlyValueEstimateKrw).toLocaleString() + "원/월 후보" : ""}</Text>
+          <Text style={s.muted}>STATUS: {result.verification || "UNVERIFIED"} · {result.impact?.disclaimer}</Text>
+        </View>}
+      </View>}
+
+      {tab==="billing" && <View>
+        <Text style={s.eyebrow}>04 · BILLING</Text><Text style={s.title}>Revenue is part{ "\n" }of the product.</Text>
+        <View style={s.card}><Text style={s.label}>QUICK AUDIT</Text><Text style={s.price}>₩99,000</Text><Text style={s.sub}>AI Quick Audit · one-time</Text><TouchableOpacity style={s.primary} onPress={buy}><Text style={s.primaryText}>OPEN CHECKOUT →</Text></TouchableOpacity></View>
+        <View style={s.card}><Text style={s.label}>ENTITLEMENT</Text><Text style={s.cardTitle}>{entitlement?.verified ? "VERIFIED" : "FAIL-CLOSED"}</Text><Text style={s.sub}>Checkout return is not treated as proof of payment. Verified webhook + server-side entitlement is required before paid access is granted.</Text>{sessionId ? <Text style={s.muted}>SESSION DETECTED · {sessionId.slice(0, 18)}…</Text> : null}<TouchableOpacity style={s.primary} onPress={verifyPayment} disabled={busy}><Text style={s.primaryText}>{busy ? "VERIFYING…" : "VERIFY PAYMENT →"}</Text></TouchableOpacity></View>
+      </View>}
+    </ScrollView>
+  </SafeAreaView>;
+}
+
+const s=StyleSheet.create({
+  safe:{flex:1,backgroundColor:"#08090b"},header:{height:64,paddingHorizontal:18,flexDirection:"row",alignItems:"center",justifyContent:"space-between",borderBottomWidth:1,borderBottomColor:"#292c33"},
+  logo:{color:"#fff",fontWeight:"900",letterSpacing:3,fontSize:16},status:{color:"#ffd58a",fontSize:8,letterSpacing:.8},nav:{height:48,borderBottomWidth:1,borderBottomColor:"#292c33",flexDirection:"row",paddingHorizontal:8},
+  navItem:{paddingHorizontal:10,justifyContent:"center"},navActive:{borderBottomWidth:2,borderBottomColor:"#fff"},navText:{color:"#777d88",fontSize:9,letterSpacing:.8},navTextActive:{color:"#fff"},
+  content:{padding:20,paddingBottom:50},eyebrow:{color:"#9298a3",fontSize:9,letterSpacing:2,fontWeight:"800",marginBottom:12},title:{color:"#f5f6f7",fontSize:38,fontWeight:"800",letterSpacing:-1.5,lineHeight:39,marginBottom:14},
+  sub:{color:"#9298a3",fontSize:13,lineHeight:20,marginBottom:16},card:{backgroundColor:"#101216",borderWidth:1,borderColor:"#292c33",borderRadius:12,padding:18,marginBottom:12},
+  label:{color:"#9298a3",fontSize:9,letterSpacing:1.4,fontWeight:"800",marginTop:8,marginBottom:8},muted:{color:"#777d88",fontSize:10,lineHeight:16},cardTitle:{color:"#fff",fontSize:18,fontWeight:"700",marginBottom:8},
+  metric:{color:"#fff",fontSize:28,fontWeight:"800",marginBottom:3},primary:{backgroundColor:"#fff",borderRadius:8,padding:14,alignItems:"center",marginTop:10},primaryText:{color:"#08090b",fontSize:10,fontWeight:"900",letterSpacing:1},
+  disabled:{opacity:.5},input:{backgroundColor:"#0b0c0f",borderWidth:1,borderColor:"#292c33",borderRadius:7,color:"#fff",padding:12,marginBottom:12},textarea:{minHeight:120,textAlignVertical:"top"},
+  price:{color:"#fff",fontSize:28,fontWeight:"900",marginTop:8},score:{color:"#fff",fontSize:64,fontWeight:"900",marginTop:8},priority:{color:"#ffd58a",fontSize:10,letterSpacing:1.2,marginBottom:18},answer:{color:"#e6e8eb",fontSize:13,lineHeight:21,marginBottom:16},error:{color:"#ff8f8f",fontSize:12,lineHeight:18,marginBottom:8}
+});

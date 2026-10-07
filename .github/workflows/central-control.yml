@@ -6,9 +6,16 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  workflow_run:
+    workflows: ["AIMPACT Mobile Build"]
+    types: [completed]
+    branches:
+      - autonomous/core-product-audit
+      - main
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   control-plane:
@@ -59,3 +66,36 @@ jobs:
           grep -q 'outcome_requires_measurement' control-plane/policy.json
           grep -q 'verified_tool_requires_current_evidence' control-plane/policy.json
           echo "Commercial truth gates present."
+
+  mobile-autonomous-control:
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'AIMPACT Mobile Build' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Evaluate mobile completion deterministically
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          set -euo pipefail
+          JOBS="$(gh run view "$RUN_ID" --json jobs --jq '.jobs[] | [.name,.status,.conclusion] | @tsv')"
+          echo "$JOBS"
+
+          ANDROID_RUNTIME="$(printf '%s\n' "$JOBS" | awk -F '\t' '$1=="android-runtime"{print $3}')"
+          MOBILE_GATE="$(printf '%s\n' "$JOBS" | awk -F '\t' '$1=="mobile-release-gate"{print $3}')"
+
+          if [ "$RUN_CONCLUSION" = "success" ] && [ "$ANDROID_RUNTIME" = "success" ] && [ "$MOBILE_GATE" = "success" ]; then
+            echo "AIMPACT_MOBILE_AUTONOMOUS_CONTROL=PASS" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          if [ "$RUN_ATTEMPT" -lt 2 ]; then
+            echo "AIMPACT_MOBILE_AUTONOMOUS_CONTROL=AUTO_RECOVERY" >> "$GITHUB_STEP_SUMMARY"
+            gh run rerun "$RUN_ID" --failed
+            exit 0
+          fi
+
+          echo "AIMPACT_MOBILE_AUTONOMOUS_CONTROL=HUMAN_ACTION_REQUIRED" >> "$GITHUB_STEP_SUMMARY"
+          exit 1
