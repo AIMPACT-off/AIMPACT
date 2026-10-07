@@ -60,12 +60,18 @@ jobs:
           ! grep -q 'buy.stripe.com/eVq7sLdq33gOgNm9wH1Fe00' mobile/App.js
       - name: Validate deployment truth boundaries
         run: |
-          set -euo pipefail
-          test -s netlify/functions/entitlement.mjs
-          test -s netlify/functions/stripe-webhook.mjs
-          grep -q 'verified === true' mobile/App.js
-          grep -q 'payment_status' netlify/functions/stripe-webhook.mjs
-          grep -q '"paid"' netlify/functions/stripe-webhook.mjs
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const entitlement = fs.readFileSync("netlify/functions/entitlement.mjs", "utf8");
+          const webhook = fs.readFileSync("netlify/functions/stripe-webhook.mjs", "utf8");
+          const mobile = fs.readFileSync("mobile/App.js", "utf8");
+          if (!entitlement.trim()) throw new Error("entitlement.mjs is empty");
+          if (!webhook.trim()) throw new Error("stripe-webhook.mjs is empty");
+          if (!mobile.includes("verified === true")) throw new Error("mobile entitlement verification missing");
+          if (!webhook.includes("payment_status")) throw new Error("webhook payment_status proof missing");
+          if (!webhook.includes('=== "paid"')) throw new Error("webhook paid proof missing");
+          console.log("DEPLOYMENT_TRUTH_BOUNDARIES=PASS");
+          NODE
 
   mobile-autonomous-control:
     if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'AIMPACT Mobile Build' }}
