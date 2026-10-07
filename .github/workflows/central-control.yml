@@ -15,7 +15,7 @@ name: AIMPACT Central Control Validation
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
   actions: write
 
 jobs:
@@ -96,6 +96,44 @@ jobs:
           if [ "$RUN_CONCLUSION" = "success" ] && [ "$ANDROID_RUNTIME" = "success" ] && [ "$MOBILE_GATE" = "success" ]; then exit 0; fi
           if [ "$RUN_ATTEMPT" -lt 2 ]; then gh run rerun "$RUN_ID" --failed; exit 0; fi
           exit 1
+
+  mobile-autorepair:
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'AIMPACT Mobile Build' && github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Auto-repair Expo dependency alignment
+        working-directory: mobile
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund
+          npx expo install --fix
+      - name: Commit deterministic dependency repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- mobile/package.json mobile/package-lock.json; then
+            echo "MOBILE_AUTOREPAIR=NO_CHANGE"
+            exit 0
+          fi
+          git config user.name "AIMPACT Central Control"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mobile/package.json mobile/package-lock.json
+          git commit -m "fix: auto-align Expo mobile dependencies"
+          git push origin HEAD:main
+          echo "MOBILE_AUTOREPAIR=COMMITTED"
 
   payment-autonomous-control:
     if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'AIMPACT Payment Control' }}
