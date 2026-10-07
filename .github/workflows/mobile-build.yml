@@ -87,7 +87,7 @@ jobs:
           emulator-boot-timeout: 600
           force-avd-creation: true
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none -accel off
-          disable-animations: true
+          disable-animations: false
           script: |
             set -e
             adb wait-for-device
