@@ -109,13 +109,18 @@ jobs:
             echo "PACKAGE_MANAGER=READY"
             adb shell cmd package list packages | grep -q "package:"
             adb install -r mobile/android/app/build/outputs/apk/release/app-release.apk
+            # Clear stale system/emulator logs before launching AIMPACT.
+            adb logcat -c
             adb shell am force-stop ai.aimpact.app
             adb shell monkey -p ai.aimpact.app 1
             sleep 15
-            adb shell pidof ai.aimpact.app
+            PID="$(adb shell pidof ai.aimpact.app | tr -d '\\r')"
+            test -n "$PID"
+            echo "AIMPACT_PID=$PID"
             adb shell dumpsys activity activities | grep -q "ai.aimpact.app"
-            CRASH=$(adb logcat -d | grep -E "FATAL EXCEPTION|Process: ai.aimpact.app" | tail -100 | grep -c "FATAL EXCEPTION" || true)
-            test "$CRASH" = "0" || { echo "AIMPACT_RUNTIME_CRASH=1"; exit 1; }
+            APP_CRASHES="$(adb logcat -d | grep -E "FATAL EXCEPTION|Process: ai\\.aimpact\\.app" | grep -c "FATAL EXCEPTION" || true)"
+            echo "AIMPACT_APP_FATAL_EXCEPTIONS=$APP_CRASHES"
+            test "$APP_CRASHES" = "0"
             echo "AIMPACT_RUNTIME=PASS"
 
   ios-simulator:
