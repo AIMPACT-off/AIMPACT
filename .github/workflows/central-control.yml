@@ -7,8 +7,7 @@ name: AIMPACT Central Control Validation
     branches: [main]
   workflow_dispatch:
   schedule:
-    - cron: "17 * * * *"
-    - cron: "47 * * * *"
+    - cron: "*/10 * * * *"
   workflow_run:
     workflows: ["AIMPACT Mobile Build", "AIMPACT Payment Control"]
     types: [completed]
@@ -19,6 +18,33 @@ permissions:
   actions: write
 
 jobs:
+  automation-watchdog:
+    if: ${{ github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Watch active automation runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          now=$(date +%s)
+          for workflow in "AIMPACT Mobile Build" "AIMPACT Payment Control"; do
+            run_json="$(gh run list --workflow "$workflow" --branch main --status in_progress --limit 1 --json databaseId,createdAt,updatedAt 2>/dev/null || echo '[]')"
+            run_id="$(printf '%s' "$run_json" | jq -r '.[0].databaseId // empty')"
+            created="$(printf '%s' "$run_json" | jq -r '.[0].createdAt // empty')"
+            [ -n "$run_id" ] || continue
+            started=$(date -d "$created" +%s)
+            age=$((now-started))
+            echo "$workflow RUN=$run_id AGE_SECONDS=$age"
+            if [ "$age" -gt 2400 ]; then
+              echo "WATCHDOG_ACTION=cancel_and_rerun RUN=$run_id"
+              gh run cancel "$run_id" || true
+              sleep 5
+              gh run rerun "$run_id" --failed || gh run rerun "$run_id"
+            fi
+          done
+
   control-plane:
     runs-on: ubuntu-latest
     timeout-minutes: 10
