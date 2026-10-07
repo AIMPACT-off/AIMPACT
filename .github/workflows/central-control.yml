@@ -8,6 +8,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "17 * * * *"
+    - cron: "47 * * * *"
   workflow_run:
     workflows: ["AIMPACT Mobile Build"]
     types: [completed]
