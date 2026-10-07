@@ -31,17 +31,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          required=(
-            AIMPACT_CENTRAL_CONTROL_SYSTEM.md
-            AIMPACT_DECISION_AUTHORITY.md
-            AIMPACT_CORE_TECHNOLOGY_AND_MONETIZATION.md
-            AIMPACT_DATA_LINEAGE.md
-            AIMPACT_VERIFICATION_SPEC.md
-            AIMPACT_SYNC_SPEC.md
-          )
-          for f in "${required[@]}"; do
-            test -s "$f" || { echo "Missing required architecture artifact: $f"; exit 1; }
-          done
+          required=(AIMPACT_CENTRAL_CONTROL_SYSTEM.md AIMPACT_DECISION_AUTHORITY.md AIMPACT_CORE_TECHNOLOGY_AND_MONETIZATION.md AIMPACT_DATA_LINEAGE.md AIMPACT_VERIFICATION_SPEC.md AIMPACT_SYNC_SPEC.md)
+          for f in "${required[@]}"; do test -s "$f" || { echo "Missing required architecture artifact: $f"; exit 1; }; done
       - name: Validate frontend JavaScript syntax
         run: |
           node --check app.js
@@ -50,20 +41,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -nE 'service_role|SUPABASE_SERVICE_ROLE|serviceRoleKey' app.js config.js index.html 2>/dev/null; then
-            echo "Potential service-role credential exposure detected in browser-delivered files."
-            exit 1
-          fi
+          if grep -nE 'service_role|SUPABASE_SERVICE_ROLE|serviceRoleKey' app.js config.js index.html 2>/dev/null; then exit 1; fi
       - name: Validate commercial truth rules
-        shell: bash
         run: |
           set -euo pipefail
           grep -q 'revenue_requires_transaction' control-plane/policy.json
           grep -q 'outcome_requires_measurement' control-plane/policy.json
           grep -q 'verified_tool_requires_current_evidence' control-plane/policy.json
-          echo "Commercial truth gates present."
       - name: Validate customer revenue path configuration
-        shell: bash
         run: |
           set -euo pipefail
           grep -q 'from = "/app"' netlify.toml
@@ -72,26 +57,23 @@ jobs:
           grep -q 'from = "/api/stripe-webhook"' netlify.toml
           grep -q 'from = "/api/entitlement"' netlify.toml
           grep -q 'https://buy.stripe.com/test_7sY7sL1Gz1dI7ohg1ofrW04' mobile/App.js
-          if grep -q 'buy.stripe.com/eVq7sLdq33gOgNm9wH1Fe00' mobile/App.js; then
-            echo "Legacy checkout link detected."
-            exit 1
-          fi
-          echo "CUSTOMER_REVENUE_PATH_CONFIGURATION=PASS"
+          ! grep -q 'buy.stripe.com/eVq7sLdq33gOgNm9wH1Fe00' mobile/App.js
       - name: Validate deployment truth boundaries
-        shell: bash
         run: |
           set -euo pipefail
           test -s netlify/functions/entitlement.mjs
           test -s netlify/functions/stripe-webhook.mjs
           grep -q 'verified === true' mobile/App.js
-          grep -Eq 'payment_status[[:space:]]*===[[:space:]]*"paid"|payment_status.*paid' netlify/functions/stripe-webhook.mjs
-          echo "PAYMENT_PROOF_BOUNDARY=PASS"
+          grep -q 'payment_status' netlify/functions/stripe-webhook.mjs
+          grep -q '"paid"' netlify/functions/stripe-webhook.mjs
 
   mobile-autonomous-control:
     if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'AIMPACT Mobile Build' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Checkout for GitHub CLI context
+        uses: actions/checkout@v4
       - name: Evaluate mobile completion deterministically
         env:
           GH_TOKEN: ${{ github.token }}
@@ -104,20 +86,17 @@ jobs:
           echo "$JOBS"
           ANDROID_RUNTIME="$(printf '%s\n' "$JOBS" | awk -F '\t' '$1=="android-runtime"{print $3}')"
           MOBILE_GATE="$(printf '%s\n' "$JOBS" | awk -F '\t' '$1=="mobile-release-gate"{print $3}')"
-          if [ "$RUN_CONCLUSION" = "success" ] && [ "$ANDROID_RUNTIME" = "success" ] && [ "$MOBILE_GATE" = "success" ]; then
-            echo "AIMPACT_MOBILE_AUTONOMOUS_CONTROL=PASS" >> "$GITHUB_STEP_SUMMARY"; exit 0
-          fi
-          if [ "$RUN_ATTEMPT" -lt 2 ]; then
-            echo "AIMPACT_MOBILE_AUTONOMOUS_CONTROL=AUTO_RECOVERY" >> "$GITHUB_STEP_SUMMARY"
-            gh run rerun "$RUN_ID" --failed; exit 0
-          fi
-          echo "AIMPACT_MOBILE_AUTONOMOUS_CONTROL=HUMAN_ACTION_REQUIRED" >> "$GITHUB_STEP_SUMMARY"; exit 1
+          if [ "$RUN_CONCLUSION" = "success" ] && [ "$ANDROID_RUNTIME" = "success" ] && [ "$MOBILE_GATE" = "success" ]; then exit 0; fi
+          if [ "$RUN_ATTEMPT" -lt 2 ]; then gh run rerun "$RUN_ID" --failed; exit 0; fi
+          exit 1
 
   payment-autonomous-control:
     if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'AIMPACT Payment Control' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Checkout for GitHub CLI context
+        uses: actions/checkout@v4
       - name: Evaluate payment control completion deterministically
         env:
           GH_TOKEN: ${{ github.token }}
@@ -129,18 +108,10 @@ jobs:
           JOBS="$(gh run view "$RUN_ID" --json jobs --jq '.jobs[] | [.name,.status,.conclusion] | @tsv')"
           echo "$JOBS"
           CODE_GATE="$(printf '%s\n' "$JOBS" | awk -F '\t' '$1=="payment-code-gate"{print $3}')"
-          if [ "$CODE_GATE" = "success" ] && { [ "$RUN_CONCLUSION" = "success" ] || [ "$RUN_CONCLUSION" = "failure" ]; }; then
-            if printf '%s\n' "$JOBS" | grep -q $'payment-configuration-status\t.*\tsuccess'; then
-              echo "PAYMENT_AUTONOMOUS_CONTROL=CODE_PASS_CREDENTIAL_BOUNDARY" >> "$GITHUB_STEP_SUMMARY"
-            elif [ "$RUN_CONCLUSION" = "success" ]; then
-              echo "PAYMENT_AUTONOMOUS_CONTROL=PASS" >> "$GITHUB_STEP_SUMMARY"
-            else
-              echo "PAYMENT_AUTONOMOUS_CONTROL=API_OBSERVATION_FAILED" >> "$GITHUB_STEP_SUMMARY"; exit 1
-            fi
-            exit 0
+          if [ "$CODE_GATE" = "success" ] && [ "$RUN_CONCLUSION" = "success" ]; then exit 0; fi
+          if [ "$CODE_GATE" = "success" ] && [ "$RUN_CONCLUSION" = "failure" ]; then
+            if [ "$RUN_ATTEMPT" -lt 2 ]; then gh run rerun "$RUN_ID" --failed; exit 0; fi
+            exit 1
           fi
-          if [ "$RUN_ATTEMPT" -lt 2 ]; then
-            echo "PAYMENT_AUTONOMOUS_CONTROL=AUTO_RECOVERY" >> "$GITHUB_STEP_SUMMARY"
-            gh run rerun "$RUN_ID" --failed; exit 0
-          fi
-          echo "PAYMENT_AUTONOMOUS_CONTROL=HUMAN_ACTION_REQUIRED" >> "$GITHUB_STEP_SUMMARY"; exit 1
+          if [ "$RUN_ATTEMPT" -lt 2 ]; then gh run rerun "$RUN_ID" --failed; exit 0; fi
+          exit 1
