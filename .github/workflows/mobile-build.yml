@@ -127,7 +127,7 @@ jobs:
           WORKSPACE=$(find ios -maxdepth 1 -name "*.xcworkspace" -print -quit)
           test -n "$WORKSPACE"
           SCHEME=$(basename "$WORKSPACE" .xcworkspace)
-          xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Debug -sdk iphonesimulator -derivedDataPath ios/build -destination "platform=iOS Simulator,name=iPhone 17,OS=latest" CODE_SIGNING_ALLOWED=NO build
+          xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Release -sdk iphonesimulator -derivedDataPath ios/build -destination "platform=iOS Simulator,name=iPhone 17,OS=latest" CODE_SIGNING_ALLOWED=NO build
       - name: Launch AIMPACT on iOS Simulator
         run: |
           APP_PATH=$(find ios/build/Build/Products -type d -name "AIMPACT.app" -print -quit)
