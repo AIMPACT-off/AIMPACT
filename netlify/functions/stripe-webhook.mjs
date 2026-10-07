@@ -28,38 +28,14 @@ function json(statusCode, body) {
   return { statusCode, headers: { "content-type": "application/json" }, body: JSON.stringify(body) };
 }
 
-export async function handler(event) {
-  if (event.httpMethod !== "POST") return json(405, { error: "method_not_allowed" });
-  const rawBody = event.body || "";
-  const signature = event.headers?.["stripe-signature"] || event.headers?.["Stripe-Signature"];
-  if (!verifyStripeSignature(rawBody, signature, env("STRIPE_WEBHOOK_SECRET"))) {
-    return json(400, { error: "invalid_signature" });
-  }
+function isEligiblePaidSession(session) {
+  return session.payment_link === PAYMENT_LINK_ID &&
+    session.payment_status === "paid" &&
+    Number(session.amount_total) === QUICK_AUDIT_AMOUNT &&
+    String(session.currency || "").toLowerCase() === QUICK_AUDIT_CURRENCY;
+}
 
-  let stripeEvent;
-  try { stripeEvent = JSON.parse(rawBody); }
-  catch { return json(400, { error: "invalid_json" }); }
-
-  if (stripeEvent.type !== "checkout.session.completed") {
-    return json(200, { received: true, ignored: stripeEvent.type });
-  }
-
-  const session = stripeEvent.data?.object || {};
-  const paymentLink = session.payment_link;
-  const paid = session.payment_status === "paid";
-  const amount = Number(session.amount_total);
-  const currency = String(session.currency || "").toLowerCase();
-
-  if (paymentLink !== PAYMENT_LINK_ID || !paid || amount !== QUICK_AUDIT_AMOUNT || currency !== QUICK_AUDIT_CURRENCY) {
-    return json(400, {
-      error: "payment_not_eligible",
-      payment_link: paymentLink || null,
-      payment_status: session.payment_status || null,
-      amount,
-      currency
-    });
-  }
-
+async function recordEntitlement(stripeEvent, session) {
   const supabaseUrl = env("SUPABASE_URL").replace(/\/$/, "");
   const serviceRoleKey = env("SUPABASE_SERVICE_ROLE_KEY");
   const rpcName = process.env.AIMPACT_PAYMENT_RPC || "aimpact_record_verified_payment";
@@ -74,9 +50,9 @@ export async function handler(event) {
     body: JSON.stringify({
       p_stripe_event_id: stripeEvent.id,
       p_checkout_session_id: session.id,
-      p_payment_link_id: paymentLink,
-      p_amount: amount,
-      p_currency: currency,
+      p_payment_link_id: session.payment_link,
+      p_amount: Number(session.amount_total),
+      p_currency: String(session.currency || "").toLowerCase(),
       p_customer_email: session.customer_details?.email || null,
       p_customer_name: session.customer_details?.name || null,
       p_customer_id: session.customer || null,
@@ -85,7 +61,49 @@ export async function handler(event) {
     })
   });
 
-  if (!response.ok) return json(503, { error: "entitlement_store_unavailable" });
+  if (!response.ok) throw new Error("entitlement_store_unavailable");
+}
+
+export async function handler(event) {
+  if (event.httpMethod !== "POST") return json(405, { error: "method_not_allowed" });
+  const rawBody = event.body || "";
+  const signature = event.headers?.["stripe-signature"] || event.headers?.["Stripe-Signature"];
+  if (!verifyStripeSignature(rawBody, signature, env("STRIPE_WEBHOOK_SECRET"))) {
+    return json(400, { error: "invalid_signature" });
+  }
+
+  let stripeEvent;
+  try { stripeEvent = JSON.parse(rawBody); }
+  catch { return json(400, { error: "invalid_json" }); }
+
+  const supported = new Set([
+    "checkout.session.completed",
+    "checkout.session.async_payment_succeeded"
+  ]);
+
+  if (!supported.has(stripeEvent.type)) {
+    if (stripeEvent.type === "checkout.session.async_payment_failed") {
+      return json(200, { received: true, ignored: "payment_failed" });
+    }
+    return json(200, { received: true, ignored: stripeEvent.type });
+  }
+
+  const session = stripeEvent.data?.object || {};
+  if (!isEligiblePaidSession(session)) {
+    return json(400, {
+      error: "payment_not_eligible",
+      payment_link: session.payment_link || null,
+      payment_status: session.payment_status || null,
+      amount: Number(session.amount_total),
+      currency: String(session.currency || "").toLowerCase()
+    });
+  }
+
+  try {
+    await recordEntitlement(stripeEvent, session);
+  } catch {
+    return json(503, { error: "entitlement_store_unavailable" });
+  }
 
   return json(200, { received: true, verified: true, entitlement: "AI_QUICK_AUDIT" });
 }
