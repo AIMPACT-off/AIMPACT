@@ -1,0 +1,50 @@
+name: AIMPACT Payment Control
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "7 * * * *"
+    - cron: "37 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  payment-code-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate automated payment control
+        run: node control-plane/payment-control.mjs
+  stripe-sandbox-observation:
+    if: ${{ secrets.STRIPE_SECRET_KEY != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Observe configured Stripe account
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          PAYMENT_LINK_ID: plink_1UNpJEGeNSkj4zfGecYTrM3u
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /tmp/payment-link.json -w "%{http_code}" -u "$STRIPE_SECRET_KEY:" "https://api.stripe.com/v1/payment_links/$PAYMENT_LINK_ID")
+          test "$code" = "200"
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/payment-link.json'))
+          assert d.get('active') is True, 'payment link is not active'
+          assert d.get('livemode') is False, 'expected sandbox payment link'
+          print('STRIPE_SANDBOX_PAYMENT_LINK=PASS')
+          PY
+  payment-configuration-status:
+    if: ${{ secrets.STRIPE_SECRET_KEY == '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record human-only Stripe credential boundary
+        run: |
+          echo "PAYMENT_AUTOMATION=CODE_READY"
+          echo "STRIPE_API_OBSERVATION=NOT_CONFIGURED"
+          echo "HUMAN_ACTION_REQUIRED=Configure GitHub Actions STRIPE_SECRET_KEY after Stripe account authorization"
