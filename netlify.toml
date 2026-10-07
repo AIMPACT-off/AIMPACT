@@ -13,3 +13,8 @@
   from = "/api/audit"
   to = "/.netlify/functions/audit"
   status = 200
+
+[[redirects]]
+  from = "/api/stripe-webhook"
+  to = "/.netlify/functions/stripe-webhook"
+  status = 200
