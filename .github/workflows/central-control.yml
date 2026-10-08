@@ -80,6 +80,8 @@ jobs:
           grep -q 'from = "/app"' netlify.toml
           grep -q 'to = "/platform.html"' netlify.toml
           grep -q 'from = "/api/audit"' netlify.toml
+          grep -q 'from = "/api/checkout"' netlify.toml
+          test -s netlify/functions/checkout.mjs
           test -s netlify/functions/audit.mjs
           grep -q 'from = "/api/stripe-webhook"' netlify.toml
           grep -q 'from = "/api/entitlement"' netlify.toml
@@ -125,7 +127,10 @@ jobs:
           const entitlement = fs.readFileSync("netlify/functions/entitlement.mjs", "utf8");
           const webhook = fs.readFileSync("netlify/functions/stripe-webhook.mjs", "utf8");
           const mobile = fs.readFileSync("mobile/App.js", "utf8");
+          const checkout = fs.readFileSync("netlify/functions/checkout.mjs", "utf8");
           if (!audit.trim()) throw new Error("audit.mjs is empty");
+          if (!checkout.includes("STRIPE_SECRET_KEY")) throw new Error("server checkout secret boundary missing");
+          if (!checkout.includes("client_reference_id")) throw new Error("checkout customer binding missing");
           if (!audit.includes("OPENAI_API_KEY")) throw new Error("server AI provider boundary missing");
           if (!audit.includes("AI_PROVIDER_NOT_CONFIGURED")) throw new Error("AI fail-closed boundary missing");
           if (!entitlement.trim()) throw new Error("entitlement.mjs is empty");
