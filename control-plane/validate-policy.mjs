@@ -23,7 +23,8 @@ assert(policy.error_loop.includes("ROOT_CAUSE"), "root cause control missing");
 assert(policy.commercial_truth_rules.revenue_requires_transaction === true, "revenue truth gate missing");
 assert(policy.commercial_truth_rules.outcome_requires_measurement === true, "outcome truth gate missing");
 assert(policy.certification.default_state === "NOT_CERTIFIED", "certification default must be NOT_CERTIFIED");
-assert(policy.certification.required.length >= 8, "certification gate incomplete");
+assert(policy.certification.required.length >= 16, "certification gate incomplete");
+assert(policy.certification.completion_rule === "ALL_REQUIRED_GATES_PASS", "strict completion rule missing");
 
 console.log("AIMPACT CENTRAL CONTROL POLICY: VALID");
 console.log("Principal:", policy.principal.name);
