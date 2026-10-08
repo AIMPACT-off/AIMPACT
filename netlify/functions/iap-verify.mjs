@@ -83,7 +83,7 @@ async function verifyApple(purchase, expectedUserId) {
   const signed = body?.signedTransactionInfo;
   const verified = decodeJwtPayload(signed);
   if (verified.bundleId !== env("APPLE_BUNDLE_ID") || verified.productId !== productId || String(verified.transactionId) !== transactionId) throw new Error("APPLE_TRANSACTION_MISMATCH");
-  if (verified.appAccountToken && String(verified.appAccountToken).toLowerCase() !== String(expectedUserId).toLowerCase()) throw new Error("APPLE_ACCOUNT_BINDING_MISMATCH");
+  if (!verified.appAccountToken || String(verified.appAccountToken).toLowerCase() !== String(expectedUserId).toLowerCase()) throw new Error("APPLE_ACCOUNT_BINDING_MISMATCH");
   return { transactionId, productId, orderId: transactionId, purchasedAt: verified.purchaseDate ? new Date(Number(verified.purchaseDate)).toISOString() : null, metadata: { environment: verified.environment || "unknown", originalTransactionId: verified.originalTransactionId || null } };
 }
 async function verifyGoogle(purchase, expectedUserId) {
@@ -97,7 +97,7 @@ async function verifyGoogle(purchase, expectedUserId) {
   if (!response.ok) throw new Error("GOOGLE_PURCHASE_NOT_VERIFIED");
   const body = await response.json();
   if (Number(body.purchaseState) !== 0 || body.productId !== productId) throw new Error("GOOGLE_PURCHASE_NOT_PAID");
-  if (body.obfuscatedExternalAccountId && String(body.obfuscatedExternalAccountId) !== String(expectedUserId)) throw new Error("GOOGLE_ACCOUNT_BINDING_MISMATCH");
+  if (!body.obfuscatedExternalAccountId || String(body.obfuscatedExternalAccountId) !== String(expectedUserId)) throw new Error("GOOGLE_ACCOUNT_BINDING_MISMATCH");
   if (Number(body.acknowledgementState) === 0) {
     const ack = await fetch(base + ":acknowledge", { method: "POST", headers: { Authorization: "Bearer " + accessToken, "Content-Type": "application/json" }, body: JSON.stringify({}) });
     if (!ack.ok && ack.status !== 409) throw new Error("GOOGLE_ACKNOWLEDGE_FAILED");
