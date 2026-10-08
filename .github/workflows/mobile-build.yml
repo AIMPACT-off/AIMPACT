@@ -10,6 +10,10 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: aimpact-mobile-build
+  cancel-in-progress: true
+
 jobs:
   android-apk:
     runs-on: ubuntu-latest
