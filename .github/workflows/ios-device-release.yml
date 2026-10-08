@@ -33,7 +33,7 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           set -euo pipefail
-          test -n "${EXPO_TOKEN}" || { echo "IOS_DEVICE_RELEASE_BLOCKED=EXPO_TOKEN_NOT_CONFIGURED"; exit 1; }
+          if test -z "${EXPO_TOKEN}"; then echo "IOS_DEVICE_RELEASE_BLOCKED=EXPO_TOKEN_NOT_CONFIGURED"; echo "IOS_DEVICE_RELEASE=BLOCKED"; exit 1; fi
       - name: Install EAS CLI
         run: npm install --global eas-cli
       - name: Build signed iOS production IPA
