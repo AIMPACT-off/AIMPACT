@@ -1,0 +1,46 @@
+name: AIMPACT Android Store Release
+
+on:
+  workflow_run:
+    workflows: ["AIMPACT Mobile Build"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  android-store-release:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/package.json
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm install
+      - name: Verify EAS credentials
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${EXPO_TOKEN}" || { echo "ANDROID_STORE_RELEASE_BLOCKED=EXPO_TOKEN_NOT_CONFIGURED"; exit 1; }
+      - name: Install EAS CLI
+        run: npm install --global eas-cli
+      - name: Build Android production AAB
+        working-directory: mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas build --platform android --profile production --non-interactive --wait
+      - name: Submit Android production build to Google Play
+        working-directory: mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas submit --platform android --profile production --non-interactive --latest
