@@ -31,7 +31,7 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           set -euo pipefail
-          test -n "${EXPO_TOKEN}" || { echo "ANDROID_STORE_RELEASE_BLOCKED=EXPO_TOKEN_NOT_CONFIGURED"; exit 1; }
+          if test -z "${EXPO_TOKEN}"; then echo "ANDROID_STORE_RELEASE_BLOCKED=EXPO_TOKEN_NOT_CONFIGURED"; echo "ANDROID_STORE_RELEASE=BLOCKED"; exit 1; fi
       - name: Install EAS CLI
         run: npm install --global eas-cli
       - name: Build Android production AAB
