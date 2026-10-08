@@ -1,0 +1,30 @@
+name: AIMPACT Native Store Mock QA
+
+'on':
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: aimpact-native-store-mock-qa
+  cancel-in-progress: true
+
+jobs:
+  mock-store-loop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Execute isolated mock receipt and entitlement loop
+        run: node control-plane/native-store-mock.mjs
+      - name: Assert mock cannot certify production store
+        run: |
+          test -s control-plane/policy.json
+          grep -q 'native_store_billing_verified' control-plane/policy.json
+          grep -q 'store_qa_gate_verified' control-plane/policy.json
+          echo "MOCK_CANNOT_CERTIFY_REAL_STORE=PASS"
