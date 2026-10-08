@@ -50,3 +50,15 @@ jobs:
           assert d.get('livemode') is False, 'expected sandbox payment link'
           print('STRIPE_SANDBOX_PAYMENT_LINK=PASS')
           PY
+
+  auto-next-store-qa:
+    if: ${{ success() }}
+    needs: [payment-code-gate]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Dispatch native store QA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run native-store-qa.yml --ref main
