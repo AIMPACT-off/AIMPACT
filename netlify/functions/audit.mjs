@@ -136,10 +136,10 @@ export async function handler(event) {
   }
 
   const authorization = event.headers?.authorization || event.headers?.Authorization || "";
-  const bearer = authorization.match(/^Bearer\\s+(.+)$/i)?.[1] || "";
+  const bearer = authorization.match(/^Bearer\s+(.+)$/i)?.[1] || "";
   if (!bearer) return json(401, { error: "AUTH_REQUIRED", verified: false });
 
-  const supabaseUrl = env("SUPABASE_URL").replace(/\\/$/, "");
+  const supabaseUrl = env("SUPABASE_URL").replace(/\/$/, "");
   const serviceRoleKey = env("SUPABASE_SERVICE_ROLE_KEY");
   const authResponse = await fetch(supabaseUrl + "/auth/v1/user", {
     headers: { apikey: serviceRoleKey, Authorization: "Bearer " + bearer }
