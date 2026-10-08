@@ -192,7 +192,7 @@ export async function handler(event) {
     await insertSupabase("audit_logs", {
       tenant_id: tenantId,
       event_type: "AI_AUDIT_COMPLETED",
-      actor_id: "mobile",
+      actor_id: authUserId,
       execution_id: executionId,
       input_hash: inputHash,
       output_hash: outputHash,
