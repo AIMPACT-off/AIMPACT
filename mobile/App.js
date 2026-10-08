@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { authConfigReady, sendOtp, verifyOtp, getSessionToken } from "./session";
+import { authConfigReady, sendOtp, verifyOtp, getSessionToken, getSessionUserId } from "./session";
 
 const ENTITLEMENT_API = "https://aimpact-ai.netlify.app/api/entitlement";
 const CHECKOUT_API = "https://aimpact-ai.netlify.app/api/checkout";
@@ -22,6 +22,7 @@ export default function App() {
   const [sessionToken, setSessionToken] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState("");
+  const sessionUserId = getSessionUserId(sessionToken);
 
   const requestOtp = async () => {
     try {
@@ -134,8 +135,8 @@ export default function App() {
       setNotice("Apple / Google 스토어 결제창을 여는 중입니다.");
       await requestPurchase({
         request: {
-          apple: { sku: IAP_PRODUCT_ID },
-          google: { skus: [IAP_PRODUCT_ID] }
+          apple: { sku: IAP_PRODUCT_ID, appAccountToken: sessionUserId },
+          google: { skus: [IAP_PRODUCT_ID], obfuscatedAccountIdAndroid: sessionUserId }
         },
         type: "in-app"
       });
