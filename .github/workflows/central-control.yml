@@ -80,6 +80,7 @@ jobs:
           grep -q 'from = "/app"' netlify.toml
           grep -q 'to = "/platform.html"' netlify.toml
           grep -q 'from = "/api/audit"' netlify.toml
+          test -s netlify/functions/audit.mjs
           grep -q 'from = "/api/stripe-webhook"' netlify.toml
           grep -q 'from = "/api/entitlement"' netlify.toml
           grep -q 'https://buy.stripe.com/test_7sY7sL1Gz1dI7ohg1ofrW04' mobile/App.js
@@ -88,12 +89,18 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           import fs from "node:fs";
+          const audit = fs.readFileSync("netlify/functions/audit.mjs", "utf8");
           const entitlement = fs.readFileSync("netlify/functions/entitlement.mjs", "utf8");
           const webhook = fs.readFileSync("netlify/functions/stripe-webhook.mjs", "utf8");
           const mobile = fs.readFileSync("mobile/App.js", "utf8");
+          if (!audit.trim()) throw new Error("audit.mjs is empty");
+          if (!audit.includes("OPENAI_API_KEY")) throw new Error("server AI provider boundary missing");
+          if (!audit.includes("AI_PROVIDER_NOT_CONFIGURED")) throw new Error("AI fail-closed boundary missing");
           if (!entitlement.trim()) throw new Error("entitlement.mjs is empty");
           if (!webhook.trim()) throw new Error("stripe-webhook.mjs is empty");
           if (!mobile.includes("verifyPaidEntitlement")) throw new Error("mobile paid entitlement verification missing");
+          if (!mobile.includes("AUDIT_API")) throw new Error("mobile server audit integration missing");
+          if (!mobile.includes("body?.report")) throw new Error("mobile server audit report gate missing");
           if (!mobile.includes("body?.verified")) throw new Error("mobile verified response gate missing");
           if (!mobile.includes("verified===true") && !mobile.includes("verified === true")) throw new Error("mobile verified truth comparison missing");
           if (!webhook.includes("payment_status")) throw new Error("webhook payment_status proof missing");
