@@ -128,19 +128,19 @@ export default function App() {
 
   const buy = async () => {
     if (!sessionToken) { setNotice("고객 인증 후 결제를 시작할 수 있습니다."); return; }
+    if (!iapConnected) { setNotice("Apple / Google 스토어 연결이 아직 준비되지 않았습니다."); return; }
+    if (!iapProducts?.some(p => p.id === IAP_PRODUCT_ID)) { setNotice("AI Quick Audit 스토어 상품이 아직 준비되지 않았습니다."); return; }
     try {
-      const response = await fetch(CHECKOUT_API, {
-        method: "POST",
-        headers: { Authorization: "Bearer " + sessionToken, "content-type": "application/json" }
+      setNotice("Apple / Google 스토어 결제창을 여는 중입니다.");
+      await requestPurchase({
+        request: {
+          apple: { sku: IAP_PRODUCT_ID },
+          google: { skus: [IAP_PRODUCT_ID] }
+        },
+        type: "in-app"
       });
-      const body = await response.json();
-      if (!response.ok || body?.verified !== true || !body?.checkoutUrl) {
-        setNotice("결제 세션을 생성하지 못했습니다. 결제를 허위로 표시하지 않습니다.");
-        return;
-      }
-      await Linking.openURL(body.checkoutUrl);
     } catch {
-      setNotice("결제 서버에 연결하지 못했습니다.");
+      setNotice("스토어 결제를 시작하지 못했습니다.");
     }
   };
 
