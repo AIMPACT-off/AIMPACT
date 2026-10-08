@@ -237,3 +237,15 @@ jobs:
           test "$ANDROID_RUNTIME" = "success"
           test "$IOS_RUNTIME" = "success"
           echo "AIMPACT_MOBILE_RELEASE_GATE=PASS"
+
+  auto-next-payment:
+    if: ${{ github.event_name != 'workflow_run' && success() }}
+    needs: [mobile-release-gate]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Dispatch payment control
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run payment-control.yml --ref main
