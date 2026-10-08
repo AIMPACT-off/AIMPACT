@@ -71,10 +71,36 @@ export default function App() {
 
   useEffect(() => {
     let mounted = true;
-    Linking.getInitialURL().then(url => { if (mounted && url) verifyPaidEntitlement(url); });
-    const sub = Linking.addEventListener("url", ({ url }) => { if (mounted) verifyPaidEntitlement(url); });
-    return () => { mounted = false; sub.remove(); };
-  }, []);
+    if (iapConnected) {
+      void fetchProducts({ skus: [IAP_PRODUCT_ID], type: "in-app" }).catch(() => {});
+      if (sessionToken) {
+        void getAvailablePurchases().then(async purchases => {
+          for (const purchase of purchases || []) {
+            if (purchase?.productId !== IAP_PRODUCT_ID || !purchase?.purchaseToken) continue;
+            try {
+              const response = await fetch(IAP_VERIFY_API, {
+                method: "POST",
+                headers: { "content-type": "application/json", Authorization: "Bearer " + sessionToken },
+                body: JSON.stringify({ platform: Platform.OS, productId: purchase.productId, purchaseToken: purchase.purchaseToken, transactionId: purchase.transactionId })
+              });
+              const body = await response.json();
+              if (mounted && body?.verified === true) {
+                setPaid(true);
+                setNotice("스토어 entitlement 동기화 완료 · REPORT unlocked");
+                break;
+              }
+            } catch {}
+          }
+        }).catch(() => {});
+      }
+    }
+    if (sessionToken) {
+      Linking.getInitialURL().then(url => { if (mounted && url) verifyPaidEntitlement(url); });
+      const sub = Linking.addEventListener("url", ({ url }) => { if (mounted) verifyPaidEntitlement(url); });
+      return () => { mounted = false; sub.remove(); };
+    }
+    return () => { mounted = false; };
+  }, [sessionToken, iapConnected, fetchProducts, getAvailablePurchases]);
 
   const run = async () => {
     setNotice("");
