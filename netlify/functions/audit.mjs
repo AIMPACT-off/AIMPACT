@@ -135,7 +135,37 @@ export async function handler(event) {
     return json(502, { error: "AI_REPORT_INVALID", detail: error.message, verified: false });
   }
 
-  const tenantId = crypto.randomUUID();
+  const authorization = event.headers?.authorization || event.headers?.Authorization || "";
+  const bearer = authorization.match(/^Bearer\\s+(.+)$/i)?.[1] || "";
+  if (!bearer) return json(401, { error: "AUTH_REQUIRED", verified: false });
+
+  const supabaseUrl = env("SUPABASE_URL").replace(/\\/$/, "");
+  const serviceRoleKey = env("SUPABASE_SERVICE_ROLE_KEY");
+  const authResponse = await fetch(supabaseUrl + "/auth/v1/user", {
+    headers: { apikey: serviceRoleKey, Authorization: "Bearer " + bearer }
+  });
+  if (!authResponse.ok) return json(401, { error: "AUTH_INVALID", verified: false });
+  const authUser = await authResponse.json();
+  const authUserId = String(authUser?.id || "").trim();
+  if (!authUserId) return json(401, { error: "AUTH_INVALID", verified: false });
+
+  const tenantResponse = await fetch(supabaseUrl + "/rest/v1/rpc/aimpact_get_or_create_tenant", {
+    method: "POST",
+    headers: {
+      apikey: serviceRoleKey,
+      Authorization: "Bearer " + serviceRoleKey,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      p_auth_user_id: authUserId,
+      p_company_name: input.company,
+      p_email: authUser.email || input.email
+    })
+  });
+  if (!tenantResponse.ok) return json(503, { error: "TENANT_STORE_UNAVAILABLE", verified: false });
+  const tenantId = await tenantResponse.json();
+  if (typeof tenantId !== "string" || !tenantId) return json(503, { error: "TENANT_BINDING_UNAVAILABLE", verified: false });
+
   const executionId = crypto.randomUUID();
   const inputHash = sha256(JSON.stringify(input));
   const outputHash = sha256(JSON.stringify(report));
