@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Linking, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { authConfigReady, sendOtp, verifyOtp, getSessionToken } from "./session";
 
