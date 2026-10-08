@@ -29,7 +29,7 @@ const assertions = [
   [netlify.includes('from = "/api/checkout"'),"checkout redirect"],
   [netlify.includes('from = "/api/stripe-webhook"'),"webhook redirect"]
 ];
-for (const [ok,label] of assertions) if (!ok) throw new Error("PAYMENT_CONTROL_ASSERTION_FAILED=" + label);
+for (const [ok,label] of assertions) { console.log("PAYMENT_ASSERTION=" + label + " RESULT=" + (ok ? "PASS" : "FAIL")); if (!ok) throw new Error("PAYMENT_CONTROL_ASSERTION_FAILED=" + label); }
 console.log("PAYMENT_CONTROL_CODE_GATE=PASS");
 console.log("CHECKOUT_MODE=AUTHENTICATED_SERVER_CHECKOUT");
 console.log("NATIVE_IAP_MODE=SERVER_VERIFIED");
