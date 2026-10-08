@@ -1,13 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useIAP } from "expo-iap";
 import { authConfigReady, sendOtp, verifyOtp, getSessionToken, getSessionUserId } from "./session";
 
 const ENTITLEMENT_API = "https://aimpact-ai.netlify.app/api/entitlement";
 const CHECKOUT_API = "https://aimpact-ai.netlify.app/api/checkout";
 const AUDIT_API = "https://aimpact-ai.netlify.app/api/audit";
+const IAP_VERIFY_API = "https://aimpact-ai.netlify.app/api/iap-verify";
+const IAP_PRODUCT_ID = "ai.aimpact.quick_audit";
 
-export default function App() {
+function App() {
   const [tab, setTab] = useState("overview");
   const [company, setCompany] = useState("");
   const [email, setEmail] = useState("");
@@ -23,6 +26,16 @@ export default function App() {
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState("");
   const sessionUserId = getSessionUserId(sessionToken);
+  const {
+    connected: iapConnected,
+    products: iapProducts,
+    availablePurchases,
+    fetchProducts,
+    getAvailablePurchases,
+    requestPurchase,
+  } = useIAP({
+    onPurchaseError: () => setNotice("스토어 결제가 취소되었거나 실패했습니다."),
+  });
 
   const requestOtp = async () => {
     try {
@@ -313,6 +326,7 @@ export default function App() {
                     <Text style={s.label}>FULL REPORT</Text>
                     <Text style={s.cardTitle}>Unlock the verified AI Quick Audit</Text>
                     <Text style={s.sub}>결제 후 고객 entitlement를 서버에서 검증하고 결과를 정식 고객 상태로 연결합니다.</Text>
+              <View style={s.benefits}><Text style={s.benefit}>✓ 검증된 AI Quick Audit REPORT</Text><Text style={s.benefit}>✓ 고객별 AI 진단 기록</Text><Text style={s.benefit}>✓ 결제 후 즉시 REPORT 잠금 해제</Text></View>
                     <TouchableOpacity style={s.primary} onPress={buy}><Text style={s.primaryText}>UNLOCK · ₩99,000 →</Text></TouchableOpacity>
                   </View>
                 )}
@@ -330,6 +344,7 @@ export default function App() {
               <Text style={s.label}>START</Text>
               <Text style={s.cardTitle}>AI Quick Audit</Text>
               <Text style={s.sub}>One real business process mapped into an AI opportunity, workflow and implementation order.</Text>
+              <View style={s.benefits}><Text style={s.benefit}>✓ Business health & opportunity score</Text><Text style={s.benefit}>✓ Recommended AI workflow</Text><Text style={s.benefit}>✓ Verified entitlement unlock</Text></View>
               <Text style={s.price}>₩99,000</Text>
               <Text style={s.muted}>one-time</Text>
               <TouchableOpacity style={s.primary} onPress={buy}><Text style={s.primaryText}>BUY / START →</Text></TouchableOpacity>
@@ -400,6 +415,8 @@ const s = StyleSheet.create({
   label:{color:"#9298a3",fontSize:9,letterSpacing:1.4,fontWeight:"800",marginTop:8,marginBottom:8},
   metric:{color:"#fff",fontSize:25,fontWeight:"800",marginBottom:3},
   muted:{color:"#777d88",fontSize:10,lineHeight:16},
+  benefits:{marginTop:4,marginBottom:8,gap:7},
+  benefit:{color:"#d8dbe0",fontSize:11,lineHeight:16},
   cardTitle:{color:"#fff",fontSize:18,fontWeight:"700",marginBottom:8},
   primary:{backgroundColor:"#fff",borderRadius:8,padding:14,alignItems:"center",marginTop:10},
   primaryText:{color:"#08090b",fontSize:10,fontWeight:"900",letterSpacing:1},
@@ -415,3 +432,39 @@ const s = StyleSheet.create({
   historyTitle:{color:"#e6e8eb",fontSize:12},
   historyScore:{color:"#fff",fontWeight:"800",fontSize:15}
 });
+
+
+class AppErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, retryKey: 0 };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  retry = () => {
+    this.setState(state => ({ hasError: false, retryKey: state.retryKey + 1 }));
+  };
+  render() {
+    if (this.state.hasError) {
+      return (
+        <SafeAreaView style={s.safe}>
+          <StatusBar style="light" />
+          <View style={s.content}>
+            <Text style={s.eyebrow}>AIMPACT · RECOVERY</Text>
+            <Text style={s.title}>We hit a temporary issue.</Text>
+            <Text style={s.sub}>입력하신 고객 데이터와 결제 entitlement를 임의로 확정하지 않았습니다. 다시 시도해 주세요.</Text>
+            <TouchableOpacity style={s.primary} onPress={this.retry}>
+              <Text style={s.primaryText}>RETRY →</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      );
+    }
+    return <App key={this.state.retryKey} />;
+  }
+}
+
+export default function RootApp() {
+  return <AppErrorBoundary />;
+}
