@@ -85,6 +85,7 @@ jobs:
           test -s netlify/functions/audit.mjs
           grep -q 'from = "/api/stripe-webhook"' netlify.toml
           grep -q 'from = "/api/entitlement"' netlify.toml
+          grep -q 'from = "/api/iap-verify"' netlify.toml
           ! grep -q 'buy.stripe.com/' mobile/App.js
           grep -q 'expo-iap' mobile/package.json
           grep -q 'IAP_VERIFY_API' mobile/App.js
