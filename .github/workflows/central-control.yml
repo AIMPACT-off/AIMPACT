@@ -94,7 +94,7 @@ jobs:
           grep -q 'AUDIT_API' mobile/App.js
           ! grep -q 'function makeAudit' mobile/App.js
           ! grep -q 'const rules = ' mobile/App.js
-          grep -q 'AUTH_REQUIRED' netlify/functions/audit.mjs || true
+          grep -q 'AUTH_REQUIRED' netlify/functions/audit.mjs
           echo "MOBILE_AUDIT_SINGLE_SOURCE=PASS"
 
       - name: Enforce Auth UID tenant binding
