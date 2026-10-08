@@ -56,6 +56,14 @@ jobs:
           curl -L "$URL" -o ../release/AIMPACT-iOS.ipa
           test -s ../release/AIMPACT-iOS.ipa
           file ../release/AIMPACT-iOS.ipa
+      - name: Submit signed iOS build to TestFlight
+        working-directory: mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          eas submit --platform ios --profile production --non-interactive --latest
+
       - name: Publish iOS IPA
         env:
           GH_TOKEN: ${{ github.token }}
