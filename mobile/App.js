@@ -3,7 +3,6 @@ import { Linking, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, Touchab
 import { StatusBar } from "expo-status-bar";
 import { authConfigReady, sendOtp, verifyOtp, getSessionToken } from "./session";
 
-const CHECKOUT = "https://buy.stripe.com/test_7sY7sL1Gz1dI7ohg1ofrW04";
 const ENTITLEMENT_API = "https://aimpact-ai.netlify.app/api/entitlement";
 const CHECKOUT_API = "https://aimpact-ai.netlify.app/api/checkout";
 const AUDIT_API = "https://aimpact-ai.netlify.app/api/audit";
