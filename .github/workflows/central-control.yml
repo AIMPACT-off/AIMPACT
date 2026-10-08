@@ -143,6 +143,10 @@ jobs:
           if (!mobile.includes("body?.report")) throw new Error("mobile server audit report gate missing");
           if (!mobile.includes("body?.verified")) throw new Error("mobile verified response gate missing");
           if (!mobile.includes("verified===true") && !mobile.includes("verified === true")) throw new Error("mobile verified truth comparison missing");
+          if (!mobile.includes("expo-iap")) throw new Error("native store billing dependency missing");
+          if (!fs.readFileSync("netlify/functions/iap-verify.mjs", "utf8").includes("APPLE_ISSUER_ID")) throw new Error("Apple verification boundary missing");
+          if (!fs.readFileSync("netlify/functions/iap-verify.mjs", "utf8").includes("GOOGLE_SERVICE_ACCOUNT_EMAIL")) throw new Error("Google verification boundary missing");
+          if (!fs.existsSync("supabase/migrations/202610080003_store_entitlements.sql")) throw new Error("store entitlement migration missing");
           if (!webhook.includes("payment_status")) throw new Error("webhook payment_status proof missing");
           if (!webhook.includes('=== "paid"')) throw new Error("webhook paid proof missing");
           console.log("DEPLOYMENT_TRUTH_BOUNDARIES=PASS");
