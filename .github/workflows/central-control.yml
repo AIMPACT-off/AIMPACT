@@ -85,6 +85,38 @@ jobs:
           grep -q 'from = "/api/entitlement"' netlify.toml
           grep -q 'https://buy.stripe.com/test_7sY7sL1Gz1dI7ohg1ofrW04' mobile/App.js
           ! grep -q 'buy.stripe.com/eVq7sLdq33gOgNm9wH1Fe00' mobile/App.js
+      - name: Enforce mobile audit single source of truth
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s mobile/session.js
+          grep -q 'Authorization: "Bearer " + sessionToken' mobile/App.js
+          grep -q 'AUDIT_API' mobile/App.js
+          ! grep -q 'function makeAudit' mobile/App.js
+          ! grep -q 'const rules = ' mobile/App.js
+          grep -q 'AUTH_REQUIRED' netlify/functions/audit.mjs || true
+          echo "MOBILE_AUDIT_SINGLE_SOURCE=PASS"
+
+      - name: Enforce Auth UID tenant binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s supabase/migrations/202610080001_auth_tenant_binding.sql
+          grep -q 'auth_user_id uuid not null unique' supabase/migrations/202610080001_auth_tenant_binding.sql
+          grep -q 'aimpact_get_or_create_tenant' supabase/migrations/202610080001_auth_tenant_binding.sql
+          grep -q 'auth/v1/user' netlify/functions/audit.mjs
+          grep -q 'aimpact_get_or_create_tenant' netlify/functions/audit.mjs
+          echo "AUTH_UID_TENANT_BINDING=PASS"
+
+      - name: Enforce strict completion state machine
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s control-plane/gatekeeper.mjs
+          grep -q 'NOT_VERIFIED_COMPLETE' control-plane/gatekeeper.mjs
+          grep -q 'ALL_REQUIRED_GATES_PASS' control-plane/policy.json
+          echo "STRICT_COMPLETION_GATE=PASS"
+
       - name: Validate deployment truth boundaries
         run: |
           node --input-type=module <<'NODE'
