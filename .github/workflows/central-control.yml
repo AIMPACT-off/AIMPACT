@@ -85,8 +85,11 @@ jobs:
           test -s netlify/functions/audit.mjs
           grep -q 'from = "/api/stripe-webhook"' netlify.toml
           grep -q 'from = "/api/entitlement"' netlify.toml
-          grep -q 'https://buy.stripe.com/test_7sY7sL1Gz1dI7ohg1ofrW04' mobile/App.js
-          ! grep -q 'buy.stripe.com/eVq7sLdq33gOgNm9wH1Fe00' mobile/App.js
+          ! grep -q 'buy.stripe.com/' mobile/App.js
+          grep -q 'expo-iap' mobile/package.json
+          grep -q 'IAP_VERIFY_API' mobile/App.js
+          test -s netlify/functions/iap-verify.mjs
+          test -s supabase/migrations/202610080003_store_entitlements.sql
       - name: Enforce mobile audit single source of truth
         shell: bash
         run: |
