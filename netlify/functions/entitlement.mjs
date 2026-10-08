@@ -11,7 +11,7 @@ export async function handler(event) {
   const params = event.queryStringParameters || {};
   const sessionId = String(params.session_id || "").trim();
   const authorization = event.headers?.authorization || event.headers?.Authorization || "";
-  const bearer = authorization.match(/^Bearer\\s+(.+)$/i)?.[1] || "";
+  const bearer = authorization.match(/^Bearer\s+(.+)$/i)?.[1] || "";
   if (!bearer) return json(401, { error: "AUTH_REQUIRED", verified: false });
   const email = String(params.email || "").trim().toLowerCase();
   if (!sessionId) return json(400, { error: "missing_session_id", verified: false });
