@@ -5,6 +5,7 @@ import { authConfigReady, sendOtp, verifyOtp, getSessionToken } from "./session"
 
 const CHECKOUT = "https://buy.stripe.com/test_7sY7sL1Gz1dI7ohg1ofrW04";
 const ENTITLEMENT_API = "https://aimpact-ai.netlify.app/api/entitlement";
+const CHECKOUT_API = "https://aimpact-ai.netlify.app/api/checkout";
 const AUDIT_API = "https://aimpact-ai.netlify.app/api/audit";
 
 export default function App() {
@@ -53,7 +54,7 @@ export default function App() {
     try {
       const sessionId = new URL(url).searchParams.get("session_id");
       if (!sessionId) return false;
-      const response = await fetch(ENTITLEMENT_API + "?session_id=" + encodeURIComponent(sessionId));
+      const response = await fetch(ENTITLEMENT_API + "?session_id=" + encodeURIComponent(sessionId), { headers: { Authorization: "Bearer " + sessionToken } });
       const body = await response.json();
       const verified = body?.verified === true;
       setPaid(verified);
@@ -126,7 +127,23 @@ export default function App() {
     setTab("audit");
   };
 
-  const buy = () => Linking.openURL(CHECKOUT);
+  const buy = async () => {
+    if (!sessionToken) { setNotice("고객 인증 후 결제를 시작할 수 있습니다."); return; }
+    try {
+      const response = await fetch(CHECKOUT_API, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + sessionToken, "content-type": "application/json" }
+      });
+      const body = await response.json();
+      if (!response.ok || body?.verified !== true || !body?.checkoutUrl) {
+        setNotice("결제 세션을 생성하지 못했습니다. 결제를 허위로 표시하지 않습니다.");
+        return;
+      }
+      await Linking.openURL(body.checkoutUrl);
+    } catch {
+      setNotice("결제 서버에 연결하지 못했습니다.");
+    }
+  };
 
   const nav = [
     ["overview", "OVERVIEW"],
