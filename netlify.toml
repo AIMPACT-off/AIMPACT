@@ -25,6 +25,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/iap-verify"
+  to = "/.netlify/functions/iap-verify"
+  status = 200
+
+[[redirects]]
   from = "/api/entitlement"
   to = "/.netlify/functions/entitlement"
   status = 200
