@@ -9,7 +9,7 @@ function env(name) {
   return String(value);
 }
 function b64url(value) {
-  return Buffer.from(value).toString("base64").replace(/=/g, "").replace(/\\+/g, "-").replace(/\\//g, "_");
+  return Buffer.from(value).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 }
 function decodeJwtPayload(token) {
   const part = String(token || "").split(".")[1];
