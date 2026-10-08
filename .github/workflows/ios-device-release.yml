@@ -15,54 +15,180 @@ jobs:
   ios-device-release:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: mobile/package.json
+
       - name: Install dependencies
         working-directory: mobile
         run: npm install
-      - name: Verify EAS credentials are configured
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          set -euo pipefail
-          if test -z "${EXPO_TOKEN}"; then echo "IOS_DEVICE_RELEASE_BLOCKED=EXPO_TOKEN_NOT_CONFIGURED"; echo "IOS_DEVICE_RELEASE=BLOCKED"; exit 1; fi
-      - name: Install EAS CLI
-        run: npm install --global eas-cli
-      - name: Build signed iOS production IPA
+
+      - name: Generate native iOS project
         working-directory: mobile
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          set -euo pipefail
-          eas build --platform ios --profile production --non-interactive --wait
-      - name: Download iOS IPA
+        run: npx expo prebuild --platform ios --non-interactive
+
+      - name: Install CocoaPods dependencies
         working-directory: mobile
+        run: pod install --project-directory=ios
+
+      - name: Prepare Apple API key
         env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          APPLE_PRIVATE_KEY: ${{ secrets.APPLE_PRIVATE_KEY }}
         run: |
           set -euo pipefail
-          mkdir -p ../release
-          eas build:list --platform ios --status finished --limit 1 --json > ../release/eas-build.json
-          URL="$(node -e 'const x=require("../release/eas-build.json"); const a=Array.isArray(x)?x[0]:x; process.stdout.write(a.artifacts?.buildUrl||a.artifacts?.applicationArchiveUrl||"")')"
-          test -n "$URL"
-          curl -L "$URL" -o ../release/AIMPACT-iOS.ipa
-          test -s ../release/AIMPACT-iOS.ipa
-          file ../release/AIMPACT-iOS.ipa
-      - name: Submit signed iOS build to TestFlight
+          test -n "${APPLE_PRIVATE_KEY}"
+          umask 077
+          printf '%s' "${APPLE_PRIVATE_KEY}" | sed 's/\\\\n/\n/g' > "${RUNNER_TEMP}/AuthKey_${{ secrets.APPLE_KEY_ID }}.p8"
+          test -s "${RUNNER_TEMP}/AuthKey_${{ secrets.APPLE_KEY_ID }}.p8"
+
+      - name: Create signing certificate and App Store provisioning profile
+        env:
+          APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
+          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
+          APPLE_PRIVATE_KEY: ${{ secrets.APPLE_PRIVATE_KEY }}
+          APPLE_BUNDLE_ID: ${{ secrets.APPLE_BUNDLE_ID }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, json, time, base64, subprocess, tempfile, pathlib
+          from pathlib import Path
+          import urllib.request, urllib.parse
+
+          issuer=os.environ["APPLE_ISSUER_ID"]
+          keyid=os.environ["APPLE_KEY_ID"]
+          key=Path(os.environ["RUNNER_TEMP"])/f"AuthKey_{keyid}.p8"
+          bundle=os.environ["APPLE_BUNDLE_ID"]
+
+          def b64(x): return base64.urlsafe_b64encode(x).rstrip(b"=").decode()
+          def jwt():
+              h=b64(json.dumps({"alg":"ES256","kid":keyid,"typ":"JWT"},separators=(",",":")).encode())
+              now=int(time.time())
+              p=b64(json.dumps({"iss":issuer,"iat":now,"exp":now+300,"aud":"appstoreconnect-v1"},separators=(",",":")).encode())
+              sig=subprocess.check_output(["openssl","dgst","-sha256","-sign",str(key)],input=(h+"."+p).encode())
+              # openssl emits DER ECDSA; convert to raw r||s using Python cryptography if available.
+              try:
+                  from cryptography.hazmat.primitives import serialization, hashes
+                  from cryptography.hazmat.primitives.asymmetric import ec
+                  priv=serialization.load_pem_private_key(key.read_bytes(),password=None)
+                  der=priv.sign((h+"."+p).encode(),ec.ECDSA(hashes.SHA256()))
+                  from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
+                  r,s=decode_dss_signature(der)
+                  sig=r.to_bytes(32,"big")+s.to_bytes(32,"big")
+              except Exception:
+                  raise RuntimeError("PYTHON_CRYPTOGRAPHY_REQUIRED")
+              return h+"."+p+"."+b64(sig)
+
+          token=jwt()
+          def api(path, method="GET", body=None):
+              req=urllib.request.Request("https://api.appstoreconnect.apple.com/v1/"+path,method=method)
+              req.add_header("Authorization","Bearer "+token)
+              req.add_header("Content-Type","application/json")
+              data=None if body is None else json.dumps(body).encode()
+              try:
+                  with urllib.request.urlopen(req,data=data) as r:
+                      return json.loads(r.read())
+              except urllib.error.HTTPError as e:
+                  print(e.read().decode(),flush=True)
+                  raise
+
+          bundles=api("bundleIds?filter[identifier]="+urllib.parse.quote(bundle,safe=""))
+          bid=(bundles.get("data") or [{}])[0].get("id")
+          if not bid: raise RuntimeError("APPLE_BUNDLE_ID_NOT_REGISTERED")
+
+          csr=Path(os.environ["RUNNER_TEMP"])/"aimpact.csr"
+          keypem=Path(os.environ["RUNNER_TEMP"])/"aimpact-signing.key"
+          subprocess.run(["openssl","genrsa","-out",str(keypem),"2048"],check=True,stdout=subprocess.DEVNULL)
+          subprocess.run(["openssl","req","-new","-key",str(keypem),"-subj","/CN=AIMPACT CI/","-out",str(csr)],check=True,stdout=subprocess.DEVNULL)
+
+          cert=api("certificates","POST",{"data":{"type":"certificates","attributes":{"certificateType":"IOS_DISTRIBUTION","csrContent":base64.b64encode(csr.read_bytes()).decode()}}})
+          cert_id=cert["data"]["id"]
+          cert_der=base64.b64decode(cert["data"]["attributes"]["certificateContent"])
+          certfile=Path(os.environ["RUNNER_TEMP"])/"aimpact.cer"
+          certfile.write_bytes(cert_der)
+          certpem=Path(os.environ["RUNNER_TEMP"])/"aimpact-cert.pem"
+          subprocess.run(["openssl","x509","-inform","DER","-in",str(certfile),"-out",str(certpem)],check=True)
+          p12=Path(os.environ["RUNNER_TEMP"])/"aimpact-signing.p12"
+          subprocess.run(["openssl","pkcs12","-export","-inkey",str(keypem),"-in",str(certpem),"-out",str(p12),"-passout","pass:"],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+
+          profile_name=f"AIMPACT App Store {os.environ['GITHUB_RUN_ID']}"
+          prof=api("profiles","POST",{"data":{"type":"profiles","attributes":{"name":profile_name,"profileType":"IOS_APP_STORE"},"relationships":{"bundleId":{"data":{"type":"bundleIds","id":bid}},"certificates":{"data":[{"type":"certificates","id":cert_id}]}}}})
+          profile=Path(os.environ["RUNNER_TEMP"])/"aimpact.mobileprovision"
+          profile.write_bytes(base64.b64decode(prof["data"]["attributes"]["profileContent"]))
+
+          env=Path(os.environ["GITHUB_ENV"])
+          env.write_text(env.read_text()+f"APPLE_PROFILE_NAME={profile_name}\nAPPLE_PROFILE_PATH={profile}\nAPPLE_CERT_P12={p12}\nAPPLE_SIGNING_KEY={keypem}\n",encoding="utf-8")
+          print("APPLE_PROVISIONING=CREATED")
+          print("APPLE_CERTIFICATE=CREATED")
+          PY
+          security create-keychain -p "" "${RUNNER_TEMP}/aimpact.keychain-db"
+          security set-keychain-settings -lut 21600 "${RUNNER_TEMP}/aimpact.keychain-db"
+          security unlock-keychain -p "" "${RUNNER_TEMP}/aimpact.keychain-db"
+          security import "${APPLE_CERT_P12}" -k "${RUNNER_TEMP}/aimpact.keychain-db" -P "" -T /usr/bin/codesign
+          security list-keychains -d user -s "${RUNNER_TEMP}/aimpact.keychain-db"
+          security default-keychain -s "${RUNNER_TEMP}/aimpact.keychain-db"
+          security unlock-keychain -p "" "${RUNNER_TEMP}/aimpact.keychain-db"
+          mkdir -p mobile/ios/provisioning
+          cp "${APPLE_PROFILE_PATH}" mobile/ios/provisioning/AIMPACT.mobileprovision
+
+      - name: Resolve Apple team ID
+        run: |
+          set -euo pipefail
+          security cms -D -i mobile/ios/provisioning/AIMPACT.mobileprovision > "${RUNNER_TEMP}/profile.plist"
+          TEAM_ID="$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "${RUNNER_TEMP}/profile.plist")"
+          PROFILE_UUID="$(/usr/libexec/PlistBuddy -c 'Print :UUID' "${RUNNER_TEMP}/profile.plist")"
+          echo "APPLE_TEAM_ID=${TEAM_ID}" >> "${GITHUB_ENV}"
+          echo "APPLE_PROFILE_UUID=${PROFILE_UUID}" >> "${GITHUB_ENV}"
+          echo "APPLE_TEAM_ID_RESOLVED=YES"
+
+      - name: Archive signed iOS app
         working-directory: mobile
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           set -euo pipefail
-          eas submit --platform ios --profile production --non-interactive --latest --auto-testflight-setup
+          WORKSPACE="$(find ios -maxdepth 1 -name "*.xcworkspace" -print -quit)"
+          test -n "${WORKSPACE}"
+          SCHEME="$(basename "${WORKSPACE}" .xcworkspace)"
+          xcodebuild -workspace "${WORKSPACE}"             -scheme "${SCHEME}"             -configuration Release             -sdk iphoneos             -destination "generic/platform=iOS"             -archivePath "${RUNNER_TEMP}/AIMPACT.xcarchive"             CODE_SIGN_STYLE=Manual             DEVELOPMENT_TEAM="${APPLE_TEAM_ID}"             CODE_SIGN_IDENTITY="Apple Distribution"             PROVISIONING_PROFILE="${APPLE_PROFILE_UUID}"             PROVISIONING_PROFILE_SPECIFIER="${APPLE_PROFILE_NAME}"             archive
+
+      - name: Export signed iOS IPA
+        working-directory: mobile
+        run: |
+          set -euo pipefail
+          cat > "${RUNNER_TEMP}/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
+            <key>provisioningProfiles</key><dict>
+              <key>ai.aimpact.app</key><string>${APPLE_PROFILE_NAME}</string>
+            </dict>
+          </dict></plist>
+          PLIST
+          mkdir -p "${RUNNER_TEMP}/export"
+          xcodebuild -exportArchive             -archivePath "${RUNNER_TEMP}/AIMPACT.xcarchive"             -exportOptionsPlist "${RUNNER_TEMP}/ExportOptions.plist"             -exportPath "${RUNNER_TEMP}/export"
+          mkdir -p release
+          cp "${RUNNER_TEMP}/export/AIMPACT.ipa" release/AIMPACT-iOS.ipa 2>/dev/null || cp "${RUNNER_TEMP}/export/"*.ipa release/AIMPACT-iOS.ipa
+          test -s release/AIMPACT-iOS.ipa
+          file release/AIMPACT-iOS.ipa
+
+      - name: Upload signed iOS build to TestFlight
+        env:
+          APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
+          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
+          APPLE_PRIVATE_KEY: ${{ secrets.APPLE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          KEY="${RUNNER_TEMP}/AuthKey_${APPLE_KEY_ID}.p8"
+          xcrun altool --upload-app -f release/AIMPACT-iOS.ipa -t ios --apiKey "${APPLE_KEY_ID}" --apiIssuer "${APPLE_ISSUER_ID}"
 
       - name: Publish iOS IPA
         env:
@@ -70,9 +196,5 @@ jobs:
         run: |
           set -euo pipefail
           TAG="ios-${GITHUB_RUN_ID}"
-          gh release create "$TAG" release/AIMPACT-iOS.ipa \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "AIMPACT iOS IPA ${GITHUB_RUN_ID}" \
-            --notes "Signed iOS device build produced by EAS. Installability depends on the provisioning profile/device distribution method." \
-            --latest=false
-          gh release view "$TAG" --repo "$GITHUB_REPOSITORY"
+          gh release create "${TAG}" release/AIMPACT-iOS.ipa             --repo "${GITHUB_REPOSITORY}"             --title "AIMPACT iOS IPA ${GITHUB_RUN_ID}"             --notes "Signed iOS App Store build produced in GitHub Actions using Apple App Store Connect API provisioning."             --latest=false
+          gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}"
