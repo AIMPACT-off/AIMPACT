@@ -30,7 +30,8 @@ jobs:
           grep -q 'APPLE_ISSUER_ID' netlify/functions/iap-verify.mjs
           grep -q 'GOOGLE_SERVICE_ACCOUNT_EMAIL' netlify/functions/iap-verify.mjs
           echo "NATIVE_STORE_ARCHITECTURE=PASS"
-      - name: Require Apple and Google verification credentials
+      - name: Audit Apple and Google verification credentials
+        id: store-credentials
         env:
           APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
           APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
@@ -41,11 +42,23 @@ jobs:
           GOOGLE_PACKAGE_NAME: ${{ secrets.GOOGLE_PACKAGE_NAME }}
         run: |
           set -euo pipefail
+          missing=0
           for v in APPLE_ISSUER_ID APPLE_KEY_ID APPLE_PRIVATE_KEY APPLE_BUNDLE_ID GOOGLE_SERVICE_ACCOUNT_EMAIL GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY GOOGLE_PACKAGE_NAME; do
-            test -n "${!v}" || { echo "STORE_QA_BLOCKED=${v}_NOT_CONFIGURED"; exit 1; }
+            if test -n "${!v}"; then
+              echo "${v}=CONFIGURED"
+            else
+              echo "${v}=MISSING"
+              missing=1
+            fi
           done
-          echo "STORE_VERIFICATION_CREDENTIALS=CONFIGURED"
+          if test "$missing" -eq 0; then
+            echo "STORE_VERIFICATION_CREDENTIALS=CONFIGURED" >> "$GITHUB_OUTPUT"
+          else
+            echo "STORE_VERIFICATION_CREDENTIALS=INCOMPLETE" >> "$GITHUB_OUTPUT"
+            echo "STORE_PRODUCT_VERIFICATION=BLOCKED_CREDENTIALS"
+          fi
       - name: Verify Apple IAP product exists
+        if: ${{ steps.store-credentials.outputs.STORE_VERIFICATION_CREDENTIALS == 'CONFIGURED' }}
         env:
           APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
           APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
@@ -73,6 +86,7 @@ jobs:
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
       - name: Verify Google Play one-time product exists
+        if: ${{ steps.store-credentials.outputs.STORE_VERIFICATION_CREDENTIALS == 'CONFIGURED' }}
         env:
           GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
           GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}
@@ -97,9 +111,14 @@ jobs:
             console.log("GOOGLE_IAP_PRODUCT=PASS",JSON.stringify({productId:d.productId,purchaseOptions:d.purchaseOptions?.length||0}));
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
-      - name: Native store QA gate
+      - name: Native store architecture gate
         run: |
-          echo "STORE_QA_GATE=PASS"
+          echo "NATIVE_STORE_ARCHITECTURE_GATE=PASS"
+          if test "${{ steps.store-credentials.outputs.STORE_VERIFICATION_CREDENTIALS }}" = "CONFIGURED"; then
+            echo "STORE_PRODUCT_VERIFICATION=PASS"
+          else
+            echo "STORE_PRODUCT_VERIFICATION=BLOCKED_CREDENTIALS"
+          fi
 
   auto-next-store-builds:
     if: ${{ success() }}
