@@ -8,6 +8,10 @@ name: AIMPACT Payment Control
     - cron: "7 * * * *"
     - cron: "37 * * * *"
   workflow_dispatch:
+concurrency:
+  group: aimpact-payment-control
+  cancel-in-progress: true
+
 permissions:
   contents: read
 jobs:
