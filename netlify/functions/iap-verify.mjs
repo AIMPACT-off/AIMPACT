@@ -74,7 +74,10 @@ async function verifyApple(purchase) {
   const productId = String(purchase.productId || untrusted.productId || "");
   if (!transactionId || !productId) throw new Error("APPLE_TRANSACTION_FIELDS_MISSING");
   const host = String(process.env.APPLE_ENVIRONMENT || "production").toLowerCase() === "sandbox" ? "https://api.storekit-sandbox.apple.com" : "https://api.storekit.apple.com";
-  const response = await fetch(host + "/inApps/v1/transactions/" + encodeURIComponent(transactionId), { headers: { Authorization: "Bearer " + appleJwt() } });
+  let response = await fetch(host + "/inApps/v1/transactions/" + encodeURIComponent(transactionId), { headers: { Authorization: "Bearer " + appleJwt() } });
+  if (!response.ok && host.endsWith("api.storekit.apple.com")) {
+    response = await fetch("https://api.storekit-sandbox.apple.com/inApps/v1/transactions/" + encodeURIComponent(transactionId), { headers: { Authorization: "Bearer " + appleJwt() } });
+  }
   if (!response.ok) throw new Error("APPLE_TRANSACTION_NOT_VERIFIED");
   const body = await response.json();
   const signed = body?.signedTransactionInfo;
