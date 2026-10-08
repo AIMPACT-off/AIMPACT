@@ -1,0 +1,98 @@
+name: AIMPACT Native Store QA
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  store-configuration-and-product-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate native store architecture
+        run: |
+          set -euo pipefail
+          grep -q '"expo-iap"' mobile/package.json
+          grep -q 'expo-iap' mobile/app.json
+          test -s netlify/functions/iap-verify.mjs
+          test -s supabase/migrations/202610080003_store_entitlements.sql
+          grep -q 'APPLE_ISSUER_ID' netlify/functions/iap-verify.mjs
+          grep -q 'GOOGLE_SERVICE_ACCOUNT_EMAIL' netlify/functions/iap-verify.mjs
+          echo "NATIVE_STORE_ARCHITECTURE=PASS"
+      - name: Require Apple and Google verification credentials
+        env:
+          APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
+          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
+          APPLE_PRIVATE_KEY: ${{ secrets.APPLE_PRIVATE_KEY }}
+          APPLE_BUNDLE_ID: ${{ secrets.APPLE_BUNDLE_ID }}
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+          GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}
+          GOOGLE_PACKAGE_NAME: ${{ secrets.GOOGLE_PACKAGE_NAME }}
+        run: |
+          set -euo pipefail
+          for v in APPLE_ISSUER_ID APPLE_KEY_ID APPLE_PRIVATE_KEY APPLE_BUNDLE_ID GOOGLE_SERVICE_ACCOUNT_EMAIL GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY GOOGLE_PACKAGE_NAME; do
+            test -n "${!v}" || { echo "STORE_QA_BLOCKED=${v}_NOT_CONFIGURED"; exit 1; }
+          done
+          echo "STORE_VERIFICATION_CREDENTIALS=CONFIGURED"
+      - name: Verify Apple IAP product exists
+        env:
+          APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
+          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
+          APPLE_PRIVATE_KEY: ${{ secrets.APPLE_PRIVATE_KEY }}
+          APPLE_BUNDLE_ID: ${{ secrets.APPLE_BUNDLE_ID }}
+          IAP_PRODUCT_ID: ai.aimpact.quick_audit
+        run: |
+          node <<'NODE'
+          const crypto=require("crypto");
+          const b64=v=>Buffer.from(v).toString("base64url");
+          const now=Math.floor(Date.now()/1000);
+          const h=b64(JSON.stringify({alg:"ES256",kid:process.env.APPLE_KEY_ID,typ:"JWT"}));
+          const p=b64(JSON.stringify({iss:process.env.APPLE_ISSUER_ID,iat:now,exp:now+300,aud:"appstoreconnect-v1"}));
+          const sig=crypto.sign("sha256",Buffer.from(h+"."+p),{key:process.env.APPLE_PRIVATE_KEY.replace(/\\n/g,"\n"),dsaEncoding:"ieee-p1363"}).toString("base64url");
+          const jwt=h+"."+p+"."+sig;
+          (async()=>{
+            const a=await fetch("https://api.appstoreconnect.apple.com/v1/apps?filter[bundleId]="+encodeURIComponent(process.env.APPLE_BUNDLE_ID),{headers:{Authorization:"Bearer "+jwt}});
+            if(!a.ok) throw new Error("APPLE_APP_LOOKUP_HTTP_"+a.status);
+            const ad=await a.json(); const app=ad.data?.[0]; if(!app) throw new Error("APPLE_APP_NOT_FOUND");
+            const u="https://api.appstoreconnect.apple.com/v1/apps/"+app.id+"/inAppPurchasesV2?filter[productId]="+encodeURIComponent(process.env.IAP_PRODUCT_ID)+"&limit=1";
+            const r=await fetch(u,{headers:{Authorization:"Bearer "+jwt}});
+            if(!r.ok) throw new Error("APPLE_IAP_LOOKUP_HTTP_"+r.status);
+            const d=await r.json(); const item=d.data?.[0]; if(!item) throw new Error("APPLE_IAP_PRODUCT_NOT_FOUND");
+            console.log("APPLE_IAP_PRODUCT=PASS",JSON.stringify({id:item.id,productId:item.attributes?.productId,state:item.attributes?.state}));
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+      - name: Verify Google Play one-time product exists
+        env:
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+          GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}
+          GOOGLE_PACKAGE_NAME: ${{ secrets.GOOGLE_PACKAGE_NAME }}
+          IAP_PRODUCT_ID: ai.aimpact.quick_audit
+        run: |
+          node <<'NODE'
+          const crypto=require("crypto");
+          const b64=v=>Buffer.from(v).toString("base64url");
+          const now=Math.floor(Date.now()/1000);
+          const h=b64(JSON.stringify({alg:"RS256",typ:"JWT"}));
+          const p=b64(JSON.stringify({iss:process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,scope:"https://www.googleapis.com/auth/androidpublisher",aud:"https://oauth2.googleapis.com/token",iat:now,exp:now+3600}));
+          const sig=crypto.createSign("RSA-SHA256").update(h+"."+p).sign(process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.replace(/\\n/g,"\n")).toString("base64url");
+          (async()=>{
+            const t=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body:new URLSearchParams({grant_type:"urn:ietf:params:oauth:grant-type:jwt-bearer",assertion:h+"."+p+"."+sig})});
+            if(!t.ok) throw new Error("GOOGLE_OAUTH_HTTP_"+t.status);
+            const td=await t.json(); if(!td.access_token) throw new Error("GOOGLE_ACCESS_TOKEN_MISSING");
+            const u="https://androidpublisher.googleapis.com/androidpublisher/v3/applications/"+encodeURIComponent(process.env.GOOGLE_PACKAGE_NAME)+"/oneTimeProducts/"+encodeURIComponent(process.env.IAP_PRODUCT_ID);
+            const r=await fetch(u,{headers:{Authorization:"Bearer "+td.access_token}});
+            if(!r.ok) throw new Error("GOOGLE_IAP_LOOKUP_HTTP_"+r.status);
+            const d=await r.json(); if(d.productId!==process.env.IAP_PRODUCT_ID) throw new Error("GOOGLE_IAP_PRODUCT_MISMATCH");
+            console.log("GOOGLE_IAP_PRODUCT=PASS",JSON.stringify({productId:d.productId,purchaseOptions:d.purchaseOptions?.length||0}));
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+      - name: Native store QA gate
+        run: |
+          echo "STORE_QA_GATE=PASS"
