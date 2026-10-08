@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 
 const CHECKOUT = "https://buy.stripe.com/test_7sY7sL1Gz1dI7ohg1ofrW04";
 const ENTITLEMENT_API = "https://aimpact-ai.netlify.app/api/entitlement";
+const AUDIT_API = "https://aimpact-ai.netlify.app/api/audit";
 
 const rules = [
   ["CONTENT / MARKETING", ["content","copy","사진","이미지","상품","sns","social","marketing","마케팅"], "콘텐츠 제작·배포 업무를 표준화하고 생성·재가공을 자동화합니다.", "콘텐츠 입력 → AI 초안 → 담당자 승인 → 채널별 배포 → 성과 집계"],
@@ -27,6 +28,7 @@ function makeAudit(problem, hours, cost, industry) {
 export default function App() {
   const [tab, setTab] = useState("overview");
   const [company, setCompany] = useState("");
+  const [email, setEmail] = useState("");
   const [industry, setIndustry] = useState("Retail");
   const [problem, setProblem] = useState("");
   const [hours, setHours] = useState("");
@@ -62,16 +64,45 @@ export default function App() {
     return () => { mounted = false; sub.remove(); };
   }, []);
 
-  const run = () => {
+  const run = async () => {
     setNotice("");
-    if (!company.trim() || !problem.trim()) {
-      setNotice("회사명과 실제 업무 문제를 입력해 주세요.");
+    if (!company.trim() || !email.trim() || !problem.trim()) {
+      setNotice("회사명·이메일·실제 업무 문제를 입력해 주세요.");
       return;
     }
-    const audit = makeAudit(problem.trim(), hours, cost, industry.trim() || "General");
-    setResult(audit);
-    setHistory(prev => [audit, ...prev].slice(0, 5));
-    setTab("reports");
+    try {
+      setNotice("AI AUDIT 실행 중 · 중앙 서버에서 검증 가능한 진단을 생성합니다.");
+      const response = await fetch(AUDIT_API, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          company: company.trim(),
+          email: email.trim(),
+          industry: industry.trim() || "General",
+          problem: problem.trim(),
+          currentTools: ""
+        })
+      });
+      const body = await response.json();
+      if (!response.ok || body?.verified !== true || !body?.report) {
+        setNotice(body?.error === "AI_PROVIDER_NOT_CONFIGURED"
+          ? "AI 엔진이 아직 개통되지 않았습니다. 중앙통제에서 공급자 인증을 완료해야 합니다."
+          : "AI 진단을 완료하지 못했습니다. 결제나 결과를 허위로 표시하지 않습니다.");
+        return;
+      }
+      const audit = {
+        ...body.report,
+        createdAt: new Date().toISOString(),
+        auditId: body.auditId,
+        industry: industry.trim() || "General"
+      };
+      setResult(audit);
+      setHistory(prev => [audit, ...prev].slice(0, 5));
+      setNotice("AI AUDIT 완료 · 서버 검증 및 감사 기록 저장 PASS");
+      setTab("reports");
+    } catch {
+      setNotice("AI 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    }
   };
 
   const resetAudit = () => {
@@ -157,7 +188,7 @@ export default function App() {
             <View style={s.card}>
               <Text style={s.label}>COMPANY *</Text>
               <TextInput value={company} onChangeText={setCompany} placeholder="Your company" placeholderTextColor="#656a73" style={s.input} />
-              <Text style={s.label}>INDUSTRY</Text>
+              <Text style={s.label}>EMAIL *</Text>\n              <TextInput value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="you@company.com" placeholderTextColor="#656a73" style={s.input} />\n              <Text style={s.label}>INDUSTRY</Text>
               <TextInput value={industry} onChangeText={setIndustry} placeholder="Retail / E-commerce / SaaS" placeholderTextColor="#656a73" style={s.input} />
               <Text style={s.label}>BUSINESS PROBLEM *</Text>
               <TextInput value={problem} onChangeText={setProblem} placeholder="What takes too much time, money or attention?" placeholderTextColor="#656a73" multiline style={[s.input, s.textarea]} />
@@ -168,7 +199,7 @@ export default function App() {
               <TouchableOpacity style={s.primary} onPress={run}>
                 <Text style={s.primaryText}>RUN AI AUDIT →</Text>
               </TouchableOpacity>
-              <Text style={s.muted}>입력값은 진단 가설을 만드는 데 사용됩니다. 실제 ROI는 검증 전까지 확정하지 않습니다.</Text>
+              <Text style={s.muted}>AI 서버가 생성한 진단만 정식 결과로 표시합니다. ROI는 측정 전까지 확정하지 않습니다.</Text>
             </View>
           </View>
         )}
