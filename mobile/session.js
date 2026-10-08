@@ -33,3 +33,16 @@ export async function verifyOtp(email, token) {
 export function getSessionToken(session) {
   return String(session?.access_token || "");
 }
+
+
+export function getSessionUserId(accessToken) {
+  try {
+    const part = String(accessToken || "").split(".")[1];
+    if (!part) return "";
+    const normalized = part.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((part.length + 3) % 4);
+    const payload = JSON.parse(globalThis.atob ? globalThis.atob(normalized) : Buffer.from(normalized, "base64").toString("utf8"));
+    return String(payload?.sub || "");
+  } catch {
+    return "";
+  }
+}
