@@ -22,12 +22,20 @@ export async function handler(event) {
   const authUser = await authResponse.json();
   const authUserId = String(authUser?.id || "").trim();
   if (!authUserId) return json(401, { error: "AUTH_INVALID", verified: false });
-  const query = new URLSearchParams({ select: "product_key,status,paid_at,checkout_session_id,customer_email,auth_user_id", checkout_session_id: "eq." + sessionId, status: "eq.paid", auth_user_id: "eq." + authUserId });
-  if (email) query.set("customer_email", "eq." + email);
-  const response = await fetch(supabaseUrl + "/rest/v1/payment_entitlements?" + query.toString(), { headers: { apikey: serviceRoleKey, Authorization: "Bearer " + serviceRoleKey } });
-  if (!response.ok) return json(503, { error: "entitlement_store_unavailable", verified: false });
-  const rows = await response.json();
-  const row = Array.isArray(rows) ? rows.find(item => item.product_key === "AI_QUICK_AUDIT" && item.status === "paid") : null;
-  if (!row) return json(200, { verified: false, reason: "payment_not_verified" });
-  return json(200, { verified: true, product_key: row.product_key, paid_at: row.paid_at, checkout_session_id: row.checkout_session_id, customer_email: row.customer_email || null });
+  const stripeQuery = new URLSearchParams({ select: "product_key,status,paid_at,checkout_session_id,customer_email,auth_user_id", checkout_session_id: "eq." + sessionId, status: "eq.paid", auth_user_id: "eq." + authUserId });
+  if (email) stripeQuery.set("customer_email", "eq." + email);
+  const stripeResponse = await fetch(supabaseUrl + "/rest/v1/payment_entitlements?" + stripeQuery.toString(), { headers: { apikey: serviceRoleKey, Authorization: "Bearer " + serviceRoleKey } });
+  if (!stripeResponse.ok) return json(503, { error: "entitlement_store_unavailable", verified: false });
+  const stripeRows = await stripeResponse.json();
+  const stripeRow = Array.isArray(stripeRows) ? stripeRows.find(item => item.product_key === "AI_QUICK_AUDIT" && item.status === "paid") : null;
+
+  const storeQuery = new URLSearchParams({ select: "platform,product_id,transaction_id,order_id,status,purchased_at,auth_user_id", auth_user_id: "eq." + authUserId, product_id: "eq." + String(process.env.AIMPACT_IAP_PRODUCT_ID || "ai.aimpact.quick_audit"), status: "eq.active" });
+  const storeResponse = await fetch(supabaseUrl + "/rest/v1/store_entitlements?" + storeQuery.toString(), { headers: { apikey: serviceRoleKey, Authorization: "Bearer " + serviceRoleKey } });
+  if (!storeResponse.ok) return json(503, { error: "entitlement_store_unavailable", verified: false });
+  const storeRows = await storeResponse.json();
+  const storeRow = Array.isArray(storeRows) && storeRows[0];
+
+  if (stripeRow) return json(200, { verified: true, source: "stripe", product_key: stripeRow.product_key, paid_at: stripeRow.paid_at, checkout_session_id: stripeRow.checkout_session_id, customer_email: stripeRow.customer_email || null });
+  if (storeRow) return json(200, { verified: true, source: storeRow.platform, product_key: "AI_QUICK_AUDIT", paid_at: storeRow.purchased_at, transaction_id: storeRow.transaction_id, order_id: storeRow.order_id || null });
+  return json(200, { verified: false, reason: "payment_not_verified" });
 }
