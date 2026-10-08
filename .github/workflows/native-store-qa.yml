@@ -100,3 +100,23 @@ jobs:
       - name: Native store QA gate
         run: |
           echo "STORE_QA_GATE=PASS"
+
+  auto-next-store-builds:
+    if: ${{ success() }}
+    needs: [store-configuration-and-product-gate]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Dispatch web verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run web-verification.yml --ref main
+      - name: Dispatch iOS TestFlight build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ios-device-release.yml --ref main
+      - name: Dispatch Android Internal Testing build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run android-store-release.yml --ref main
