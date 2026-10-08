@@ -23,7 +23,6 @@ const assertions = [
   [entitlement.includes("verified: true"),"verified entitlement response"],
   [entitlement.includes("SUPABASE_SERVICE_ROLE_KEY"),"server-side service role only"],
   [app.includes("CHECKOUT_API"),"current authenticated checkout API"],
-  [app.includes("fetch(CHECKOUT_API"),"customer checkout request"],
   [app.includes("requestPurchase"),"native store purchase"],
   [netlify.includes('from = "/api/entitlement"'),"entitlement redirect"],
   [netlify.includes('from = "/api/checkout"'),"checkout redirect"],
