@@ -45,7 +45,7 @@ export async function handler(event) {
   }
 
   const session = stripeEvent.data?.object || {};
-  const paymentLink = session.payment_link;
+  const paymentLink = session.payment_link || "";
   const paid = session.payment_status === "paid";
   const amount = Number(session.amount_total);
   const currency = String(session.currency || "").toLowerCase();
@@ -64,6 +64,8 @@ export async function handler(event) {
   const serviceRoleKey = env("SUPABASE_SERVICE_ROLE_KEY");
   const rpcName = process.env.AIMPACT_PAYMENT_RPC || "aimpact_record_verified_payment";
 
+  const authUserId = String(session.client_reference_id || session.metadata?.auth_user_id || "").trim() || null;
+
   const response = await fetch(supabaseUrl + "/rest/v1/rpc/" + rpcName, {
     method: "POST",
     headers: {
@@ -81,7 +83,8 @@ export async function handler(event) {
       p_customer_name: session.customer_details?.name || null,
       p_customer_id: session.customer || null,
       p_paid_at: session.created ? new Date(session.created * 1000).toISOString() : null,
-      p_metadata: session.metadata || {}
+      p_metadata: session.metadata || {},
+      p_auth_user_id: authUserId
     })
   });
 
