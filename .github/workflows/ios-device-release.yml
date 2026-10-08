@@ -62,7 +62,7 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           set -euo pipefail
-          eas submit --platform ios --profile production --non-interactive --latest
+          eas submit --platform ios --profile production --non-interactive --latest --auto-testflight-setup
 
       - name: Publish iOS IPA
         env:
