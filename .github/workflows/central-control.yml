@@ -7,11 +7,15 @@ name: AIMPACT Central Control Validation
     branches: [main]
   workflow_dispatch:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/30 * * * *"
   workflow_run:
     workflows: ["AIMPACT Mobile Build", "AIMPACT Payment Control", "AIMPACT Native Store QA"]
     types: [completed]
     branches: [main]
+
+concurrency:
+  group: aimpact-central-control
+  cancel-in-progress: true
 
 permissions:
   contents: write
