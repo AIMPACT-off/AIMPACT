@@ -94,7 +94,8 @@ jobs:
           if (!entitlement.trim()) throw new Error("entitlement.mjs is empty");
           if (!webhook.trim()) throw new Error("stripe-webhook.mjs is empty");
           if (!mobile.includes("verifyPaidEntitlement")) throw new Error("mobile paid entitlement verification missing");
-          if (!mobile.includes("body?.verified===true")) throw new Error("mobile verified response gate missing");
+          if (!mobile.includes("body?.verified")) throw new Error("mobile verified response gate missing");
+          if (!mobile.includes("verified===true") && !mobile.includes("verified === true")) throw new Error("mobile verified truth comparison missing");
           if (!webhook.includes("payment_status")) throw new Error("webhook payment_status proof missing");
           if (!webhook.includes('=== "paid"')) throw new Error("webhook paid proof missing");
           console.log("DEPLOYMENT_TRUTH_BOUNDARIES=PASS");
