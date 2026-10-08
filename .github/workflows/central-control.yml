@@ -9,7 +9,7 @@ name: AIMPACT Central Control Validation
   schedule:
     - cron: "*/10 * * * *"
   workflow_run:
-    workflows: ["AIMPACT Mobile Build", "AIMPACT Payment Control"]
+    workflows: ["AIMPACT Mobile Build", "AIMPACT Payment Control", "AIMPACT Native Store QA"]
     types: [completed]
     branches: [main]
 
@@ -172,6 +172,10 @@ jobs:
               gh workflow run payment-control.yml --ref main
               ;;
             "AIMPACT Payment Control")
+              echo "AUTO_NEXT=AIMPACT Native Store QA"
+              gh workflow run native-store-qa.yml --ref main
+              ;;
+            "AIMPACT Native Store QA")
               echo "AUTO_NEXT=AIMPACT Web Verification"
               gh workflow run web-verification.yml --ref main
               ;;
