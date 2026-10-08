@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Linking, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { authConfigReady, sendOtp, verifyOtp, getSessionToken } from "./session";
 
 const CHECKOUT = "https://buy.stripe.com/test_7sY7sL1Gz1dI7ohg1ofrW04";
 const ENTITLEMENT_API = "https://aimpact-ai.netlify.app/api/entitlement";
@@ -18,7 +19,35 @@ export default function App() {
   const [history, setHistory] = useState([]);
   const [paid, setPaid] = useState(false);
   const [notice, setNotice] = useState("");
-  const [sessionToken] = useState("");
+  const [sessionToken, setSessionToken] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState("");
+
+  const requestOtp = async () => {
+    try {
+      if (!authConfigReady) throw new Error("AUTH_PROVIDER_NOT_CONFIGURED");
+      if (!email.trim()) throw new Error("EMAIL_REQUIRED");
+      await sendOtp(email);
+      setOtpSent(true);
+      setNotice("인증코드를 이메일로 보냈습니다.");
+    } catch (error) {
+      setNotice(error.message === "AUTH_PROVIDER_NOT_CONFIGURED"
+        ? "Supabase Auth 설정이 아직 연결되지 않았습니다."
+        : "인증코드를 보내지 못했습니다. 이메일을 확인해 주세요.");
+    }
+  };
+
+  const confirmOtp = async () => {
+    try {
+      const session = await verifyOtp(email, otp);
+      const token = getSessionToken(session);
+      if (!token) throw new Error("AUTH_SESSION_MISSING");
+      setSessionToken(token);
+      setNotice("고객 인증 완료 · 테넌트가 중앙통제에 영구 연결됩니다.");
+    } catch {
+      setNotice("인증코드가 올바르지 않거나 만료되었습니다.");
+    }
+  };
 
   const verifyPaidEntitlement = async (url) => {
     try {
@@ -48,6 +77,7 @@ export default function App() {
 
   const run = async () => {
     setNotice("");
+    if (!sessionToken) { setNotice("고객 인증 후 AI AUDIT을 실행할 수 있습니다."); return; }
     if (!company.trim() || !email.trim() || !problem.trim()) {
       setNotice("회사명·이메일·실제 업무 문제를 입력해 주세요.");
       return;
@@ -127,6 +157,20 @@ export default function App() {
         </View>
       </View>
 
+      {!sessionToken && (
+        <View style={s.authBar}>
+          <Text style={s.label}>CUSTOMER AUTH · REQUIRED FOR VERIFIED AI AUDIT</Text>
+          <TextInput value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="you@company.com" placeholderTextColor="#656a73" style={s.input} />
+          {!otpSent ? (
+            <TouchableOpacity style={s.secondary} onPress={requestOtp}><Text style={s.secondaryText}>SEND EMAIL CODE</Text></TouchableOpacity>
+          ) : (
+            <View>
+              <TextInput value={otp} onChangeText={setOtp} keyboardType="number-pad" placeholder="6-digit code" placeholderTextColor="#656a73" style={s.input} />
+              <TouchableOpacity style={s.primary} onPress={confirmOtp}><Text style={s.primaryText}>VERIFY CUSTOMER →</Text></TouchableOpacity>
+            </View>
+          )}
+        </View>
+      )}
       <View style={s.nav}>
         {nav.map(([id, label]) => (
           <TouchableOpacity key={id} onPress={() => setTab(id)} style={[s.navItem, tab === id && s.navActive]}>
@@ -170,7 +214,9 @@ export default function App() {
             <View style={s.card}>
               <Text style={s.label}>COMPANY *</Text>
               <TextInput value={company} onChangeText={setCompany} placeholder="Your company" placeholderTextColor="#656a73" style={s.input} />
-              <Text style={s.label}>EMAIL *</Text>\n              <TextInput value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="you@company.com" placeholderTextColor="#656a73" style={s.input} />\n              <Text style={s.label}>INDUSTRY</Text>
+              <Text style={s.label}>EMAIL *</Text>
+              <TextInput value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="you@company.com" placeholderTextColor="#656a73" style={s.input} />
+              <Text style={s.label}>INDUSTRY</Text>
               <TextInput value={industry} onChangeText={setIndustry} placeholder="Retail / E-commerce / SaaS" placeholderTextColor="#656a73" style={s.input} />
               <Text style={s.label}>BUSINESS PROBLEM *</Text>
               <TextInput value={problem} onChangeText={setProblem} placeholder="What takes too much time, money or attention?" placeholderTextColor="#656a73" multiline style={[s.input, s.textarea]} />
