@@ -6,25 +6,6 @@ const CHECKOUT = "https://buy.stripe.com/test_7sY7sL1Gz1dI7ohg1ofrW04";
 const ENTITLEMENT_API = "https://aimpact-ai.netlify.app/api/entitlement";
 const AUDIT_API = "https://aimpact-ai.netlify.app/api/audit";
 
-const rules = [
-  ["CONTENT / MARKETING", ["content","copy","사진","이미지","상품","sns","social","marketing","마케팅"], "콘텐츠 제작·배포 업무를 표준화하고 생성·재가공을 자동화합니다.", "콘텐츠 입력 → AI 초안 → 담당자 승인 → 채널별 배포 → 성과 집계"],
-  ["SALES / CRM", ["sales","lead","고객","문의","crm","영업","상담","proposal","견적"], "문의·리드의 분류와 후속조치를 자동화해 응답 누락을 줄입니다.", "문의 수집 → AI 분류 → 우선순위 → 담당자 배정 → 후속 알림 → 전환 측정"],
-  ["OPERATIONS", ["반복","수작업","manual","엑셀","spreadsheet","보고","report","운영","정산","재고"], "반복 입력과 보고 업무를 검증 가능한 워크플로우로 통합합니다.", "원천 데이터 → 검증 → 자동 처리 → 예외 승인 → 결과 기록"],
-  ["CUSTOMER SUPPORT", ["support","cs","고객센터","불만","환불"], "반복 문의를 분류·초안화하고 사람의 승인 아래 응답 품질을 관리합니다.", "문의 → 의도 분류 → 답변 초안 → 사람 승인 → 발송 → 만족도 측정"]
-];
-
-function makeAudit(problem, hours, cost, industry) {
-  const t = problem.toLowerCase();
-  const m = rules.find(r => r[1].some(k => t.includes(k))) ||
-    ["GENERAL PROCESS", [], "업무를 단계별로 분해하고 반복·판단·승인 구간을 분리한 뒤 자동화 우선순위를 정합니다.", "현재 업무 → 단계 분해 → 병목 측정 → AI 적용 → 승인 → 결과 측정"];
-  const h = Number(hours) || 0;
-  const c = Number(cost) || 0;
-  const saving = h ? Math.max(1, Math.round(h * 0.35)) : null;
-  const value = saving && c ? Math.round(c * (saving / Math.max(h, 1))) : null;
-  const score = Math.min(95, 45 + (h ? 20 : 0) + (c ? 15 : 0) + (problem.length > 80 ? 10 : 0) + (m[0] !== "GENERAL PROCESS" ? 10 : 0));
-  return { score, category: m[0], conclusion: m[2], workflow: m[3], saving, value, industry, createdAt: new Date().toISOString() };
-}
-
 export default function App() {
   const [tab, setTab] = useState("overview");
   const [company, setCompany] = useState("");
@@ -37,6 +18,7 @@ export default function App() {
   const [history, setHistory] = useState([]);
   const [paid, setPaid] = useState(false);
   const [notice, setNotice] = useState("");
+  const [sessionToken] = useState("");
 
   const verifyPaidEntitlement = async (url) => {
     try {
@@ -74,7 +56,7 @@ export default function App() {
       setNotice("AI AUDIT 실행 중 · 중앙 서버에서 검증 가능한 진단을 생성합니다.");
       const response = await fetch(AUDIT_API, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", Authorization: "Bearer " + sessionToken },
         body: JSON.stringify({
           company: company.trim(),
           email: email.trim(),
