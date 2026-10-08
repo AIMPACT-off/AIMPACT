@@ -73,26 +73,7 @@ export default function App() {
     let mounted = true;
     if (iapConnected) {
       void fetchProducts({ skus: [IAP_PRODUCT_ID], type: "in-app" }).catch(() => {});
-      if (sessionToken) {
-        void getAvailablePurchases().then(async purchases => {
-          for (const purchase of purchases || []) {
-            if (purchase?.productId !== IAP_PRODUCT_ID || !purchase?.purchaseToken) continue;
-            try {
-              const response = await fetch(IAP_VERIFY_API, {
-                method: "POST",
-                headers: { "content-type": "application/json", Authorization: "Bearer " + sessionToken },
-                body: JSON.stringify({ platform: Platform.OS, productId: purchase.productId, purchaseToken: purchase.purchaseToken, transactionId: purchase.transactionId })
-              });
-              const body = await response.json();
-              if (mounted && body?.verified === true) {
-                setPaid(true);
-                setNotice("스토어 entitlement 동기화 완료 · REPORT unlocked");
-                break;
-              }
-            } catch {}
-          }
-        }).catch(() => {});
-      }
+      if (sessionToken) void getAvailablePurchases().catch(() => {});
     }
     if (sessionToken) {
       Linking.getInitialURL().then(url => { if (mounted && url) verifyPaidEntitlement(url); });
@@ -101,6 +82,30 @@ export default function App() {
     }
     return () => { mounted = false; };
   }, [sessionToken, iapConnected, fetchProducts, getAvailablePurchases]);
+
+  useEffect(() => {
+    if (!sessionToken || !iapConnected || !availablePurchases?.length) return;
+    let cancelled = false;
+    (async () => {
+      for (const purchase of availablePurchases) {
+        if (purchase?.productId !== IAP_PRODUCT_ID || !purchase?.purchaseToken) continue;
+        try {
+          const response = await fetch(IAP_VERIFY_API, {
+            method: "POST",
+            headers: { "content-type": "application/json", Authorization: "Bearer " + sessionToken },
+            body: JSON.stringify({ platform: Platform.OS, productId: purchase.productId, purchaseToken: purchase.purchaseToken, transactionId: purchase.transactionId })
+          });
+          const body = await response.json();
+          if (!cancelled && body?.verified === true) {
+            setPaid(true);
+            setNotice("스토어 entitlement 동기화 완료 · REPORT unlocked");
+            break;
+          }
+        } catch {}
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [sessionToken, iapConnected, availablePurchases]);
 
   const run = async () => {
     setNotice("");
