@@ -158,7 +158,7 @@ export default function App() {
       </View>
 
       {!sessionToken && (
-        <View style={s.authBar}>
+        <View style={s.card}>
           <Text style={s.label}>CUSTOMER AUTH · REQUIRED FOR VERIFIED AI AUDIT</Text>
           <TextInput value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="you@company.com" placeholderTextColor="#656a73" style={s.input} />
           {!otpSent ? (
