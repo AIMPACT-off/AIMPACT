@@ -50,7 +50,9 @@ export async function handler(event) {
   const amount = Number(session.amount_total);
   const currency = String(session.currency || "").toLowerCase();
 
-  if (paymentLink !== PAYMENT_LINK_ID || !paid || amount !== QUICK_AUDIT_AMOUNT || currency !== QUICK_AUDIT_CURRENCY) {
+  const productKey = String(session.metadata?.product_key || "").trim();
+  const eligibleProduct = paymentLink === PAYMENT_LINK_ID || productKey === "AI_QUICK_AUDIT";
+  if (!eligibleProduct || !paid || amount !== QUICK_AUDIT_AMOUNT || currency !== QUICK_AUDIT_CURRENCY) {
     return json(400, {
       error: "payment_not_eligible",
       payment_link: paymentLink || null,
@@ -76,7 +78,7 @@ export async function handler(event) {
     body: JSON.stringify({
       p_stripe_event_id: stripeEvent.id,
       p_checkout_session_id: session.id,
-      p_payment_link_id: paymentLink,
+      p_payment_link_id: paymentLink || "checkout_session",
       p_amount: amount,
       p_currency: currency,
       p_customer_email: session.customer_details?.email || null,
