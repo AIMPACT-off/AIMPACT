@@ -67,7 +67,7 @@ async function persist({ supabaseUrl, key, user, platform, productId, transactio
   });
   if (!response.ok) throw new Error("ENTITLEMENT_STORE_UNAVAILABLE");
 }
-async function verifyApple(purchase) {
+async function verifyApple(purchase, expectedUserId) {
   const token = String(purchase.purchaseToken || "");
   const untrusted = decodeJwtPayload(token);
   const transactionId = String(purchase.transactionId || untrusted.transactionId || "");
@@ -83,9 +83,10 @@ async function verifyApple(purchase) {
   const signed = body?.signedTransactionInfo;
   const verified = decodeJwtPayload(signed);
   if (verified.bundleId !== env("APPLE_BUNDLE_ID") || verified.productId !== productId || String(verified.transactionId) !== transactionId) throw new Error("APPLE_TRANSACTION_MISMATCH");
+  if (verified.appAccountToken && String(verified.appAccountToken).toLowerCase() !== String(expectedUserId).toLowerCase()) throw new Error("APPLE_ACCOUNT_BINDING_MISMATCH");
   return { transactionId, productId, orderId: transactionId, purchasedAt: verified.purchaseDate ? new Date(Number(verified.purchaseDate)).toISOString() : null, metadata: { environment: verified.environment || "unknown", originalTransactionId: verified.originalTransactionId || null } };
 }
-async function verifyGoogle(purchase) {
+async function verifyGoogle(purchase, expectedUserId) {
   const token = String(purchase.purchaseToken || "");
   const productId = String(purchase.productId || "");
   if (!token || !productId) throw new Error("GOOGLE_TRANSACTION_FIELDS_MISSING");
@@ -96,6 +97,7 @@ async function verifyGoogle(purchase) {
   if (!response.ok) throw new Error("GOOGLE_PURCHASE_NOT_VERIFIED");
   const body = await response.json();
   if (Number(body.purchaseState) !== 0 || body.productId !== productId) throw new Error("GOOGLE_PURCHASE_NOT_PAID");
+  if (body.obfuscatedExternalAccountId && String(body.obfuscatedExternalAccountId) !== String(expectedUserId)) throw new Error("GOOGLE_ACCOUNT_BINDING_MISMATCH");
   if (Number(body.acknowledgementState) === 0) {
     const ack = await fetch(base + ":acknowledge", { method: "POST", headers: { Authorization: "Bearer " + accessToken, "Content-Type": "application/json" }, body: JSON.stringify({}) });
     if (!ack.ok && ack.status !== 409) throw new Error("GOOGLE_ACKNOWLEDGE_FAILED");
@@ -115,10 +117,10 @@ export async function handler(event) {
     let verified;
     if (platform === "ios") {
       if (!process.env.APPLE_ISSUER_ID || !process.env.APPLE_KEY_ID || !process.env.APPLE_PRIVATE_KEY || !process.env.APPLE_BUNDLE_ID) return json(503, { error: "STORE_PROVIDER_NOT_CONFIGURED", verified: false, platform });
-      verified = await verifyApple(body);
+      verified = await verifyApple(body, user.id);
     } else {
       if (!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || !process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || !process.env.GOOGLE_PACKAGE_NAME) return json(503, { error: "STORE_PROVIDER_NOT_CONFIGURED", verified: false, platform });
-      verified = await verifyGoogle(body);
+      verified = await verifyGoogle(body, user.id);
     }
     await persist({ supabaseUrl, key, user, platform, productId: verified.productId, transactionId: verified.transactionId, orderId: verified.orderId, purchasedAt: verified.purchasedAt, metadata: verified.metadata });
     return json(200, { verified: true, entitlement: "AI_QUICK_AUDIT", platform, productId: verified.productId, transactionId: verified.transactionId });
