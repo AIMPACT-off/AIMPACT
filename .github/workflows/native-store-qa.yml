@@ -127,6 +127,8 @@ jobs:
     permissions:
       actions: write
     steps:
+      - name: Checkout repository for GitHub CLI workflow dispatch
+        uses: actions/checkout@v4
       - name: Dispatch web verification
         env:
           GH_TOKEN: ${{ github.token }}
