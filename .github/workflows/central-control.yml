@@ -132,6 +132,9 @@ jobs:
           grep -q 'revenue_requires_transaction' control-plane/policy.json
           grep -q 'outcome_requires_measurement' control-plane/policy.json
           grep -q 'verified_tool_requires_current_evidence' control-plane/policy.json
+          grep -q '"payment_e2e_verified"' control-plane/policy.json
+          grep -q 'PAYMENT_E2E_NOT_VERIFIED' .github/workflows/central-control.yml
+          grep -q 'PAYMENT_E2E=NOT_VERIFIED' .github/workflows/payment-control.yml
       - name: Validate customer revenue path configuration
         run: |
           set -euo pipefail
