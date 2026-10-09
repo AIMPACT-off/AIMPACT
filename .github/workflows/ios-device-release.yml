@@ -198,6 +198,10 @@ jobs:
         run: |
           set -euo pipefail
           KEY="${RUNNER_TEMP}/AuthKey_${APPLE_KEY_ID}.p8"
+          test -s "$KEY"
+          # altool resolves App Store Connect API keys from its standard key directory.
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          install -m 600 "$KEY" "$HOME/.appstoreconnect/private_keys/AuthKey_${APPLE_KEY_ID}.p8"
           xcrun altool --upload-app -f release/AIMPACT-iOS.ipa -t ios --apiKey "${APPLE_KEY_ID}" --apiIssuer "${APPLE_ISSUER_ID}"
 
       - name: Publish iOS IPA
