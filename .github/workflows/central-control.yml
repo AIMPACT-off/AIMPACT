@@ -14,8 +14,8 @@ name: AIMPACT Central Control Validation
     - cron: "*/30 * * * *"
 
 concurrency:
-  group: aimpact-central-control-${{ github.ref }}
-  cancel-in-progress: true
+  group: aimpact-central-control-${{ github.ref }}-${{ github.event.workflow_run.id || github.run_id }}
+  cancel-in-progress: false
 
 permissions:
   contents: write
