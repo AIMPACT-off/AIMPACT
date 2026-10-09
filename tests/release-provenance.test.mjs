@@ -14,6 +14,8 @@ test("central control pins successful main mobile builds to immutable tags", () 
   assert.match(central, /git merge-base --is-ancestor "\$RUN_SHA" origin\/main/);
   assert.match(central, /RELEASE_REF="ci\/mobile-\$RUN_ID"/);
   assert.match(central, /IMMUTABLE_RELEASE_TAG_SHA_MISMATCH/);
+  assert.match(central, /MOBILE_BUILD_SHA_PRECEDES_IMMUTABLE_RELEASE_PIPELINE/);
+  assert.match(central, /git show "\$RUN_SHA:\$required_file"/);
   assert.match(central, /native-store-qa\.yml --ref "\$RELEASE_REF".*source_ref="\$RELEASE_REF"/);
 });
 
