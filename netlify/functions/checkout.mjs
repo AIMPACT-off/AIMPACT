@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { QUICK_AUDIT_PRICE_KRW } from "../../lib/product-catalog.mjs";
+import { QUICK_AUDIT_PRICE_KRW } from "../../mobile/product-catalog.mjs";
 
 function json(statusCode, body) {
   return { statusCode, headers: { "content-type": "application/json", "cache-control": "no-store" }, body: JSON.stringify(body) };
