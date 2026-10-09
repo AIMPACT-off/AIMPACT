@@ -13,7 +13,7 @@ on:
         type: string
 
 concurrency:
-  group: aimpact-native-store-qa
+  group: aimpact-native-store-qa-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
