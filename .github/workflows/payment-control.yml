@@ -4,6 +4,9 @@ name: AIMPACT Payment Control
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_run:
+    workflows: ["AIMPACT Mobile Build"]
+    types: [completed]
   schedule:
     - cron: "7 * * * *"
     - cron: "37 * * * *"
@@ -16,6 +19,7 @@ permissions:
   contents: read
 jobs:
   payment-code-gate:
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -31,7 +35,7 @@ jobs:
           echo "PAYMENT_CODE_GATE=PASS"
 
   stripe-integration-gate:
-    if: ${{ github.event_name != 'pull_request' }}
+    if: ${{ github.event_name != 'pull_request' && (github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')) }}
     needs: [payment-code-gate]
     runs-on: ubuntu-latest
     timeout-minutes: 3
