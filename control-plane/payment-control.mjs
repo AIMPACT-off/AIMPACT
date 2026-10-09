@@ -1,5 +1,5 @@
 import fs from "node:fs";
-const required = ["netlify.toml","netlify/functions/stripe-webhook.mjs","netlify/functions/entitlement.mjs","netlify/functions/checkout.mjs","netlify/functions/toss-checkout.mjs","netlify/functions/toss-confirm.mjs","netlify/functions/toss-webhook.mjs","lib/product-catalog.mjs","supabase/migrations/202610090001_toss_payment_orders.sql","mobile/App.js"];
+const required = ["netlify.toml","netlify/functions/stripe-webhook.mjs","netlify/functions/entitlement.mjs","netlify/functions/checkout.mjs","netlify/functions/toss-checkout.mjs","netlify/functions/toss-confirm.mjs","netlify/functions/toss-webhook.mjs","mobile/product-catalog.mjs","supabase/migrations/202610090001_toss_payment_orders.sql","mobile/App.js"];
 for (const file of required) {
   if (!fs.existsSync(file) || !fs.statSync(file).size) throw new Error("PAYMENT_CONTROL_MISSING_FILE=" + file);
 }
@@ -11,7 +11,7 @@ const netlify = fs.readFileSync("netlify.toml","utf8");
 const tossCheckout = fs.readFileSync("netlify/functions/toss-checkout.mjs","utf8");
 const tossConfirm = fs.readFileSync("netlify/functions/toss-confirm.mjs","utf8");
 const tossWebhook = fs.readFileSync("netlify/functions/toss-webhook.mjs","utf8");
-const catalog = fs.readFileSync("lib/product-catalog.mjs","utf8");
+const catalog = fs.readFileSync("mobile/product-catalog.mjs","utf8");
 const assertions = [
   [webhook.includes("STRIPE_WEBHOOK_SECRET"),"webhook signature verification"],
   [webhook.includes("stripeEvent.id"),"event id captured"],
