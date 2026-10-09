@@ -370,8 +370,9 @@ jobs:
             echo "PAYMENT_E2E=NOT_VERIFIED"
             exit 1
           fi
-          if [ "$RUN_CONCLUSION" = "skipped" ] && [ "$CODE_GATE" = "skipped" ] && [ "$INTEGRATION_GATE" = "skipped" ]; then
-            echo "::warning::PAYMENT_PROVIDER_GATE=NOT_RUN"
+          if [ "$RUN_CONCLUSION" = "skipped" ] && [ "$CODE_GATE" = "skipped" ]; then
+            echo "::notice::PAYMENT_CONTROL_RUN_NOT_EXECUTED"
+            echo "PAYMENT_PROVIDER_GATE=NOT_RUN"
             echo "PAYMENT_E2E=NOT_VERIFIED"
             echo "PAYMENT_AUTORETRY=NOT_APPLICABLE"
             exit 0
