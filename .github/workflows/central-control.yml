@@ -80,6 +80,21 @@ jobs:
           done
           grep -q 'EAS_PROJECT_ID_NOT_CONFIGURED' .github/workflows/native-store-qa.yml
           grep -q 'EAS_PROJECT_ID_NOT_CONFIGURED' .github/workflows/android-store-release.yml
+          grep -q 'RELEASE_REF="ci/mobile-$RUN_ID"' .github/workflows/central-control.yml
+          grep -q 'gh workflow run native-store-qa.yml --ref "$RELEASE_REF"' .github/workflows/central-control.yml
+          grep -q 'source_ref:' .github/workflows/native-store-qa.yml
+          grep -q 'gh workflow run ios-device-release.yml --ref "$SOURCE_REF"' .github/workflows/native-store-qa.yml
+          grep -q 'gh workflow run android-store-release.yml --ref "$SOURCE_REF"' .github/workflows/native-store-qa.yml
+          grep -q 'APPLE_BUNDLE_ID' .github/workflows/native-store-qa.yml
+          grep -q 'GOOGLE_SERVICE_ACCOUNT_EMAIL' .github/workflows/native-store-qa.yml
+          grep -q 'GOOGLE_PACKAGE_NAME' .github/workflows/native-store-qa.yml
+          grep -q 'serviceAccountKeyPath' mobile/eas.json
+          grep -q 'GOOGLE_SERVICE_ACCOUNT_KEY_BASE64' .github/workflows/android-store-release.yml
+          grep -q 'eas submit --platform android --profile production --non-interactive --id "$EAS_ANDROID_BUILD_ID" --wait' .github/workflows/android-store-release.yml
+          for f in .github/workflows/android-store-release.yml .github/workflows/ios-device-release.yml; do
+            grep -q 'inputs.source_ref' "$f"
+            grep -q 'STORE_QA_SOURCE_REF_MISMATCH' "$f"
+          done
           grep -q 'EXPO_TOKEN; do' .github/workflows/native-store-qa.yml
           grep -q 'store_qa_run_id="$GITHUB_RUN_ID"' .github/workflows/native-store-qa.yml
           grep -q 'stripe-integration-gate:' .github/workflows/payment-control.yml
@@ -97,12 +112,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          required=(AIMPACT_CENTRAL_CONTROL_SYSTEM.md AIMPACT_DECISION_AUTHORITY.md AIMPACT_CORE_TECHNOLOGY_AND_MONETIZATION.md AIMPACT_DATA_LINEAGE.md AIMPACT_VERIFICATION_SPEC.md AIMPACT_SYNC_SPEC.md)
+          required=(AIMPACT_CENTRAL_CONTROL_SYSTEM.md AIMPACT_DECISION_AUTHORITY.md AIMPACT_CORE_TECHNOLOGY_AND_MONETIZATION.md AIMPACT_DATA_LINEAGE.md AIMPACT_VERIFICATION_SPEC.md AIMPACT_SYNC_SPEC.md RELEASE_CREDENTIALS_AND_BLOCKERS.md)
           for f in "${required[@]}"; do test -s "$f" || { echo "Missing required architecture artifact: $f"; exit 1; }; done
-      - name: Validate frontend JavaScript syntax
+      - name: Test immutable mobile release provenance
+        run: node --test tests/release-provenance.test.mjs
+      - name: Validate frontend and EAS configuration syntax
         run: |
           node --check app.js
           node --check config.js
+          node -e 'JSON.parse(require("fs").readFileSync("mobile/eas.json","utf8")); console.log("EAS_CONFIG_JSON=PASS")'
       - name: Block browser service-role exposure
         shell: bash
         run: |
@@ -226,14 +244,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
-      contents: read
+      contents: write
       actions: write
     steps:
-      - name: Checkout repository for GitHub CLI context
+      - name: Checkout main history for immutable release tag
         uses: actions/checkout@v4
         with:
           ref: main
-      - name: Verify all required mobile build jobs passed
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Verify all required mobile build jobs passed and pin exact source
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.workflow_run.id }}
@@ -242,15 +262,35 @@ jobs:
           set -euo pipefail
           JOBS="$(gh run view "$RUN_ID" --json jobs --jq '.jobs[] | [.name,.conclusion] | @tsv')"
           echo "$JOBS"
-          for job in android-apk android-runtime ios-simulator; do
+          for job in android-apk android-runtime ios-simulator mobile-release-gate; do
             result="$(printf '%s\n' "$JOBS" | awk -F '\t' -v name="$job" '$1==name{print $2}')"
             if [ "$result" != "success" ]; then
               echo "MOBILE_STORE_QA_BLOCKED=JOB_${job}_${result:-MISSING}"
               exit 1
             fi
           done
-          gh workflow run native-store-qa.yml --ref main -f mobile_run_id="$RUN_ID" -f mobile_head_sha="$RUN_SHA"
-          echo "NATIVE_STORE_QA_DISPATCH=PASS MOBILE_RUN_ID=$RUN_ID MOBILE_SHA=$RUN_SHA"
+          git cat-file -e "$RUN_SHA^{commit}"
+          git merge-base --is-ancestor "$RUN_SHA" origin/main || { echo "::error::MOBILE_BUILD_SHA_NOT_ON_MAIN"; exit 1; }
+          # Older in-flight builds may complete after this workflow is upgraded. Do not dispatch a newer QA contract against an older source tree.
+          for required_file in .github/workflows/native-store-qa.yml .github/workflows/android-store-release.yml .github/workflows/ios-device-release.yml; do
+            local_file="$RUNNER_TEMP/$(basename "$required_file")"
+            git show "$RUN_SHA:$required_file" > "$local_file" || { echo "::error::MOBILE_BUILD_SOURCE_FILE_MISSING_$required_file"; exit 1; }
+            if ! grep -q 'source_ref:' "$local_file"; then
+              echo "::warning::MOBILE_BUILD_SHA_PRECEDES_IMMUTABLE_RELEASE_PIPELINE"
+              echo "NATIVE_STORE_QA_DISPATCH=SKIPPED_INCOMPATIBLE_SOURCE_CONTRACT SHA=$RUN_SHA FILE=$required_file"
+              exit 0
+            fi
+          done
+          RELEASE_REF="ci/mobile-$RUN_ID"
+          EXISTING_TAG_SHA="$(git ls-remote origin "refs/tags/$RELEASE_REF" | awk 'NR==1{print $1}')"
+          if [ -n "$EXISTING_TAG_SHA" ]; then
+            test "$EXISTING_TAG_SHA" = "$RUN_SHA" || { echo "::error::IMMUTABLE_RELEASE_TAG_SHA_MISMATCH"; exit 1; }
+          else
+            git tag "$RELEASE_REF" "$RUN_SHA"
+            git push origin "refs/tags/$RELEASE_REF"
+          fi
+          gh workflow run native-store-qa.yml --ref "$RELEASE_REF" -f mobile_run_id="$RUN_ID" -f mobile_head_sha="$RUN_SHA" -f source_ref="$RELEASE_REF"
+          echo "NATIVE_STORE_QA_DISPATCH=PASS MOBILE_RUN_ID=$RUN_ID MOBILE_SHA=$RUN_SHA SOURCE_REF=$RELEASE_REF"
 
   mobile-autorepair:
     if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'AIMPACT Mobile Build' && github.event.workflow_run.conclusion == 'failure' }}

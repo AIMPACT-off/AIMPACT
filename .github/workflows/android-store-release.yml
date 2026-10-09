@@ -17,6 +17,10 @@ on:
         description: "Commit SHA verified by Native Store QA"
         required: true
         type: string
+      source_ref:
+        description: "Immutable ci/mobile-* tag for the release source"
+        required: true
+        type: string
 permissions:
   contents: read
   actions: read
@@ -29,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.mobile_head_sha }}
+          ref: ${{ inputs.source_ref }}
       - name: Verify originating mobile build and store QA gates
         env:
           GH_TOKEN: ${{ github.token }}
@@ -37,8 +41,13 @@ jobs:
           MOBILE_HEAD_SHA: ${{ inputs.mobile_head_sha }}
           STORE_QA_RUN_ID: ${{ inputs.store_qa_run_id }}
           STORE_QA_HEAD_SHA: ${{ inputs.store_qa_head_sha }}
+          SOURCE_REF: ${{ inputs.source_ref }}
         run: |
           set -euo pipefail
+          test -n "$SOURCE_REF" || { echo "::error::IMMUTABLE_SOURCE_REF_REQUIRED"; exit 1; }
+          test "$GITHUB_REF_NAME" = "$SOURCE_REF" || { echo "::error::SOURCE_REF_CONTEXT_MISMATCH"; exit 1; }
+          test "$GITHUB_SHA" = "$MOBILE_HEAD_SHA" || { echo "::error::WORKFLOW_REF_SHA_MISMATCH"; exit 1; }
+          test "$(git rev-parse HEAD)" = "$MOBILE_HEAD_SHA" || { echo "::error::RELEASE_CHECKOUT_SHA_MISMATCH"; exit 1; }
           test -n "$MOBILE_RUN_ID" || { echo "::error::MOBILE_BUILD_RUN_ID_REQUIRED"; exit 1; }
           test -n "$MOBILE_HEAD_SHA" || { echo "::error::MOBILE_BUILD_SHA_REQUIRED"; exit 1; }
           test -n "$STORE_QA_RUN_ID" || { echo "::error::STORE_QA_RUN_ID_REQUIRED"; exit 1; }
@@ -54,14 +63,14 @@ jobs:
           done
           STORE_QA="$(gh run view "$STORE_QA_RUN_ID" --json conclusion,headSha,headBranch,workflowName,jobs)"
           test "$(printf '%s' "$STORE_QA" | jq -r '.workflowName')" = "AIMPACT Native Store QA" || { echo "::error::STORE_QA_WORKFLOW_MISMATCH"; exit 1; }
-          test "$(printf '%s' "$STORE_QA" | jq -r '.headBranch')" = "main" || { echo "::error::STORE_QA_MUST_BE_FROM_MAIN"; exit 1; }
+          test "$(printf '%s' "$STORE_QA" | jq -r '.headBranch')" = "$SOURCE_REF" || { echo "::error::STORE_QA_SOURCE_REF_MISMATCH"; exit 1; }
           test "$(printf '%s' "$STORE_QA" | jq -r '.headSha')" = "$STORE_QA_HEAD_SHA" || { echo "::error::STORE_QA_SHA_MISMATCH"; exit 1; }
           test "$STORE_QA_HEAD_SHA" = "$MOBILE_HEAD_SHA" || { echo "::error::MOBILE_AND_STORE_QA_SHA_MISMATCH"; exit 1; }
           test "$(printf '%s' "$STORE_QA" | jq -r '.conclusion')" = "success" || { echo "::error::STORE_QA_NOT_SUCCESSFUL"; exit 1; }
           QA_GATE="$(printf '%s' "$STORE_QA" | jq -r '.jobs[] | select(.name=="store-configuration-and-product-gate") | .conclusion' | head -n 1)"
           test "$QA_GATE" = "success" || { echo "::error::STORE_QA_GATE_NOT_SUCCESSFUL"; exit 1; }
-          test "$GITHUB_SHA" = "$MOBILE_HEAD_SHA" || { echo "::error::RELEASE_CHECKOUT_SHA_MISMATCH"; exit 1; }
-          echo "RELEASE_ORIGIN_GATE=PASS MOBILE_RUN=$MOBILE_RUN_ID STORE_QA_RUN=$STORE_QA_RUN_ID SHA=$MOBILE_HEAD_SHA"
+          test "$(git rev-parse HEAD)" = "$MOBILE_HEAD_SHA" || { echo "::error::RELEASE_CHECKOUT_SHA_MISMATCH"; exit 1; }
+          echo "RELEASE_ORIGIN_GATE=PASS MOBILE_RUN=$MOBILE_RUN_ID STORE_QA_RUN=$STORE_QA_RUN_ID SHA=$MOBILE_HEAD_SHA SOURCE_REF=$SOURCE_REF"
 
       - uses: actions/setup-node@v4
         with:
@@ -92,13 +101,40 @@ jobs:
           console.log("EAS_PROJECT_ID_CONFIGURED");
           NODE
 
-      - name: Build Android production AAB
+      - name: Build Android production AAB and capture exact EAS build ID
         working-directory: mobile
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas build --platform android --profile production --non-interactive --wait
-      - name: Submit Android production build to Google Play
+        run: |
+          set -euo pipefail
+          eas build --platform android --profile production --non-interactive --wait --json > "$RUNNER_TEMP/aimpact-eas-android-build.json"
+          BUILD_ID="$(jq -r 'if type == "array" then (.[0].id // .[0].buildId // empty) else (.id // .buildId // empty) end' "$RUNNER_TEMP/aimpact-eas-android-build.json")"
+          test -n "$BUILD_ID" || { echo "::error::EAS_ANDROID_BUILD_ID_NOT_RETURNED"; cat "$RUNNER_TEMP/aimpact-eas-android-build.json"; exit 1; }
+          echo "EAS_ANDROID_BUILD_ID=$BUILD_ID" >> "$GITHUB_ENV"
+          echo "ANDROID_AAB_BUILD_CREATED=PASS BUILD_ID=$BUILD_ID"
+      - name: Prepare Google Play service account from protected secret
+        working-directory: mobile
+        env:
+          GOOGLE_SERVICE_ACCOUNT_KEY_BASE64: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64 }}
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+        run: |
+          set -euo pipefail
+          test -n "$GOOGLE_SERVICE_ACCOUNT_KEY_BASE64" || { echo "::error::GOOGLE_SERVICE_ACCOUNT_KEY_BASE64_NOT_CONFIGURED"; exit 1; }
+          test -n "$GOOGLE_SERVICE_ACCOUNT_EMAIL" || { echo "::error::GOOGLE_SERVICE_ACCOUNT_EMAIL_NOT_CONFIGURED"; exit 1; }
+          mkdir -p credentials
+          printf '%s' "$GOOGLE_SERVICE_ACCOUNT_KEY_BASE64" | base64 --decode > credentials/google-service-account.json
+          chmod 600 credentials/google-service-account.json
+          node -e 'const fs=require("fs");const j=JSON.parse(fs.readFileSync("credentials/google-service-account.json","utf8"));if(j.client_email!==process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL)throw new Error("GOOGLE_SERVICE_ACCOUNT_EMAIL_MISMATCH");if(!j.private_key)throw new Error("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_MISSING");console.log("GOOGLE_PLAY_SUBMIT_CREDENTIAL=VALID")'
+      - name: Submit exact Android production build to Google Play
         working-directory: mobile
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas submit --platform android --profile production --non-interactive --latest
+        run: |
+          set -euo pipefail
+          test -n "$EAS_ANDROID_BUILD_ID"
+          eas submit --platform android --profile production --non-interactive --id "$EAS_ANDROID_BUILD_ID" --wait
+          echo "ANDROID_STORE_SUBMISSION=FINISHED BUILD_ID=$EAS_ANDROID_BUILD_ID"
+      - name: Remove temporary Google Play credential
+        if: ${{ always() }}
+        working-directory: mobile
+        run: rm -f credentials/google-service-account.json
