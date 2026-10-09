@@ -4,12 +4,12 @@ import fs from "node:fs";
 
 const workflow = fs.readFileSync(".github/workflows/store-secret-recovery.yml", "utf8");
 
-test("store secret recovery polls at five-minute intervals and supports manual observation", () => {
-  assert.match(workflow, /cron: "﹡\/5 ﹡ ﹡ ﹡ ﹡"/.source.replaceAll("﹡", "\\*"));
+test("store secret recovery polls every five minutes and supports manual observation", () => {
+  assert.ok(workflow.includes('cron: "*/5 * * * *"'));
   assert.match(workflow, /workflow_dispatch:/);
 });
 
-test("recovery checks secret presence without printing secret values", () => {
+test("recovery checks credential presence without printing secret values", () => {
   for (const key of [
     "APPLE_ISSUER_ID", "APPLE_KEY_ID", "APPLE_BUNDLE_ID", "APPLE_PRIVATE_KEY",
     "APPLE_PRIVATE_KEY_BASE64", "GOOGLE_SERVICE_ACCOUNT_EMAIL",
@@ -23,11 +23,11 @@ test("recovery pins the successful mobile SHA and checks every release gate", ()
   for (const gate of ["android-apk", "android-runtime", "ios-simulator", "mobile-release-gate"]) {
     assert.ok(workflow.includes(gate));
   }
-  assert.match(workflow, /git merge-base --is-ancestor "\$SHA" origin\/main/);
+  assert.ok(workflow.includes('git merge-base --is-ancestor "$SHA" origin/main'));
   assert.match(workflow, /IMMUTABLE_RELEASE_TAG_SHA_MISMATCH/);
 });
 
-test("recovery avoids duplicate QA and only retries a credential-blocked failure", () => {
+test("recovery avoids duplicate QA and only retries credential-blocked failures", () => {
   assert.match(workflow, /STORE_QA_RECOVERY=BLOCKED_PREVIOUS_FAILURE_NOT_CREDENTIAL_BLOCKED/);
   assert.match(workflow, /STORE_QA_RECOVERY=NOT_NEEDED/);
   assert.match(workflow, /gh workflow run native-store-qa\.yml/);
