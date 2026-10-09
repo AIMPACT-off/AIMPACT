@@ -114,4 +114,5 @@ jobs:
           print('STRIPE_SANDBOX_PAYMENT_LINK=PASS')
           print('PAYMENT_PROVIDER_GATE_MODE=STRIPE_SANDBOX_VERIFIED')
           print('STRIPE_INTEGRATION_GATE=PASS')
+          print('PAYMENT_E2E=NOT_VERIFIED')
           PY
