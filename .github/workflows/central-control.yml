@@ -114,8 +114,8 @@ jobs:
           set -euo pipefail
           required=(AIMPACT_CENTRAL_CONTROL_SYSTEM.md AIMPACT_DECISION_AUTHORITY.md AIMPACT_CORE_TECHNOLOGY_AND_MONETIZATION.md AIMPACT_DATA_LINEAGE.md AIMPACT_VERIFICATION_SPEC.md AIMPACT_SYNC_SPEC.md RELEASE_CREDENTIALS_AND_BLOCKERS.md)
           for f in "${required[@]}"; do test -s "$f" || { echo "Missing required architecture artifact: $f"; exit 1; }; done
-      - name: Test immutable mobile release provenance
-        run: node --test tests/release-provenance.test.mjs
+      - name: Test immutable mobile release provenance and payment truth gates
+        run: node --test tests/release-provenance.test.mjs tests/payment-e2e-truth.test.mjs
       - name: Validate frontend and EAS configuration syntax
         run: |
           node --check app.js
