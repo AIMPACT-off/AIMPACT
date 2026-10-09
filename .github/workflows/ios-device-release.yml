@@ -42,12 +42,22 @@ jobs:
       - name: Prepare Apple API key
         env:
           APPLE_PRIVATE_KEY: ${{ secrets.APPLE_PRIVATE_KEY }}
+          APPLE_PRIVATE_KEY_BASE64: ${{ secrets.APPLE_PRIVATE_KEY_BASE64 }}
         run: |
           set -euo pipefail
-          test -n "${APPLE_PRIVATE_KEY}"
           umask 077
-          printf '%s' "${APPLE_PRIVATE_KEY}" | sed 's/\\\\n/\n/g' > "${RUNNER_TEMP}/AuthKey_${{ secrets.APPLE_KEY_ID }}.p8"
-          test -s "${RUNNER_TEMP}/AuthKey_${{ secrets.APPLE_KEY_ID }}.p8"
+          KEY_PATH="${RUNNER_TEMP}/AuthKey_${{ secrets.APPLE_KEY_ID }}.p8"
+          if test -n "${APPLE_PRIVATE_KEY_BASE64}"; then
+            printf '%s' "${APPLE_PRIVATE_KEY_BASE64}" | base64 --decode > "$KEY_PATH"
+          elif test -n "${APPLE_PRIVATE_KEY}"; then
+            printf '%s' "${APPLE_PRIVATE_KEY}" | sed 's/\\\\n/\n/g' > "$KEY_PATH"
+          else
+            echo "IOS_DEVICE_RELEASE_BLOCKED=APPLE_PRIVATE_KEY_AND_BASE64_MISSING"
+            exit 1
+          fi
+          test -s "$KEY_PATH"
+          grep -q 'BEGIN PRIVATE KEY' "$KEY_PATH"
+          echo "APPLE_API_KEY_DECODE=PASS"
 
       - name: Create signing certificate and App Store provisioning profile
         env:
