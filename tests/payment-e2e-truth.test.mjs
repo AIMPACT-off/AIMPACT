@@ -6,6 +6,11 @@ const central = fs.readFileSync(".github/workflows/central-control.yml", "utf8")
 const payment = fs.readFileSync(".github/workflows/payment-control.yml", "utf8");
 const policy = JSON.parse(fs.readFileSync("control-plane/policy.json", "utf8"));
 
+test("central control runs are isolated so later events cannot cancel earlier evidence", () => {
+  assert.match(central, /aimpact-central-control-.*github\.event\.workflow_run\.id \|\| github\.run_id/);
+  assert.match(central, /cancel-in-progress: false/);
+});
+
 test("central payment control cannot pass without explicit E2E evidence", () => {
   assert.match(central, /grep -q 'PAYMENT_E2E=PASS'/);
   assert.match(central, /PAYMENT_E2E_NOT_VERIFIED/);
