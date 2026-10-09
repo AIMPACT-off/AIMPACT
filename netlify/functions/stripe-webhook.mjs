@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 
 const PAYMENT_LINK_ID = process.env.AIMPACT_QUICK_AUDIT_PAYMENT_LINK_ID || "plink_1UNpJEGeNSkj4zfGecYTrM3u";
-const QUICK_AUDIT_AMOUNT = 99000;
+const QUICK_AUDIT_AMOUNT = Number(process.env.PRODUCT_PRICE_QUICK_AUDIT || 200000);
 const QUICK_AUDIT_CURRENCY = "krw";
 
 function env(name) {
