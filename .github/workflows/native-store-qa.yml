@@ -54,6 +54,15 @@ jobs:
           test -s supabase/migrations/202610080003_store_entitlements.sql
           grep -q 'APPLE_ISSUER_ID' netlify/functions/iap-verify.mjs
           grep -q 'GOOGLE_SERVICE_ACCOUNT_EMAIL' netlify/functions/iap-verify.mjs
+          node <<'NODE'
+          const config = require("./mobile/app.json").expo;
+          const projectId = config.extra?.eas?.projectId;
+          if (!projectId) {
+            console.error("::error::EAS_PROJECT_ID_NOT_CONFIGURED");
+            process.exit(1);
+          }
+          console.log("EAS_PROJECT_ID_CONFIGURED");
+          NODE
           echo "NATIVE_STORE_ARCHITECTURE=PASS"
       - name: Audit Apple and Google verification credentials
         id: store-credentials
