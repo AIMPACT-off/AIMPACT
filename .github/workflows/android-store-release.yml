@@ -79,6 +79,19 @@ jobs:
           if test -z "${EXPO_TOKEN}"; then echo "ANDROID_STORE_RELEASE_BLOCKED=EXPO_TOKEN_NOT_CONFIGURED"; echo "ANDROID_STORE_RELEASE=BLOCKED"; exit 1; fi
       - name: Install EAS CLI
         run: npm install --global eas-cli
+      - name: Verify EAS project linkage
+        working-directory: mobile
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const config = require("./app.json").expo;
+          if (!config.extra?.eas?.projectId) {
+            console.error("::error::EAS_PROJECT_ID_NOT_CONFIGURED");
+            process.exit(1);
+          }
+          console.log("EAS_PROJECT_ID_CONFIGURED");
+          NODE
+
       - name: Build Android production AAB
         working-directory: mobile
         env:
