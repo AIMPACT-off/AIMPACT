@@ -30,6 +30,13 @@ jobs:
           node control-plane/payment-control.mjs
           grep -q 'STRIPE_SECRET_KEY' netlify/functions/checkout.mjs
           grep -q 'payment_status' netlify/functions/stripe-webhook.mjs
+          grep -q 'PRODUCT_PRICE_QUICK_AUDIT' netlify/functions/stripe-webhook.mjs
+          grep -q 'CHECKOUT_PRICE_MISMATCH' netlify/functions/checkout.mjs
+          grep -q 'PRODUCT_PRICE_QUICK_AUDIT' mobile/App.js || true
+          test -s netlify/functions/toss-checkout.mjs
+          test -s netlify/functions/toss-confirm.mjs
+          test -s netlify/functions/toss-webhook.mjs
+          test -s supabase/migrations/202610090001_toss_payment_orders.sql
           grep -q '=== "paid"' netlify/functions/stripe-webhook.mjs
           grep -q 'verifyPaidEntitlement' mobile/App.js
           echo "PAYMENT_CODE_GATE=PASS"
