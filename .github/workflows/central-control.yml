@@ -201,7 +201,7 @@ jobs:
           JOBS="$(gh run view "$RUN_ID" --json jobs --jq '.jobs[] | [.name,.conclusion] | @tsv')"
           echo "$JOBS"
           for job in android-apk android-runtime ios-simulator; do
-            result="$(printf '%s\\n' "$JOBS" | awk -F '\\t' -v name="$job" '$1==name{print $2}')"
+            result="$(printf '%s\n' "$JOBS" | awk -F '\t' -v name="$job" '$1==name{print $2}')"
             if [ "$result" != "success" ]; then
               echo "MOBILE_STORE_QA_BLOCKED=JOB_${job}_${result:-MISSING}"
               exit 1
