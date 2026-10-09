@@ -21,6 +21,11 @@
     },
     "plugins": [
       "expo-iap"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "26c387e9-f59e-4c88-b182-89bee4f4ee4a"
+      }
+    }
   }
 }
