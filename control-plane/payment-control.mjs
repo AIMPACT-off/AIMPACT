@@ -1,5 +1,5 @@
 import fs from "node:fs";
-const required = ["netlify.toml","netlify/functions/stripe-webhook.mjs","netlify/functions/entitlement.mjs","netlify/functions/checkout.mjs","mobile/App.js"];
+const required = ["netlify.toml","netlify/functions/stripe-webhook.mjs","netlify/functions/entitlement.mjs","netlify/functions/checkout.mjs","netlify/functions/toss-checkout.mjs","netlify/functions/toss-confirm.mjs","netlify/functions/toss-webhook.mjs","mobile/product-catalog.mjs","supabase/migrations/202610090001_toss_payment_orders.sql","payment.html","payment-success.html","payment-fail.html","mobile/App.js"];
 for (const file of required) {
   if (!fs.existsSync(file) || !fs.statSync(file).size) throw new Error("PAYMENT_CONTROL_MISSING_FILE=" + file);
 }
@@ -8,6 +8,10 @@ const entitlement = fs.readFileSync("netlify/functions/entitlement.mjs","utf8");
 const checkout = fs.readFileSync("netlify/functions/checkout.mjs","utf8");
 const app = fs.readFileSync("mobile/App.js","utf8");
 const netlify = fs.readFileSync("netlify.toml","utf8");
+const tossCheckout = fs.readFileSync("netlify/functions/toss-checkout.mjs","utf8");
+const tossConfirm = fs.readFileSync("netlify/functions/toss-confirm.mjs","utf8");
+const tossWebhook = fs.readFileSync("netlify/functions/toss-webhook.mjs","utf8");
+const catalog = fs.readFileSync("mobile/product-catalog.mjs","utf8");
 const assertions = [
   [webhook.includes("STRIPE_WEBHOOK_SECRET"),"webhook signature verification"],
   [webhook.includes("stripeEvent.id"),"event id captured"],
@@ -16,6 +20,15 @@ const assertions = [
   [webhook.includes("currency"),"currency verification"],
   [webhook.includes("AIMPACT_PAYMENT_RPC"),"server-side entitlement RPC"],
   [webhook.includes("AIMPACT_QUICK_AUDIT_PAYMENT_LINK_ID"),"payment-link environment override"],
+  [webhook.includes("QUICK_AUDIT_PRICE_KRW"),"canonical price in webhook"],
+  [checkout.includes("CHECKOUT_PRICE_MISMATCH"),"Stripe price object amount guard"],
+  [tossCheckout.includes("AMOUNT_MISMATCH") && tossCheckout.includes("toss_payment_orders"),"authenticated Toss order and amount guard"],
+  [tossConfirm.includes("/v1/payments/confirm"),"Toss server-side approval API"],
+  [tossConfirm.includes("ORDER_ALREADY_PAID") && tossConfirm.includes("payment_key"),"Toss idempotency guard"],
+  [tossWebhook.includes("/v1/payments/") && tossWebhook.includes("payment.totalAmount"),"Toss webhook provider API reconciliation"],
+  [catalog.includes("QUICK_AUDIT_PRICE_KRW = 200000"),"canonical KRW 200000 catalog"],
+  [fs.readFileSync("payment.html","utf8").includes("/api/toss-checkout"),"authenticated Toss checkout UI"],
+  [fs.readFileSync("payment-success.html","utf8").includes("/api/toss-confirm"),"server-verified Toss return UI"],
   [checkout.includes("Authorization"),"authenticated checkout"],
   [checkout.includes("client_reference_id"),"auth-bound checkout"],
   [checkout.includes("STRIPE_SECRET_KEY"),"server-side Stripe secret only"],

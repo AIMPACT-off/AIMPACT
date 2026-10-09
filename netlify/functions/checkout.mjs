@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { QUICK_AUDIT_PRICE_KRW } from "../../mobile/product-catalog.mjs";
 
 function json(statusCode, body) {
   return { statusCode, headers: { "content-type": "application/json", "cache-control": "no-store" }, body: JSON.stringify(body) };
@@ -27,9 +28,22 @@ export async function handler(event) {
   if (!authUserId || !email) return json(401, { error: "AUTH_INVALID", verified: false });
 
   const stripeKey = env("STRIPE_SECRET_KEY");
+  const expectedAmount = Number(process.env.PRODUCT_PRICE_QUICK_AUDIT || QUICK_AUDIT_PRICE_KRW);
+  if (!Number.isSafeInteger(expectedAmount) || expectedAmount !== 200000) {
+    return json(503, { error: "QUICK_AUDIT_PRICE_CONFIGURATION_INVALID", verified: false });
+  }
+  const priceId = env("AIMPACT_QUICK_AUDIT_PRICE_ID");
+  const priceResponse = await fetch("https://api.stripe.com/v1/prices/" + encodeURIComponent(priceId), {
+    headers: { Authorization: "Bearer " + stripeKey }
+  });
+  if (!priceResponse.ok) return json(503, { error: "CHECKOUT_PRICE_UNVERIFIED", verified: false });
+  const price = await priceResponse.json();
+  if (price.active !== true || price.currency !== "krw" || Number(price.unit_amount) !== expectedAmount || price.recurring) {
+    return json(409, { error: "CHECKOUT_PRICE_MISMATCH", verified: false });
+  }
   const params = new URLSearchParams();
   params.set("mode", "payment");
-  params.set("line_items[0][price]", env("AIMPACT_QUICK_AUDIT_PRICE_ID"));
+  params.set("line_items[0][price]", priceId);
   params.set("line_items[0][quantity]", "1");
   params.set("customer_email", email);
   params.set("client_reference_id", authUserId);

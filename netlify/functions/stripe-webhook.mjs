@@ -1,8 +1,9 @@
 import crypto from "node:crypto";
+import { QUICK_AUDIT_PRICE_KRW, QUICK_AUDIT_CURRENCY as CANONICAL_CURRENCY } from "../../mobile/product-catalog.mjs";
 
 const PAYMENT_LINK_ID = process.env.AIMPACT_QUICK_AUDIT_PAYMENT_LINK_ID || "plink_1UNpJEGeNSkj4zfGecYTrM3u";
-const QUICK_AUDIT_AMOUNT = 99000;
-const QUICK_AUDIT_CURRENCY = "krw";
+const QUICK_AUDIT_AMOUNT = Number(process.env.PRODUCT_PRICE_QUICK_AUDIT || QUICK_AUDIT_PRICE_KRW);
+const QUICK_AUDIT_CURRENCY = CANONICAL_CURRENCY.toLowerCase();
 
 function env(name) {
   const value = process.env[name];
@@ -30,6 +31,9 @@ function json(statusCode, body) {
 
 export async function handler(event) {
   if (event.httpMethod !== "POST") return json(405, { error: "method_not_allowed" });
+  if (!Number.isSafeInteger(QUICK_AUDIT_AMOUNT) || QUICK_AUDIT_AMOUNT !== QUICK_AUDIT_PRICE_KRW) {
+    return json(503, { error: "PRODUCT_PRICE_CONFIGURATION_INVALID" });
+  }
   const rawBody = event.body || "";
   const signature = event.headers?.["stripe-signature"] || event.headers?.["Stripe-Signature"];
   if (!verifyStripeSignature(rawBody, signature, env("STRIPE_WEBHOOK_SECRET"))) {
