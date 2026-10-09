@@ -45,15 +45,19 @@ jobs:
       - name: Verify APK
         working-directory: mobile
         run: |
+          set -euo pipefail
           APK="android/app/build/outputs/apk/release/app-release.apk"
           test -s "$APK"
+          sha256sum "$APK" | tee "$APK.sha256"
           echo "APK_READY=$APK"
-          ls -lh "$APK"
+          ls -lh "$APK" "$APK.sha256"
       - name: Upload AIMPACT Android APK
         uses: actions/upload-artifact@v4
         with:
           name: AIMPACT-Android-APK
-          path: mobile/android/app/build/outputs/apk/release/app-release.apk
+          path: |
+            mobile/android/app/build/outputs/apk/release/app-release.apk
+            mobile/android/app/build/outputs/apk/release/app-release.apk.sha256
           if-no-files-found: error
 
   android-runtime:
@@ -63,21 +67,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Download exact APK artifact from android-apk job
+        uses: actions/download-artifact@v4
         with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: mobile/package.json
-      - name: Install dependencies
-        run: npm install
-        working-directory: mobile
-      - name: Generate native Android project
-        run: npx expo prebuild --platform android --non-interactive
-        working-directory: mobile
-      - name: Build APK for runtime
-        run: ./gradlew assembleRelease --no-daemon
-        working-directory: mobile/android
+          name: AIMPACT-Android-APK
+          path: mobile/android/app/build/outputs/apk/release/
+      - name: Verify downloaded APK checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="mobile/android/app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          test -s "$APK.sha256"
+          sha256sum -c "$APK.sha256"
+          echo "ANDROID_RUNTIME_ARTIFACT_SHA256=$(sha256sum "$APK" | awk '{print $1}')"
       - name: Prepare Linux KVM for Android Emulator
         shell: bash
         run: |
