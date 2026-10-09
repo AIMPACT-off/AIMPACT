@@ -38,6 +38,7 @@ jobs:
           RUN="$(gh run view "$MOBILE_RUN_ID" --json conclusion,headSha,workflowName,jobs)"
           test "$(printf '%s' "$RUN" | jq -r '.workflowName')" = "AIMPACT Mobile Build" || { echo "::error::MOBILE_BUILD_WORKFLOW_MISMATCH"; exit 1; }
           test "$(printf '%s' "$RUN" | jq -r '.headSha')" = "$MOBILE_HEAD_SHA" || { echo "::error::MOBILE_BUILD_SHA_MISMATCH"; exit 1; }
+          test "$GITHUB_SHA" = "$MOBILE_HEAD_SHA" || { echo "::error::CHECKED_OUT_COMMIT_DIFFERS_FROM_VERIFIED_MOBILE_BUILD"; exit 1; }
           test "$(printf '%s' "$RUN" | jq -r '.conclusion')" = "success" || { echo "::error::MOBILE_BUILD_NOT_SUCCESSFUL"; exit 1; }
           for job in android-apk android-runtime ios-simulator; do
             result="$(printf '%s' "$RUN" | jq -r --arg n "$job" '.jobs[] | select(.name==$n) | .conclusion' | head -n 1)"
@@ -85,6 +86,7 @@ jobs:
           APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
           APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
           APPLE_PRIVATE_KEY: ${{ secrets.APPLE_PRIVATE_KEY }}
+          APPLE_PRIVATE_KEY_BASE64: ${{ secrets.APPLE_PRIVATE_KEY_BASE64 }}
           APPLE_BUNDLE_ID: ${{ secrets.APPLE_BUNDLE_ID }}
           IAP_PRODUCT_ID: ai.aimpact.quick_audit
         run: |
@@ -94,7 +96,9 @@ jobs:
           const now=Math.floor(Date.now()/1000);
           const h=b64(JSON.stringify({alg:"ES256",kid:process.env.APPLE_KEY_ID,typ:"JWT"}));
           const p=b64(JSON.stringify({iss:process.env.APPLE_ISSUER_ID,iat:now,exp:now+300,aud:"appstoreconnect-v1"}));
-          const sig=crypto.sign("sha256",Buffer.from(h+"."+p),{key:process.env.APPLE_PRIVATE_KEY.replace(/\\n/g,"\n"),dsaEncoding:"ieee-p1363"}).toString("base64url");
+          const rawKey=process.env.APPLE_PRIVATE_KEY || Buffer.from(process.env.APPLE_PRIVATE_KEY_BASE64 || "", "base64").toString("utf8");
+          if(!rawKey.trim()) throw new Error("APPLE_PRIVATE_KEY_MISSING");
+          const sig=crypto.sign("sha256",Buffer.from(h+"."+p),{key:rawKey.replace(/\\n/g,"\n"),dsaEncoding:"ieee-p1363"}).toString("base64url");
           const jwt=h+"."+p+"."+sig;
           (async()=>{
             const a=await fetch("https://api.appstoreconnect.apple.com/v1/apps?filter[bundleId]="+encodeURIComponent(process.env.APPLE_BUNDLE_ID),{headers:{Authorization:"Bearer "+jwt}});
