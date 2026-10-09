@@ -1,5 +1,5 @@
 import fs from "node:fs";
-const required = ["netlify.toml","netlify/functions/stripe-webhook.mjs","netlify/functions/entitlement.mjs","netlify/functions/checkout.mjs","netlify/functions/toss-checkout.mjs","netlify/functions/toss-confirm.mjs","netlify/functions/toss-webhook.mjs","mobile/product-catalog.mjs","supabase/migrations/202610090001_toss_payment_orders.sql","mobile/App.js"];
+const required = ["netlify.toml","netlify/functions/stripe-webhook.mjs","netlify/functions/entitlement.mjs","netlify/functions/checkout.mjs","netlify/functions/toss-checkout.mjs","netlify/functions/toss-confirm.mjs","netlify/functions/toss-webhook.mjs","mobile/product-catalog.mjs","supabase/migrations/202610090001_toss_payment_orders.sql","payment.html","payment-success.html","payment-fail.html","mobile/App.js"];
 for (const file of required) {
   if (!fs.existsSync(file) || !fs.statSync(file).size) throw new Error("PAYMENT_CONTROL_MISSING_FILE=" + file);
 }
@@ -27,6 +27,8 @@ const assertions = [
   [tossConfirm.includes("ORDER_ALREADY_PAID") && tossConfirm.includes("payment_key"),"Toss idempotency guard"],
   [tossWebhook.includes("/v1/payments/") && tossWebhook.includes("payment.totalAmount"),"Toss webhook provider API reconciliation"],
   [catalog.includes("QUICK_AUDIT_PRICE_KRW = 200000"),"canonical KRW 200000 catalog"],
+  [fs.readFileSync("payment.html","utf8").includes("/api/toss-checkout"),"authenticated Toss checkout UI"],
+  [fs.readFileSync("payment-success.html","utf8").includes("/api/toss-confirm"),"server-verified Toss return UI"],
   [checkout.includes("Authorization"),"authenticated checkout"],
   [checkout.includes("client_reference_id"),"auth-bound checkout"],
   [checkout.includes("STRIPE_SECRET_KEY"),"server-side Stripe secret only"],
