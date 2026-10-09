@@ -36,23 +36,52 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Observe configured Stripe sandbox account with bounded retry
+      - name: Select configured provider without treating key presence as integration proof
         env:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          TOSS_SECRET_KEY: ${{ secrets.TOSS_SECRET_KEY }}
+          PAYMENT_PROVIDER: ${{ vars.AIMPACT_PAYMENT_PROVIDER }}
           PAYMENT_LINK_ID: plink_1UNpJEGeNSkj4zfGecYTrM3u
+        shell: bash
         run: |
           set -euo pipefail
+          provider="${PAYMENT_PROVIDER:-auto}"
+          if [ "$provider" = "auto" ]; then
+            if [ -n "${TOSS_SECRET_KEY:-}" ]; then provider="toss"; elif [ -n "${STRIPE_SECRET_KEY:-}" ]; then provider="stripe"; else provider="mock"; fi
+          fi
+          echo "PAYMENT_PROVIDER_SELECTED=$provider"
+          if [ "$provider" = "mock" ] || { [ -z "${TOSS_SECRET_KEY:-}" ] && [ -z "${STRIPE_SECRET_KEY:-}" ]; }; then
+            echo "::warning::No payment provider credentials configured; only code-level checks ran. No live/sandbox payment integration is verified."
+            echo "::warning::STRIPE_SECRET_KEY_NOT_CONFIGURED"
+            echo "PAYMENT_PROVIDER_GATE_MODE=MOCK_ONLY"
+            echo "STRIPE_INTEGRATION_GATE=SKIPPED_NO_PROVIDER_SECRET"
+            exit 0
+          fi
+          if [ "$provider" = "toss" ]; then
+            if [ -z "${TOSS_SECRET_KEY:-}" ]; then
+              echo "::error::TOSS_SECRET_KEY_NOT_CONFIGURED"
+              exit 1
+            fi
+            if [ ! -s netlify/functions/toss-checkout.mjs ] || [ ! -s netlify/functions/toss-webhook.mjs ]; then
+              echo "::error::TOSS_INTEGRATION_NOT_IMPLEMENTED"
+              echo "TOSS_SECRET_KEY_PRESENT_BUT_NOT_PROOF_OF_INTEGRATION"
+              exit 1
+            fi
+            echo "PAYMENT_PROVIDER_GATE_MODE=TOSS_CODE_PRESENT_REQUIRES_PROVIDER_SPECIFIC_TEST"
+            echo "::error::TOSS_SANDBOX_PAYMENT_TEST_NOT_IMPLEMENTED"
+            exit 1
+          fi
+          if [ "$provider" != "stripe" ]; then
+            echo "::error::UNSUPPORTED_PAYMENT_PROVIDER=$provider"
+            exit 1
+          fi
           if [ -z "${STRIPE_SECRET_KEY:-}" ]; then
             echo "::error::STRIPE_SECRET_KEY_NOT_CONFIGURED"
-            echo "PAYMENT_CODE_GATE=PASS"
-            echo "STRIPE_INTEGRATION_GATE=BLOCKED_MISSING_SECRET"
             exit 1
           fi
           for attempt in 1 2 3; do
             code=$(curl -sS -o /tmp/payment-link.json -w "%{http_code}" -u "$STRIPE_SECRET_KEY:" "https://api.stripe.com/v1/payment_links/$PAYMENT_LINK_ID" || true)
-            if [ "$code" = "200" ]; then
-              break
-            fi
+            if [ "$code" = "200" ]; then break; fi
             echo "STRIPE_PAYMENT_LINK_OBSERVATION_RETRY=$attempt HTTP=$code"
             sleep $((attempt * 5))
           done
@@ -63,5 +92,6 @@ jobs:
           assert d.get('active') is True, 'payment link is not active'
           assert d.get('livemode') is False, 'expected sandbox payment link'
           print('STRIPE_SANDBOX_PAYMENT_LINK=PASS')
+          print('PAYMENT_PROVIDER_GATE_MODE=STRIPE_SANDBOX_VERIFIED')
           print('STRIPE_INTEGRATION_GATE=PASS')
           PY
