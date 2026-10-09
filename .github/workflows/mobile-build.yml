@@ -12,7 +12,7 @@ on:
 
 concurrency:
   group: aimpact-mobile-build-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   android-apk:
@@ -218,7 +218,7 @@ jobs:
           echo "AIMPACT_MOBILE_RELEASE_GATE=PASS"
 
   auto-next-payment:
-    if: ${{ github.event_name != 'workflow_run' && success() }}
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && success() }}
     needs: [mobile-release-gate]
     runs-on: ubuntu-latest
     permissions:
