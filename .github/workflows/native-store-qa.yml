@@ -1,11 +1,16 @@
 name: AIMPACT Native Store QA
 
 on:
-  push:
-    branches: [main]
-  schedule:
-    - cron: "17 * * * *"
   workflow_dispatch:
+    inputs:
+      mobile_run_id:
+        description: "Successful AIMPACT Mobile Build run ID dispatched by Central Control"
+        required: true
+        type: string
+      mobile_head_sha:
+        description: "Commit SHA verified by Central Control"
+        required: true
+        type: string
 
 concurrency:
   group: aimpact-native-store-qa
@@ -13,6 +18,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   store-configuration-and-product-gate:
@@ -20,6 +26,24 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: Verify originating mobile build gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MOBILE_RUN_ID: ${{ inputs.mobile_run_id }}
+          MOBILE_HEAD_SHA: ${{ inputs.mobile_head_sha }}
+        run: |
+          set -euo pipefail
+          test -n "$MOBILE_RUN_ID" || { echo "::error::MOBILE_BUILD_RUN_ID_REQUIRED"; exit 1; }
+          test -n "$MOBILE_HEAD_SHA" || { echo "::error::MOBILE_BUILD_SHA_REQUIRED"; exit 1; }
+          RUN="$(gh run view "$MOBILE_RUN_ID" --json conclusion,headSha,workflowName,jobs)"
+          test "$(printf '%s' "$RUN" | jq -r '.workflowName')" = "AIMPACT Mobile Build" || { echo "::error::MOBILE_BUILD_WORKFLOW_MISMATCH"; exit 1; }
+          test "$(printf '%s' "$RUN" | jq -r '.headSha')" = "$MOBILE_HEAD_SHA" || { echo "::error::MOBILE_BUILD_SHA_MISMATCH"; exit 1; }
+          test "$(printf '%s' "$RUN" | jq -r '.conclusion')" = "success" || { echo "::error::MOBILE_BUILD_NOT_SUCCESSFUL"; exit 1; }
+          for job in android-apk android-runtime ios-simulator; do
+            result="$(printf '%s' "$RUN" | jq -r --arg n "$job" '.jobs[] | select(.name==$n) | .conclusion' | head -n 1)"
+            test "$result" = "success" || { echo "::error::MOBILE_JOB_GATE_FAILED_$job"; exit 1; }
+          done
+          echo "MOBILE_BUILD_GATE=PASS RUN=$MOBILE_RUN_ID SHA=$MOBILE_HEAD_SHA"
       - name: Validate native store architecture
         run: |
           set -euo pipefail
@@ -88,7 +112,6 @@ jobs:
         env:
           GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
           GOOGLE_SERVICE_ACCOUNT_KEY_BASE64: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64 }}
-          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
           GOOGLE_PACKAGE_NAME: ${{ secrets.GOOGLE_PACKAGE_NAME }}
           IAP_PRODUCT_ID: ai.aimpact.quick_audit
         run: |
@@ -112,14 +135,14 @@ jobs:
             console.log("GOOGLE_IAP_PRODUCT=PASS",JSON.stringify({productId:d.productId,purchaseOptions:d.purchaseOptions?.length||0}));
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
-      - name: Native store architecture gate
+      - name: Enforce store credential gate
+        env:
+          STORE_CREDENTIALS: ${{ steps.store-credentials.outputs.STORE_VERIFICATION_CREDENTIALS }}
         run: |
+          set -euo pipefail
+          test "$STORE_CREDENTIALS" = "CONFIGURED" || { echo "::error::STORE_RELEASE_BLOCKED_CREDENTIALS"; exit 1; }
           echo "NATIVE_STORE_ARCHITECTURE_GATE=PASS"
-          if test "${{ steps.store-credentials.outputs.STORE_VERIFICATION_CREDENTIALS }}" = "CONFIGURED"; then
-            echo "STORE_PRODUCT_VERIFICATION=PASS"
-          else
-            echo "STORE_PRODUCT_VERIFICATION=BLOCKED_CREDENTIALS"
-          fi
+          echo "STORE_PRODUCT_VERIFICATION=PASS"
 
   auto-next-store-builds:
     if: ${{ success() }}
