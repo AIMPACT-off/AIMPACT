@@ -226,8 +226,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
+      contents: read
       actions: write
     steps:
+      - name: Checkout repository for GitHub CLI context
+        uses: actions/checkout@v4
+        with:
+          ref: main
       - name: Verify all required mobile build jobs passed
         env:
           GH_TOKEN: ${{ github.token }}
