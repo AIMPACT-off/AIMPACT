@@ -66,7 +66,7 @@ jobs:
           grep -Fq 'actions/download-artifact@v4' .github/workflows/mobile-build.yml
           grep -Fq 'sha256sum -c "$(basename "$APK").sha256"' .github/workflows/mobile-build.yml
           grep -Fq 'AIMPACT-Android-Runtime-Diagnostics' .github/workflows/mobile-build.yml
-          grep -Fq 'cancel-in-progress: false' .github/workflows/mobile-build.yml
+          grep -Fq 'cancel-in-progress: true' .github/workflows/mobile-build.yml
           grep -Fq 'mobile-release-gate:' .github/workflows/mobile-build.yml
           grep -Fq 'needs.android-apk.result' .github/workflows/mobile-build.yml
           grep -Fq 'needs.android-runtime.result' .github/workflows/mobile-build.yml

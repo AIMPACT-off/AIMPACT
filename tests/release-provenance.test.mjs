@@ -4,11 +4,17 @@ import fs from "node:fs";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 const central = read(".github/workflows/central-control.yml");
+const mobile = read(".github/workflows/mobile-build.yml");
 const qa = read(".github/workflows/native-store-qa.yml");
 const android = read(".github/workflows/android-store-release.yml");
 const ios = read(".github/workflows/ios-device-release.yml");
 const eas = JSON.parse(read("mobile/eas.json"));
 const credentials = read("RELEASE_CREDENTIALS_AND_BLOCKERS.md");
+
+test("superseded mobile builds are cancelled so current SHA is not queued behind stale work", () => {
+  assert.match(mobile, /group: aimpact-mobile-build-\$\{\{ github\.ref \}\}/);
+  assert.match(mobile, /cancel-in-progress: true/);
+});
 
 test("central control pins successful main mobile builds to immutable tags", () => {
   assert.match(central, /git merge-base --is-ancestor "\$RUN_SHA" origin\/main/);
