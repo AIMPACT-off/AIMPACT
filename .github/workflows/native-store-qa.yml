@@ -153,6 +153,7 @@ jobs:
     needs: [store-configuration-and-product-gate]
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       actions: write
     steps:
       - name: Checkout repository for GitHub CLI workflow dispatch
