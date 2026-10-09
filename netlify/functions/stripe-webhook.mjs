@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { QUICK_AUDIT_PRICE_KRW, QUICK_AUDIT_CURRENCY as CANONICAL_CURRENCY } from "../../lib/product-catalog.mjs";
+import { QUICK_AUDIT_PRICE_KRW, QUICK_AUDIT_CURRENCY as CANONICAL_CURRENCY } from "../../mobile/product-catalog.mjs";
 
 const PAYMENT_LINK_ID = process.env.AIMPACT_QUICK_AUDIT_PAYMENT_LINK_ID || "plink_1UNpJEGeNSkj4zfGecYTrM3u";
 const QUICK_AUDIT_AMOUNT = Number(process.env.PRODUCT_PRICE_QUICK_AUDIT || QUICK_AUDIT_PRICE_KRW);
