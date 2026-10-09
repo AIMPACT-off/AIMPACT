@@ -3,7 +3,7 @@ import { Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInpu
 import { StatusBar } from "expo-status-bar";
 import { useIAP } from "expo-iap";
 import { authConfigReady, sendOtp, verifyOtp, getSessionToken, getSessionUserId } from "./session";
-import { QUICK_AUDIT_PRICE_KRW } from "../lib/product-catalog.mjs";
+import { QUICK_AUDIT_PRICE_KRW } from "./product-catalog.mjs";
 
 const ENTITLEMENT_API = "https://aimpact-ai.netlify.app/api/entitlement";
 const CHECKOUT_API = "https://aimpact-ai.netlify.app/api/checkout";
