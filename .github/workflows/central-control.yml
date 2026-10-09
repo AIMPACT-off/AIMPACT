@@ -80,6 +80,8 @@ jobs:
           grep -q 'store_qa_run_id="$GITHUB_RUN_ID"' .github/workflows/native-store-qa.yml
           grep -q 'stripe-integration-gate:' .github/workflows/payment-control.yml
           grep -q 'STRIPE_SECRET_KEY_NOT_CONFIGURED' .github/workflows/payment-control.yml
+          grep -q 'PAYMENT_PROVIDER_GATE_MODE=MOCK_ONLY' .github/workflows/payment-control.yml
+          grep -q 'TOSS_INTEGRATION_NOT_IMPLEMENTED' .github/workflows/payment-control.yml
           ! grep -q 'native-store-qa.yml' .github/workflows/payment-control.yml
           echo "ANDROID_DIAGNOSTICS_AND_RELEASE_GATES=PASS"
 
@@ -295,11 +297,11 @@ jobs:
           CODE_GATE="$(printf '%s\n' "$JOBS" | awk -F '\t' '$1=="payment-code-gate"{print $3}')"
           INTEGRATION_GATE="$(printf '%s\n' "$JOBS" | awk -F '\t' '$1=="stripe-integration-gate"{print $3}')"
           if [ "$CODE_GATE" = "success" ] && [ "$INTEGRATION_GATE" = "success" ] && [ "$RUN_CONCLUSION" = "success" ]; then
-            echo "PAYMENT_CODE_AND_STRIPE_INTEGRATION=PASS"
+            echo "PAYMENT_CODE_AND_PROVIDER_GATE=PASS (provider mode is reported by the integration job; MOCK_ONLY is not payment integration proof)"
             exit 0
           fi
           if [ "$CODE_GATE" = "success" ] && [ "$INTEGRATION_GATE" = "failure" ]; then
-            echo "PAYMENT_AUTOMATION_BLOCKED=STRIPE_SECRET_OR_API_CONFIGURATION"
+            echo "PAYMENT_AUTOMATION_BLOCKED=SELECTED_PROVIDER_SECRET_OR_INTEGRATION_CONFIGURATION"
             echo "PAYMENT_AUTORETRY=SKIPPED_EXTERNAL_BLOCKER"
             exit 1
           fi
