@@ -51,7 +51,7 @@ jobs:
             if [ -n "${TOSS_SECRET_KEY:-}" ]; then provider="toss"; elif [ -n "${STRIPE_SECRET_KEY:-}" ]; then provider="stripe"; else provider="mock"; fi
           fi
           echo "PAYMENT_PROVIDER_SELECTED=$provider"
-          if [ "$provider" = "mock" ] || { [ -z "${TOSS_SECRET_KEY:-}" ] && [ -z "${STRIPE_SECRET_KEY:-}" ]; }; then
+          if [ "$provider" = "mock" ]; then
             echo "::warning::No payment provider credentials configured; only code-level checks ran. No live/sandbox payment integration is verified."
             echo "::warning::STRIPE_SECRET_KEY_NOT_CONFIGURED"
             echo "PAYMENT_PROVIDER_GATE_MODE=MOCK_ONLY"
