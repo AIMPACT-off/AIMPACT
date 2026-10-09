@@ -90,7 +90,7 @@ export async function handler(event) {
     catch { return json(503, { error: "TOSS_API_UNAVAILABLE", verified: false }); }
   }
   if (!payment) return json(402, { error: "TOSS_PAYMENT_NOT_FOUND", verified: false });
-  if (payment.orderId !== orderId || Number(payment.totalAmount) !== PRODUCT_AMOUNT || payment.status !== "DONE" || payment.currency && payment.currency !== "KRW") {
+  if ((payment.paymentKey && payment.paymentKey !== paymentKey) || payment.orderId !== orderId || Number(payment.totalAmount) !== PRODUCT_AMOUNT || payment.status !== "DONE" || (payment.currency && payment.currency !== "KRW")) {
     return json(409, { error: "TOSS_PAYMENT_VERIFICATION_FAILED", verified: false });
   }
 
