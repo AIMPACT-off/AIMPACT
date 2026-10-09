@@ -121,19 +121,25 @@ jobs:
             adb shell am start -W -n ai.aimpact.app/.MainActivity || adb shell monkey -p ai.aimpact.app 1
             sleep 5
             PID="$(adb shell pidof ai.aimpact.app 2>/dev/null | tr -d '\\r' || true)"
-            ACTIVITY="$(adb shell dumpsys activity activities 2>/dev/null | grep -m1 'ai.aimpact.app' || true)"
+            ACTIVITY="$(adb shell dumpsys activity activities 2>/dev/null | grep -E 'mResumedActivity|topResumedActivity' | grep -m1 'ai.aimpact.app' || true)"
+            APP_CRASHES="$(adb logcat -d -v brief | grep -E "FATAL EXCEPTION|Process: ai\\.aimpact\\.app" | grep -c "FATAL EXCEPTION" || true)"
+            test -n "$APP_CRASHES" || APP_CRASHES=0
             echo "AIMPACT_PID=$PID"
             echo "AIMPACT_ACTIVITY=$ACTIVITY"
-            APP_CRASHES="$(adb logcat -d | grep -E "FATAL EXCEPTION|Process: ai\\.aimpact\\.app" | grep -c "FATAL EXCEPTION" || true)"
             echo "AIMPACT_APP_FATAL_EXCEPTIONS=$APP_CRASHES"
-            test -n "$PID" || test -n "$ACTIVITY"
-            test "$APP_CRASHES" = "0"
+            if [ -z "$PID" ] && [ -z "$ACTIVITY" ] || [ "$APP_CRASHES" != "0" ]; then
+              echo "AIMPACT_RUNTIME=FAIL"
+              echo "=== APP PROCESS SNAPSHOT ==="
+              adb shell ps -A | grep -E 'aimpact|com.android' | tail -n 100 || true
+              echo "=== RESUMED ACTIVITY SNAPSHOT ==="
+              adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity|ai.aimpact.app' | tail -n 100 || true
+              echo "=== APP CRASH / REACT NATIVE LOGS ==="
+              adb logcat -d -v threadtime | grep -E 'FATAL EXCEPTION|AndroidRuntime|ReactNativeJS|Process: ai\\.aimpact\\.app|ai.aimpact.app' | tail -n 250 || true
+              echo "=== RECENT LOGCAT TAIL ==="
+              adb logcat -d -v threadtime | tail -n 150 || true
+              exit 1
+            fi
             echo "AIMPACT_RUNTIME=PASS"
-            exit 0
-            echo "AIMPACT_RUNTIME=FAIL"
-            adb shell ps -A | grep -E 'aimpact|com.android' | tail -n 80 || true
-            adb logcat -d | tail -n 300 || true
-            exit 1
 
   ios-simulator:
     runs-on: macos-15
