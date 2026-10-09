@@ -12,7 +12,8 @@ test("central control runs are isolated so later events cannot cancel earlier ev
 });
 
 test("skipped payment workflow events are not retried or mistaken for failed tests", () => {
-  assert.match(central, /RUN_CONCLUSION" = "skipped"[\\s\\S]*CODE_GATE" = "skipped"[\\s\\S]*PAYMENT_CONTROL_RUN_NOT_EXECUTED/);
+  assert.ok(central.includes('if [ "$RUN_CONCLUSION" = "skipped" ] && [ "$CODE_GATE" = "skipped" ]; then'));
+  assert.ok(central.includes("PAYMENT_CONTROL_RUN_NOT_EXECUTED"));
   assert.match(central, /PAYMENT_AUTORETRY=NOT_APPLICABLE/);
 });
 
