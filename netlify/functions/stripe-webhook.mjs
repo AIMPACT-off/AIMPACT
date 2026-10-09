@@ -31,6 +31,9 @@ function json(statusCode, body) {
 
 export async function handler(event) {
   if (event.httpMethod !== "POST") return json(405, { error: "method_not_allowed" });
+  if (!Number.isSafeInteger(QUICK_AUDIT_AMOUNT) || QUICK_AUDIT_AMOUNT !== QUICK_AUDIT_PRICE_KRW) {
+    return json(503, { error: "PRODUCT_PRICE_CONFIGURATION_INVALID" });
+  }
   const rawBody = event.body || "";
   const signature = event.headers?.["stripe-signature"] || event.headers?.["Stripe-Signature"];
   if (!verifyStripeSignature(rawBody, signature, env("STRIPE_WEBHOOK_SECRET"))) {
