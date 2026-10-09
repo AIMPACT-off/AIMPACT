@@ -101,13 +101,40 @@ jobs:
           console.log("EAS_PROJECT_ID_CONFIGURED");
           NODE
 
-      - name: Build Android production AAB
+      - name: Build Android production AAB and capture exact EAS build ID
         working-directory: mobile
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas build --platform android --profile production --non-interactive --wait
-      - name: Submit Android production build to Google Play
+        run: |
+          set -euo pipefail
+          eas build --platform android --profile production --non-interactive --wait --json > "$RUNNER_TEMP/aimpact-eas-android-build.json"
+          BUILD_ID="$(jq -r 'if type == "array" then (.[0].id // .[0].buildId // empty) else (.id // .buildId // empty) end' "$RUNNER_TEMP/aimpact-eas-android-build.json")"
+          test -n "$BUILD_ID" || { echo "::error::EAS_ANDROID_BUILD_ID_NOT_RETURNED"; cat "$RUNNER_TEMP/aimpact-eas-android-build.json"; exit 1; }
+          echo "EAS_ANDROID_BUILD_ID=$BUILD_ID" >> "$GITHUB_ENV"
+          echo "ANDROID_AAB_BUILD_CREATED=PASS BUILD_ID=$BUILD_ID"
+      - name: Prepare Google Play service account from protected secret
+        working-directory: mobile
+        env:
+          GOOGLE_SERVICE_ACCOUNT_KEY_BASE64: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64 }}
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+        run: |
+          set -euo pipefail
+          test -n "$GOOGLE_SERVICE_ACCOUNT_KEY_BASE64" || { echo "::error::GOOGLE_SERVICE_ACCOUNT_KEY_BASE64_NOT_CONFIGURED"; exit 1; }
+          test -n "$GOOGLE_SERVICE_ACCOUNT_EMAIL" || { echo "::error::GOOGLE_SERVICE_ACCOUNT_EMAIL_NOT_CONFIGURED"; exit 1; }
+          mkdir -p credentials
+          printf '%s' "$GOOGLE_SERVICE_ACCOUNT_KEY_BASE64" | base64 --decode > credentials/google-service-account.json
+          chmod 600 credentials/google-service-account.json
+          node -e 'const fs=require("fs");const j=JSON.parse(fs.readFileSync("credentials/google-service-account.json","utf8"));if(j.client_email!==process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL)throw new Error("GOOGLE_SERVICE_ACCOUNT_EMAIL_MISMATCH");if(!j.private_key)throw new Error("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_MISSING");console.log("GOOGLE_PLAY_SUBMIT_CREDENTIAL=VALID")'
+      - name: Submit exact Android production build to Google Play
         working-directory: mobile
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas submit --platform android --profile production --non-interactive --latest
+        run: |
+          set -euo pipefail
+          test -n "$EAS_ANDROID_BUILD_ID"
+          eas submit --platform android --profile production --non-interactive --id "$EAS_ANDROID_BUILD_ID" --wait
+          echo "ANDROID_STORE_SUBMISSION=FINISHED BUILD_ID=$EAS_ANDROID_BUILD_ID"
+      - name: Remove temporary Google Play credential
+        if: ${{ always() }}
+        working-directory: mobile
+        run: rm -f credentials/google-service-account.json
