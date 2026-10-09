@@ -32,7 +32,7 @@ export async function handler(event) {
   const stripeRow = Array.isArray(stripeRows) ? stripeRows.find(item => item.product_key === "AI_QUICK_AUDIT" && item.status === "paid") : null;
 
   const tossQuery = new URLSearchParams({ select: "order_id,auth_user_id,product_key,amount,currency,status,paid_at,payment_key", auth_user_id: "eq." + authUserId, product_key: "eq.AI_QUICK_AUDIT", status: "eq.paid" });
-  if (sessionId.startsWith("toss_")) tossQuery.set("order_id", "eq." + sessionId.slice(5));
+  if (sessionId.startsWith("toss_")) tossQuery.set("order_id", "eq." + sessionId);
   const tossResponse = await fetch(supabaseUrl + "/rest/v1/toss_payment_orders?" + tossQuery.toString(), { headers: { apikey: serviceRoleKey, Authorization: "Bearer " + serviceRoleKey } });
   if (!tossResponse.ok) return json(503, { error: "entitlement_store_unavailable", verified: false });
   const tossRows = await tossResponse.json();
