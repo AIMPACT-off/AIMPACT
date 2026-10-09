@@ -66,10 +66,11 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
           GOOGLE_SERVICE_ACCOUNT_KEY_BASE64: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64 }}
           GOOGLE_PACKAGE_NAME: ${{ secrets.GOOGLE_PACKAGE_NAME }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           set -euo pipefail
           missing=0
-          for v in APPLE_ISSUER_ID APPLE_KEY_ID APPLE_BUNDLE_ID GOOGLE_SERVICE_ACCOUNT_EMAIL GOOGLE_PACKAGE_NAME; do
+          for v in APPLE_ISSUER_ID APPLE_KEY_ID APPLE_BUNDLE_ID GOOGLE_SERVICE_ACCOUNT_EMAIL GOOGLE_PACKAGE_NAME EXPO_TOKEN; do
             if test -n "${!v}"; then echo "${v}=CONFIGURED"; else echo "${v}=MISSING"; missing=1; fi
           done
           if test -n "${APPLE_PRIVATE_KEY_BASE64}" || test -n "${APPLE_PRIVATE_KEY}"; then echo "APPLE_PRIVATE_KEY=CONFIGURED"; else echo "APPLE_PRIVATE_KEY=MISSING"; missing=1; fi
@@ -165,8 +166,12 @@ jobs:
       - name: Dispatch iOS TestFlight build
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run ios-device-release.yml --ref main
+          MOBILE_RUN_ID: ${{ inputs.mobile_run_id }}
+          MOBILE_HEAD_SHA: ${{ inputs.mobile_head_sha }}
+        run: gh workflow run ios-device-release.yml --ref main -f mobile_run_id="$MOBILE_RUN_ID" -f mobile_head_sha="$MOBILE_HEAD_SHA" -f store_qa_run_id="$GITHUB_RUN_ID" -f store_qa_head_sha="$GITHUB_SHA"
       - name: Dispatch Android Internal Testing build
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run android-store-release.yml --ref main
+          MOBILE_RUN_ID: ${{ inputs.mobile_run_id }}
+          MOBILE_HEAD_SHA: ${{ inputs.mobile_head_sha }}
+        run: gh workflow run android-store-release.yml --ref main -f mobile_run_id="$MOBILE_RUN_ID" -f mobile_head_sha="$MOBILE_HEAD_SHA" -f store_qa_run_id="$GITHUB_RUN_ID" -f store_qa_head_sha="$GITHUB_SHA"
