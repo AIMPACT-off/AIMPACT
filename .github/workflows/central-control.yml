@@ -67,7 +67,11 @@ jobs:
           grep -Fq 'sha256sum -c "$(basename "$APK").sha256"' .github/workflows/mobile-build.yml
           grep -Fq 'AIMPACT-Android-Runtime-Diagnostics' .github/workflows/mobile-build.yml
           grep -Fq 'cancel-in-progress: false' .github/workflows/mobile-build.yml
-          grep -Fq "github.event_name == 'push' && github.ref == 'refs/heads/main' && success()" .github/workflows/mobile-build.yml
+          grep -Fq 'mobile-release-gate:' .github/workflows/mobile-build.yml
+          grep -Fq 'needs.android-apk.result' .github/workflows/mobile-build.yml
+          grep -Fq 'needs.android-runtime.result' .github/workflows/mobile-build.yml
+          grep -Fq 'needs.ios-simulator.result' .github/workflows/mobile-build.yml
+          grep -Fq 'AIMPACT_MOBILE_RELEASE_GATE=PASS' .github/workflows/mobile-build.yml
           for f in .github/workflows/android-store-release.yml .github/workflows/ios-device-release.yml; do
             ! grep -q 'workflow_run:' "$f"
             grep -q 'store_qa_run_id' "$f"
