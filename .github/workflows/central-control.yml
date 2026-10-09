@@ -85,6 +85,12 @@ jobs:
           grep -q 'source_ref:' .github/workflows/native-store-qa.yml
           grep -q 'gh workflow run ios-device-release.yml --ref "$SOURCE_REF"' .github/workflows/native-store-qa.yml
           grep -q 'gh workflow run android-store-release.yml --ref "$SOURCE_REF"' .github/workflows/native-store-qa.yml
+          grep -q 'APPLE_BUNDLE_ID' .github/workflows/native-store-qa.yml
+          grep -q 'GOOGLE_SERVICE_ACCOUNT_EMAIL' .github/workflows/native-store-qa.yml
+          grep -q 'GOOGLE_PACKAGE_NAME' .github/workflows/native-store-qa.yml
+          grep -q 'serviceAccountKeyPath' mobile/eas.json
+          grep -q 'GOOGLE_SERVICE_ACCOUNT_KEY_BASE64' .github/workflows/android-store-release.yml
+          grep -q 'eas submit --platform android --profile production --non-interactive --id "$EAS_ANDROID_BUILD_ID" --wait' .github/workflows/android-store-release.yml
           for f in .github/workflows/android-store-release.yml .github/workflows/ios-device-release.yml; do
             grep -q 'inputs.source_ref' "$f"
             grep -q 'STORE_QA_SOURCE_REF_MISMATCH' "$f"
