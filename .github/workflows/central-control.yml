@@ -8,6 +8,7 @@ name: AIMPACT Central Control Validation
   workflow_dispatch:
   workflow_run:
     workflows: ["AIMPACT Mobile Build", "AIMPACT Payment Control"]
+    branches: [main]
     types: [completed]
   schedule:
     - cron: "*/30 * * * *"
@@ -56,6 +57,25 @@ jobs:
         uses: actions/checkout@v4
       - name: Validate central-control policy
         run: node control-plane/validate-policy.mjs
+      - name: Enforce Android diagnostics and store release gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n mobile/scripts/android-runtime-check.sh
+          grep -Fq 'bash mobile/scripts/android-runtime-check.sh' .github/workflows/mobile-build.yml
+          grep -Fq 'AIMPACT-Android-Runtime-Diagnostics' .github/workflows/mobile-build.yml
+          grep -Fq 'cancel-in-progress: false' .github/workflows/mobile-build.yml
+          grep -Fq "github.event_name == 'push' && github.ref == 'refs/heads/main' && success()" .github/workflows/mobile-build.yml
+          for f in .github/workflows/android-store-release.yml .github/workflows/ios-device-release.yml; do
+            ! grep -q 'workflow_run:' "$f"
+            grep -q 'store_qa_run_id' "$f"
+            grep -q 'STORE_QA_NOT_SUCCESSFUL' "$f"
+            grep -q 'MOBILE_BUILD_NOT_SUCCESSFUL' "$f"
+          done
+          grep -q 'EXPO_TOKEN; do' .github/workflows/native-store-qa.yml
+          grep -q 'store_qa_run_id="$GITHUB_RUN_ID"' .github/workflows/native-store-qa.yml
+          echo "ANDROID_DIAGNOSTICS_AND_RELEASE_GATES=PASS"
+
       - name: Validate required company architecture
         shell: bash
         run: |
