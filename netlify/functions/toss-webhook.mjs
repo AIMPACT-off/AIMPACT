@@ -36,7 +36,7 @@ export async function handler(event) {
   } catch { return json(503, { error: "toss_api_unavailable" }); }
   if (!paymentResponse.ok) return json(400, { error: "toss_payment_unverified" });
   const payment = await paymentResponse.json();
-  if (payment.orderId !== orderId || Number(payment.totalAmount) !== PRODUCT_AMOUNT || payment.status !== "DONE" || (payment.currency && payment.currency !== "KRW")) {
+  if ((payment.paymentKey && payment.paymentKey !== paymentKey) || payment.orderId !== orderId || Number(payment.totalAmount) !== PRODUCT_AMOUNT || payment.status !== "DONE" || (payment.currency && payment.currency !== "KRW")) {
     return json(200, { received: true, verified: false, ignored: "payment_not_eligible" });
   }
 
