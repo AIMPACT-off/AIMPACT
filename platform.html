@@ -36,7 +36,7 @@ footer{padding:30px 34px;border-top:1px solid var(--line);color:var(--muted);fon
   <div class="sideBottom">TENANT<br><b id="tenantName">Demo Company</b><br><br>PLATFORM STATUS<br><span style="color:#9df0bd">SAFE CORE · READY</span></div>
 </aside>
 <main>
-<header class="top"><span id="crumb">AIMPACT / OVERVIEW</span><span class="pill" id="commercialStatus">CHECKOUT GATED · QUICK AUDIT ₩200,000</span></header>
+<header class="top"><span id="crumb">AIMPACT / OVERVIEW</span><span class="pill" id="commercialStatus">SECURE CHECKOUT · QUICK AUDIT ₩200,000</span></header>
 
 <section id="dashboard" class="view active">
   <div class="eyebrow">AIMPACT BUSINESS OS</div><h1 class="title">See the business.<br>Decide. Act. Measure.</h1>
@@ -74,7 +74,7 @@ footer{padding:30px 34px;border-top:1px solid var(--line);color:var(--muted);fon
     <article class="card product"><span class="tag">GROW</span><h3>Business AI Platform</h3><p>Recurring audit, reports, ROI tracking, workflow recommendations and continuous improvement workspace.</p><div class="price">₩490,000 <small>/ month · draft</small></div><button class="btn primary" onclick="selectPlan('Business AI Platform','₩490,000 / month')">SUBSCRIBE</button></article>
     <article class="card product"><span class="tag">ENTERPRISE</span><h3>AI Transformation</h3><p>Custom tenant, integrations, implementation, security package and enterprise operating support.</p><div class="price">CUSTOM <small>contract</small></div><button class="btn" onclick="go('billing')">REQUEST PROPOSAL</button></article>
   </div>
-  <div class="notice section" id="checkoutNotice">Checkout is gated while the authenticated ₩200,000 price and payment entitlement are verified end-to-end. No payment is represented as completed.</div>
+  <div class="notice section" id="checkoutNotice">Secure checkout requires email authentication and server-side payment verification. If provider credentials or database migration are not ready, the checkout will fail closed.</div>
 </section>
 
 <section id="reports" class="view">
@@ -110,7 +110,7 @@ footer{padding:30px 34px;border-top:1px solid var(--line);color:var(--muted);fon
 </main>
 </div>
 <script>
-window.AIMPACT_CHECKOUT_QUICK_AUDIT="";
+window.AIMPACT_CHECKOUT_QUICK_AUDIT="/payment";
 window.AIMPACT_CHECKOUT_BUSINESS_PLATFORM="";
 const views=[...document.querySelectorAll('.view')];
 function go(id){views.forEach(v=>v.classList.toggle('active',v.id===id));document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===id));document.getElementById('crumb').textContent='AIMPACT / '+id.toUpperCase();scrollTo({top:0,behavior:'smooth'});}
