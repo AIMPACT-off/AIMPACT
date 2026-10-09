@@ -105,40 +105,14 @@ jobs:
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           disable-animations: false
           script: |
-            set -e
-            adb wait-for-device
-            echo "ADB_DEVICE=$(adb get-state)"
-            echo "WAITING_FOR_PACKAGE_MANAGER=1"
-            timeout 180 sh -c 'until adb shell cmd package list packages >/dev/null 2>&1; do sleep 2; done'
-            echo "PACKAGE_MANAGER=READY"
-            adb shell cmd package list packages | grep -q "package:"
-            adb install -r mobile/android/app/build/outputs/apk/release/app-release.apk
-            # Clear stale system/emulator logs before launching AIMPACT.
-            adb logcat -c
-            adb shell am force-stop ai.aimpact.app
-            adb logcat -c
-            echo "AIMPACT_LAUNCH_ATTEMPT=1"
-            adb shell am start -W -n ai.aimpact.app/.MainActivity || adb shell monkey -p ai.aimpact.app 1
-            sleep 5
-            PID="$(adb shell pidof ai.aimpact.app 2>/dev/null | tr -d '\\r' || true)"
-            ACTIVITY="$(adb shell dumpsys activity activities 2>/dev/null | grep -E -m1 'mResumedActivity|topResumedActivity|ResumedActivity' | grep -F 'ai.aimpact.app' || true)"
-            APP_CRASHES="$(adb logcat -b crash -d 2>/dev/null | grep -c -E 'FATAL EXCEPTION|Fatal signal|Process: ai\\.aimpact\\.app' || true)"
-            echo "AIMPACT_PID=${PID:-NONE}"
-            echo "AIMPACT_FOREGROUND_ACTIVITY=${ACTIVITY:-NONE}"
-            echo "AIMPACT_APP_FATAL_EXCEPTIONS=${APP_CRASHES:-0}"
-            if { test -z "$PID" && test -z "$ACTIVITY"; } || test "${APP_CRASHES:-0}" -gt 0; then
-              echo "AIMPACT_RUNTIME=FAIL"
-              echo "===== PACKAGE / PROCESS STATE ====="
-              adb shell pm list packages | grep -F 'ai.aimpact.app' || true
-              adb shell dumpsys activity activities | grep -E -i 'resumed|topResumed|aimpact|crash' | tail -n 100 || true
-              adb shell dumpsys activity processes | grep -E -i 'aimpact|crash|not responding' | tail -n 100 || true
-              echo "===== CRASH BUFFER ====="
-              adb logcat -b crash -d | tail -n 200 || true
-              echo "===== RELEVANT LOGCAT ====="
-              adb logcat -d | grep -E -i 'AndroidRuntime|FATAL EXCEPTION|Fatal signal|ReactNativeJS|aimpact|ReactNative|SoLoader' | tail -n 250 || true
-              exit 1
-            fi
-            echo "AIMPACT_RUNTIME=PASS"
+            bash mobile/scripts/android-runtime-check.sh
+      - name: Upload Android runtime diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: AIMPACT-Android-Runtime-Diagnostics
+          path: mobile/artifacts/android-runtime/
+          if-no-files-found: warn
 
   ios-simulator:
     runs-on: macos-15
