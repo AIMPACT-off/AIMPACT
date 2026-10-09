@@ -74,6 +74,9 @@ jobs:
           done
           grep -q 'EXPO_TOKEN; do' .github/workflows/native-store-qa.yml
           grep -q 'store_qa_run_id="$GITHUB_RUN_ID"' .github/workflows/native-store-qa.yml
+          grep -q 'stripe-integration-gate:' .github/workflows/payment-control.yml
+          grep -q 'STRIPE_SECRET_KEY_NOT_CONFIGURED' .github/workflows/payment-control.yml
+          ! grep -q 'native-store-qa.yml' .github/workflows/payment-control.yml
           echo "ANDROID_DIAGNOSTICS_AND_RELEASE_GATES=PASS"
 
       - name: Validate required company architecture
@@ -286,9 +289,14 @@ jobs:
           JOBS="$(gh run view "$RUN_ID" --json jobs --jq '.jobs[] | [.name,.status,.conclusion] | @tsv')"
           echo "$JOBS"
           CODE_GATE="$(printf '%s\n' "$JOBS" | awk -F '\t' '$1=="payment-code-gate"{print $3}')"
-          if [ "$CODE_GATE" = "success" ] && [ "$RUN_CONCLUSION" = "success" ]; then exit 0; fi
-          if [ "$CODE_GATE" = "success" ] && [ "$RUN_CONCLUSION" = "failure" ]; then
-            if [ "$RUN_ATTEMPT" -lt 2 ]; then gh run rerun "$RUN_ID" --failed; exit 0; fi
+          INTEGRATION_GATE="$(printf '%s\n' "$JOBS" | awk -F '\t' '$1=="stripe-integration-gate"{print $3}')"
+          if [ "$CODE_GATE" = "success" ] && [ "$INTEGRATION_GATE" = "success" ] && [ "$RUN_CONCLUSION" = "success" ]; then
+            echo "PAYMENT_CODE_AND_STRIPE_INTEGRATION=PASS"
+            exit 0
+          fi
+          if [ "$CODE_GATE" = "success" ] && [ "$INTEGRATION_GATE" = "failure" ]; then
+            echo "PAYMENT_AUTOMATION_BLOCKED=STRIPE_SECRET_OR_API_CONFIGURATION"
+            echo "PAYMENT_AUTORETRY=SKIPPED_EXTERNAL_BLOCKER"
             exit 1
           fi
           if [ "$RUN_ATTEMPT" -lt 2 ]; then gh run rerun "$RUN_ID" --failed; exit 0; fi
