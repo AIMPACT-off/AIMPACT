@@ -42,6 +42,7 @@ jobs:
           node --check netlify/functions/toss-confirm.mjs
           node --check netlify/functions/toss-webhook.mjs
           node --check netlify/functions/entitlement.mjs
+          node --test tests/toss-payment.test.mjs
           grep -q '=== "paid"' netlify/functions/stripe-webhook.mjs
           grep -q 'verifyPaidEntitlement' mobile/App.js
           echo "PAYMENT_CODE_GATE=PASS"
