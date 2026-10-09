@@ -112,12 +112,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          required=(AIMPACT_CENTRAL_CONTROL_SYSTEM.md AIMPACT_DECISION_AUTHORITY.md AIMPACT_CORE_TECHNOLOGY_AND_MONETIZATION.md AIMPACT_DATA_LINEAGE.md AIMPACT_VERIFICATION_SPEC.md AIMPACT_SYNC_SPEC.md)
+          required=(AIMPACT_CENTRAL_CONTROL_SYSTEM.md AIMPACT_DECISION_AUTHORITY.md AIMPACT_CORE_TECHNOLOGY_AND_MONETIZATION.md AIMPACT_DATA_LINEAGE.md AIMPACT_VERIFICATION_SPEC.md AIMPACT_SYNC_SPEC.md RELEASE_CREDENTIALS_AND_BLOCKERS.md)
           for f in "${required[@]}"; do test -s "$f" || { echo "Missing required architecture artifact: $f"; exit 1; }; done
-      - name: Validate frontend JavaScript syntax
+      - name: Validate frontend and EAS configuration syntax
         run: |
           node --check app.js
           node --check config.js
+          node -e 'JSON.parse(require("fs").readFileSync("mobile/eas.json","utf8")); console.log("EAS_CONFIG_JSON=PASS")'
       - name: Block browser service-role exposure
         shell: bash
         run: |
