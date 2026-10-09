@@ -48,7 +48,8 @@ jobs:
           set -euo pipefail
           APK="android/app/build/outputs/apk/release/app-release.apk"
           test -s "$APK"
-          sha256sum "$APK" | tee "$APK.sha256"
+          (cd "$(dirname "$APK")" && sha256sum "$(basename "$APK")" > "$(basename "$APK").sha256")
+          cat "$APK.sha256"
           echo "APK_READY=$APK"
           ls -lh "$APK" "$APK.sha256"
       - name: Upload AIMPACT Android APK
@@ -79,8 +80,11 @@ jobs:
           APK="mobile/android/app/build/outputs/apk/release/app-release.apk"
           test -s "$APK"
           test -s "$APK.sha256"
-          sha256sum -c "$APK.sha256"
-          echo "ANDROID_RUNTIME_ARTIFACT_SHA256=$(sha256sum "$APK" | awk '{print $1}')"
+          (
+            cd "$(dirname "$APK")"
+            sha256sum -c "$(basename "$APK").sha256"
+            echo "ANDROID_RUNTIME_ARTIFACT_SHA256=$(sha256sum "$(basename "$APK")" | awk '{print $1}')"
+          )
       - name: Prepare Linux KVM for Android Emulator
         shell: bash
         run: |
