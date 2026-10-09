@@ -1,3 +1,5 @@
+import { QUICK_AUDIT_PRICE_KRW } from "../../lib/product-catalog.mjs";
+
 function json(statusCode, body) {
   return { statusCode, headers: { "content-type": "application/json", "cache-control": "no-store" }, body: JSON.stringify(body) };
 }
@@ -34,7 +36,7 @@ export async function handler(event) {
   const tossResponse = await fetch(supabaseUrl + "/rest/v1/toss_payment_orders?" + tossQuery.toString(), { headers: { apikey: serviceRoleKey, Authorization: "Bearer " + serviceRoleKey } });
   if (!tossResponse.ok) return json(503, { error: "entitlement_store_unavailable", verified: false });
   const tossRows = await tossResponse.json();
-  const tossRow = Array.isArray(tossRows) ? tossRows.find(item => Number(item.amount) === Number(process.env.PRODUCT_PRICE_QUICK_AUDIT || 200000) && item.currency === "KRW") : null;
+  const tossRow = Array.isArray(tossRows) ? tossRows.find(item => Number(item.amount) === Number(process.env.PRODUCT_PRICE_QUICK_AUDIT || QUICK_AUDIT_PRICE_KRW) && item.currency === "KRW") : null;
 
   const storeQuery = new URLSearchParams({ select: "platform,product_id,transaction_id,order_id,status,purchased_at,auth_user_id", auth_user_id: "eq." + authUserId, product_id: "eq." + String(process.env.AIMPACT_IAP_PRODUCT_ID || "ai.aimpact.quick_audit"), status: "eq.active" });
   const storeResponse = await fetch(supabaseUrl + "/rest/v1/store_entitlements?" + storeQuery.toString(), { headers: { apikey: serviceRoleKey, Authorization: "Bearer " + serviceRoleKey } });
