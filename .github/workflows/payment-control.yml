@@ -9,7 +9,7 @@ name: AIMPACT Payment Control
     - cron: "37 * * * *"
   workflow_dispatch:
 concurrency:
-  group: aimpact-payment-control
+  group: aimpact-payment-control-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
