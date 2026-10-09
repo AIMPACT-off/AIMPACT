@@ -226,14 +226,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
-      contents: read
+      contents: write
       actions: write
     steps:
-      - name: Checkout repository for GitHub CLI context
+      - name: Checkout main history for immutable release tag
         uses: actions/checkout@v4
         with:
           ref: main
-      - name: Verify all required mobile build jobs passed
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Verify all required mobile build jobs passed and pin exact source
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.workflow_run.id }}
@@ -242,15 +244,25 @@ jobs:
           set -euo pipefail
           JOBS="$(gh run view "$RUN_ID" --json jobs --jq '.jobs[] | [.name,.conclusion] | @tsv')"
           echo "$JOBS"
-          for job in android-apk android-runtime ios-simulator; do
+          for job in android-apk android-runtime ios-simulator mobile-release-gate; do
             result="$(printf '%s\n' "$JOBS" | awk -F '\t' -v name="$job" '$1==name{print $2}')"
             if [ "$result" != "success" ]; then
               echo "MOBILE_STORE_QA_BLOCKED=JOB_${job}_${result:-MISSING}"
               exit 1
             fi
           done
-          gh workflow run native-store-qa.yml --ref main -f mobile_run_id="$RUN_ID" -f mobile_head_sha="$RUN_SHA"
-          echo "NATIVE_STORE_QA_DISPATCH=PASS MOBILE_RUN_ID=$RUN_ID MOBILE_SHA=$RUN_SHA"
+          git cat-file -e "$RUN_SHA^{commit}"
+          git merge-base --is-ancestor "$RUN_SHA" origin/main || { echo "::error::MOBILE_BUILD_SHA_NOT_ON_MAIN"; exit 1; }
+          RELEASE_REF="ci/mobile-$RUN_ID"
+          EXISTING_TAG_SHA="$(git ls-remote origin "refs/tags/$RELEASE_REF" | awk 'NR==1{print $1}')"
+          if [ -n "$EXISTING_TAG_SHA" ]; then
+            test "$EXISTING_TAG_SHA" = "$RUN_SHA" || { echo "::error::IMMUTABLE_RELEASE_TAG_SHA_MISMATCH"; exit 1; }
+          else
+            git tag "$RELEASE_REF" "$RUN_SHA"
+            git push origin "refs/tags/$RELEASE_REF"
+          fi
+          gh workflow run native-store-qa.yml --ref "$RELEASE_REF" -f mobile_run_id="$RUN_ID" -f mobile_head_sha="$RUN_SHA" -f source_ref="$RELEASE_REF"
+          echo "NATIVE_STORE_QA_DISPATCH=PASS MOBILE_RUN_ID=$RUN_ID MOBILE_SHA=$RUN_SHA SOURCE_REF=$RELEASE_REF"
 
   mobile-autorepair:
     if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'AIMPACT Mobile Build' && github.event.workflow_run.conclusion == 'failure' }}
