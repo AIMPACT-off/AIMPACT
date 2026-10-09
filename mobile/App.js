@@ -327,7 +327,7 @@ function App() {
                     <Text style={s.cardTitle}>Unlock the verified AI Quick Audit</Text>
                     <Text style={s.sub}>결제 후 고객 entitlement를 서버에서 검증하고 결과를 정식 고객 상태로 연결합니다.</Text>
               <View style={s.benefits}><Text style={s.benefit}>✓ 검증된 AI Quick Audit REPORT</Text><Text style={s.benefit}>✓ 고객별 AI 진단 기록</Text><Text style={s.benefit}>✓ 결제 후 즉시 REPORT 잠금 해제</Text></View>
-                    <TouchableOpacity style={s.primary} onPress={buy}><Text style={s.primaryText}>UNLOCK · ₩99,000 →</Text></TouchableOpacity>
+                    <TouchableOpacity style={s.primary} onPress={buy}><Text style={s.primaryText}>UNLOCK · ₩200,000 →</Text></TouchableOpacity>
                   </View>
                 )}
                 <TouchableOpacity style={s.secondary} onPress={resetAudit}><Text style={s.secondaryText}>START ANOTHER AUDIT</Text></TouchableOpacity>
@@ -345,7 +345,7 @@ function App() {
               <Text style={s.cardTitle}>AI Quick Audit</Text>
               <Text style={s.sub}>One real business process mapped into an AI opportunity, workflow and implementation order.</Text>
               <View style={s.benefits}><Text style={s.benefit}>✓ Business health & opportunity score</Text><Text style={s.benefit}>✓ Recommended AI workflow</Text><Text style={s.benefit}>✓ Verified entitlement unlock</Text></View>
-              <Text style={s.price}>₩99,000</Text>
+              <Text style={s.price}>₩200,000</Text>
               <Text style={s.muted}>one-time</Text>
               <TouchableOpacity style={s.primary} onPress={buy}><Text style={s.primaryText}>BUY / START →</Text></TouchableOpacity>
             </View>
@@ -365,7 +365,7 @@ function App() {
             <Text style={s.title}>Revenue is part{"\n"}of the product.</Text>
             <View style={s.card}>
               <Text style={s.label}>CHECKOUT</Text>
-              <Text style={s.price}>₩99,000</Text>
+              <Text style={s.price}>₩200,000</Text>
               <Text style={s.sub}>AI Quick Audit · one-time</Text>
               <TouchableOpacity style={s.primary} onPress={buy}><Text style={s.primaryText}>OPEN CHECKOUT →</Text></TouchableOpacity>
             </View>
