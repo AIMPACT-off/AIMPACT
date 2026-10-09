@@ -40,3 +40,70 @@ test("Toss webhook rejects non-POST requests", async () => {
   const response = await tossWebhook({ httpMethod: "GET", headers: {}, body: "" });
   assert.equal(response.statusCode, 405);
 });
+
+test("Toss confirm grants the paid state only after provider verification and conditional ledger update", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const envNames = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "TOSS_SECRET_KEY", "PRODUCT_PRICE_QUICK_AUDIT"];
+  const previousEnv = Object.fromEntries(envNames.map((name) => [name, process.env[name]]));
+  process.env.SUPABASE_URL = "https://supabase.example";
+  process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-test-only";
+  process.env.TOSS_SECRET_KEY = "toss-test-secret";
+  process.env.PRODUCT_PRICE_QUICK_AUDIT = "200000";
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    for (const name of envNames) {
+      if (previousEnv[name] === undefined) delete process.env[name];
+      else process.env[name] = previousEnv[name];
+    }
+  });
+
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    const target = String(url);
+    calls.push({ url: target, method: options.method || "GET" });
+    if (target.endsWith("/auth/v1/user")) {
+      return new Response(JSON.stringify({ id: "00000000-0000-4000-8000-000000000001", email: "buyer@example.com" }), { status: 200 });
+    }
+    if (target.includes("/rest/v1/toss_payment_orders?") && (options.method || "GET") === "GET") {
+      return new Response(JSON.stringify([{
+        order_id: "toss_test_order",
+        auth_user_id: "00000000-0000-4000-8000-000000000001",
+        product_key: "AI_QUICK_AUDIT",
+        amount: 200000,
+        currency: "KRW",
+        status: "pending",
+        payment_key: null
+      }]), { status: 200 });
+    }
+    if (target.endsWith("/v1/payments/confirm")) {
+      return new Response(JSON.stringify({
+        paymentKey: "payment_test_key",
+        orderId: "toss_test_order",
+        totalAmount: 200000,
+        currency: "KRW",
+        status: "DONE",
+        approvedAt: "2026-10-09T09:00:00+09:00",
+        method: "카드"
+      }), { status: 200 });
+    }
+    if (target.includes("/rest/v1/toss_payment_orders?") && options.method === "PATCH") {
+      const patch = JSON.parse(options.body);
+      assert.equal(patch.status, "paid");
+      assert.equal(patch.payment_key, "payment_test_key");
+      assert.equal(patch.amount, undefined);
+      return new Response(JSON.stringify([{ order_id: "toss_test_order", status: "paid", payment_key: "payment_test_key" }]), { status: 200 });
+    }
+    throw new Error("Unexpected mocked network call: " + target);
+  };
+
+  const response = await tossConfirm({
+    httpMethod: "POST",
+    headers: { authorization: "Bearer user-access-token" },
+    body: JSON.stringify({ paymentKey: "payment_test_key", orderId: "toss_test_order", amount: 200000 })
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(responseBody(response).verified, true);
+  assert.equal(responseBody(response).provider, "toss");
+  assert.ok(calls.some((call) => call.url.endsWith("/v1/payments/confirm")));
+  assert.ok(calls.some((call) => call.method === "PATCH"));
+});
