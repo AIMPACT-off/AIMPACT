@@ -14,8 +14,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
+        id: setup-supabase-cli
         with:
-          version: latest
+          version: 2.120.0
       - name: Initialize local config when absent
         run: |
           if [ ! -f supabase/config.toml ]; then supabase init; fi
@@ -33,5 +34,5 @@ jobs:
       - name: Re-apply migrations from clean state
         run: supabase db reset
       - name: Stop local stack
-        if: always()
+        if: always() && steps.setup-supabase-cli.outcome == 'success'
         run: supabase stop --no-backup
