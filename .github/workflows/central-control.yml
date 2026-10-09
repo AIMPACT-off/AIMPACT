@@ -80,6 +80,15 @@ jobs:
           done
           grep -q 'EAS_PROJECT_ID_NOT_CONFIGURED' .github/workflows/native-store-qa.yml
           grep -q 'EAS_PROJECT_ID_NOT_CONFIGURED' .github/workflows/android-store-release.yml
+          grep -q 'RELEASE_REF="ci/mobile-$RUN_ID"' .github/workflows/central-control.yml
+          grep -q 'gh workflow run native-store-qa.yml --ref "$RELEASE_REF"' .github/workflows/central-control.yml
+          grep -q 'source_ref:' .github/workflows/native-store-qa.yml
+          grep -q 'gh workflow run ios-device-release.yml --ref "$SOURCE_REF"' .github/workflows/native-store-qa.yml
+          grep -q 'gh workflow run android-store-release.yml --ref "$SOURCE_REF"' .github/workflows/native-store-qa.yml
+          for f in .github/workflows/android-store-release.yml .github/workflows/ios-device-release.yml; do
+            grep -q 'inputs.source_ref' "$f"
+            grep -q 'STORE_QA_SOURCE_REF_MISMATCH' "$f"
+          done
           grep -q 'EXPO_TOKEN; do' .github/workflows/native-store-qa.yml
           grep -q 'store_qa_run_id="$GITHUB_RUN_ID"' .github/workflows/native-store-qa.yml
           grep -q 'stripe-integration-gate:' .github/workflows/payment-control.yml
