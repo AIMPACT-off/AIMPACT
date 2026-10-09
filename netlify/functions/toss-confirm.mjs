@@ -24,10 +24,12 @@ async function fetchOrder(url, key, orderId, userId) {
   const rows = await r.json();
   return Array.isArray(rows) ? rows[0] || null : null;
 }
-async function getTossPayment(paymentKey, secret) {
+async function confirmTossPayment(paymentKey, orderId, amount, secret) {
   const auth = Buffer.from(secret + ":", "utf8").toString("base64");
-  const response = await fetch("https://api.tosspayments.com/v1/payments/" + encodeURIComponent(paymentKey), {
-    headers: { Authorization: "Basic " + auth }
+  const response = await fetch("https://api.tosspayments.com/v1/payments/confirm", {
+    method: "POST",
+    headers: { Authorization: "Basic " + auth, "Content-Type": "application/json" },
+    body: JSON.stringify({ paymentKey, orderId, amount })
   });
   if (!response.ok) return null;
   return response.json();
@@ -70,7 +72,7 @@ export async function handler(event) {
   if (order.status !== "pending") return json(409, { error: "ORDER_NOT_PAYABLE", verified: false });
 
   let payment;
-  try { payment = await getTossPayment(paymentKey, secret); }
+  try { payment = await confirmTossPayment(paymentKey, orderId, PRODUCT_AMOUNT, secret); }
   catch { return json(503, { error: "TOSS_API_UNAVAILABLE", verified: false }); }
   if (!payment) return json(402, { error: "TOSS_PAYMENT_NOT_FOUND", verified: false });
   if (payment.orderId !== orderId || Number(payment.totalAmount) !== PRODUCT_AMOUNT || payment.status !== "DONE" || payment.currency && payment.currency !== "KRW") {
