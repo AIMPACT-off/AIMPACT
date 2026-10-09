@@ -72,6 +72,8 @@ jobs:
             grep -q 'STORE_QA_NOT_SUCCESSFUL' "$f"
             grep -q 'MOBILE_BUILD_NOT_SUCCESSFUL' "$f"
           done
+          grep -q 'EAS_PROJECT_ID_NOT_CONFIGURED' .github/workflows/native-store-qa.yml
+          grep -q 'EAS_PROJECT_ID_NOT_CONFIGURED' .github/workflows/android-store-release.yml
           grep -q 'EXPO_TOKEN; do' .github/workflows/native-store-qa.yml
           grep -q 'store_qa_run_id="$GITHUB_RUN_ID"' .github/workflows/native-store-qa.yml
           grep -q 'stripe-integration-gate:' .github/workflows/payment-control.yml
