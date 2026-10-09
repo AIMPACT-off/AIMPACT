@@ -9,8 +9,8 @@ name: AIMPACT Payment Control
     - cron: "37 * * * *"
   workflow_dispatch:
 concurrency:
-  group: aimpact-payment-control
-  cancel-in-progress: true
+  group: aimpact-payment-control-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -20,19 +20,33 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Validate automated payment control
-        run: node control-plane/payment-control.mjs
-      - name: Observe configured Stripe account with bounded retry
+      - name: Validate automated payment control code
+        run: |
+          set -euo pipefail
+          node control-plane/payment-control.mjs
+          grep -q 'STRIPE_SECRET_KEY' netlify/functions/checkout.mjs
+          grep -q 'payment_status' netlify/functions/stripe-webhook.mjs
+          grep -q '=== "paid"' netlify/functions/stripe-webhook.mjs
+          grep -q 'verifyPaidEntitlement' mobile/App.js
+          echo "PAYMENT_CODE_GATE=PASS"
+
+  stripe-integration-gate:
+    if: ${{ github.event_name != 'pull_request' }}
+    needs: [payment-code-gate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Observe configured Stripe sandbox account with bounded retry
         env:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           PAYMENT_LINK_ID: plink_1UNpJEGeNSkj4zfGecYTrM3u
         run: |
           set -euo pipefail
           if [ -z "${STRIPE_SECRET_KEY:-}" ]; then
-            echo "PAYMENT_AUTOMATION=CODE_READY"
-            echo "STRIPE_API_OBSERVATION=NOT_CONFIGURED"
-            echo "HUMAN_ACTION_REQUIRED=Configure GitHub Actions STRIPE_SECRET_KEY after Stripe account authorization"
-            exit 0
+            echo "::error::STRIPE_SECRET_KEY_NOT_CONFIGURED"
+            echo "PAYMENT_CODE_GATE=PASS"
+            echo "STRIPE_INTEGRATION_GATE=BLOCKED_MISSING_SECRET"
+            exit 1
           fi
           for attempt in 1 2 3; do
             code=$(curl -sS -o /tmp/payment-link.json -w "%{http_code}" -u "$STRIPE_SECRET_KEY:" "https://api.stripe.com/v1/payment_links/$PAYMENT_LINK_ID" || true)
@@ -42,23 +56,12 @@ jobs:
             echo "STRIPE_PAYMENT_LINK_OBSERVATION_RETRY=$attempt HTTP=$code"
             sleep $((attempt * 5))
           done
-          test "$code" = "200"
+          test "$code" = "200" || { echo "::error::STRIPE_PAYMENT_LINK_API_UNVERIFIED"; exit 1; }
           python - <<'PY'
           import json
           d=json.load(open('/tmp/payment-link.json'))
           assert d.get('active') is True, 'payment link is not active'
           assert d.get('livemode') is False, 'expected sandbox payment link'
           print('STRIPE_SANDBOX_PAYMENT_LINK=PASS')
+          print('STRIPE_INTEGRATION_GATE=PASS')
           PY
-
-  auto-next-store-qa:
-    if: ${{ success() }}
-    needs: [payment-code-gate]
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write
-    steps:
-      - name: Dispatch native store QA
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh api --method POST -H "Accept: application/vnd.github+json" /repos/${{ github.repository }}/actions/workflows/native-store-qa.yml/dispatches -f ref=main

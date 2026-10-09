@@ -1,24 +1,69 @@
-name: AIMPACT iOS Device Release
-
 on:
-  workflow_run:
-    workflows: ["AIMPACT Mobile Build"]
-    types: [completed]
-    branches: [main]
   workflow_dispatch:
-
+    inputs:
+      mobile_run_id:
+        description: "Successful Mobile Build run ID verified by Central Control"
+        required: true
+        type: string
+      mobile_head_sha:
+        description: "Commit SHA of the successful Mobile Build"
+        required: true
+        type: string
+      store_qa_run_id:
+        description: "Successful Native Store QA run ID"
+        required: true
+        type: string
+      store_qa_head_sha:
+        description: "Commit SHA verified by Native Store QA"
+        required: true
+        type: string
 permissions:
   contents: write
   actions: read
 
 jobs:
   ios-device-release:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: macos-15
     timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.mobile_head_sha }}
+
+      - name: Verify originating mobile build and store QA gates
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MOBILE_RUN_ID: ${{ inputs.mobile_run_id }}
+          MOBILE_HEAD_SHA: ${{ inputs.mobile_head_sha }}
+          STORE_QA_RUN_ID: ${{ inputs.store_qa_run_id }}
+          STORE_QA_HEAD_SHA: ${{ inputs.store_qa_head_sha }}
+        run: |
+          set -euo pipefail
+          test -n "$MOBILE_RUN_ID" || { echo "::error::MOBILE_BUILD_RUN_ID_REQUIRED"; exit 1; }
+          test -n "$MOBILE_HEAD_SHA" || { echo "::error::MOBILE_BUILD_SHA_REQUIRED"; exit 1; }
+          test -n "$STORE_QA_RUN_ID" || { echo "::error::STORE_QA_RUN_ID_REQUIRED"; exit 1; }
+          test -n "$STORE_QA_HEAD_SHA" || { echo "::error::STORE_QA_SHA_REQUIRED"; exit 1; }
+          MOBILE_RUN="$(gh run view "$MOBILE_RUN_ID" --json conclusion,headSha,headBranch,workflowName,jobs)"
+          test "$(printf '%s' "$MOBILE_RUN" | jq -r '.workflowName')" = "AIMPACT Mobile Build" || { echo "::error::MOBILE_BUILD_WORKFLOW_MISMATCH"; exit 1; }
+          test "$(printf '%s' "$MOBILE_RUN" | jq -r '.headBranch')" = "main" || { echo "::error::MOBILE_BUILD_MUST_BE_FROM_MAIN"; exit 1; }
+          test "$(printf '%s' "$MOBILE_RUN" | jq -r '.headSha')" = "$MOBILE_HEAD_SHA" || { echo "::error::MOBILE_BUILD_SHA_MISMATCH"; exit 1; }
+          test "$(printf '%s' "$MOBILE_RUN" | jq -r '.conclusion')" = "success" || { echo "::error::MOBILE_BUILD_NOT_SUCCESSFUL"; exit 1; }
+          for job in android-apk android-runtime ios-simulator mobile-release-gate; do
+            result="$(printf '%s' "$MOBILE_RUN" | jq -r --arg n "$job" '.jobs[] | select(.name==$n) | .conclusion' | head -n 1)"
+            test "$result" = "success" || { echo "::error::MOBILE_JOB_GATE_FAILED_$job"; exit 1; }
+          done
+          STORE_QA="$(gh run view "$STORE_QA_RUN_ID" --json conclusion,headSha,headBranch,workflowName,jobs)"
+          test "$(printf '%s' "$STORE_QA" | jq -r '.workflowName')" = "AIMPACT Native Store QA" || { echo "::error::STORE_QA_WORKFLOW_MISMATCH"; exit 1; }
+          test "$(printf '%s' "$STORE_QA" | jq -r '.headBranch')" = "main" || { echo "::error::STORE_QA_MUST_BE_FROM_MAIN"; exit 1; }
+          test "$(printf '%s' "$STORE_QA" | jq -r '.headSha')" = "$STORE_QA_HEAD_SHA" || { echo "::error::STORE_QA_SHA_MISMATCH"; exit 1; }
+          test "$STORE_QA_HEAD_SHA" = "$MOBILE_HEAD_SHA" || { echo "::error::MOBILE_AND_STORE_QA_SHA_MISMATCH"; exit 1; }
+          test "$(printf '%s' "$STORE_QA" | jq -r '.conclusion')" = "success" || { echo "::error::STORE_QA_NOT_SUCCESSFUL"; exit 1; }
+          QA_GATE="$(printf '%s' "$STORE_QA" | jq -r '.jobs[] | select(.name=="store-configuration-and-product-gate") | .conclusion' | head -n 1)"
+          test "$QA_GATE" = "success" || { echo "::error::STORE_QA_GATE_NOT_SUCCESSFUL"; exit 1; }
+          test "$GITHUB_SHA" = "$MOBILE_HEAD_SHA" || { echo "::error::RELEASE_CHECKOUT_SHA_MISMATCH"; exit 1; }
+          echo "RELEASE_ORIGIN_GATE=PASS MOBILE_RUN=$MOBILE_RUN_ID STORE_QA_RUN=$STORE_QA_RUN_ID SHA=$MOBILE_HEAD_SHA"
 
       - name: Setup Node
         uses: actions/setup-node@v4

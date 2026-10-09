@@ -1,18 +1,24 @@
 name: AIMPACT Native Store QA
 
 on:
-  push:
-    branches: [main]
-  schedule:
-    - cron: "17 * * * *"
   workflow_dispatch:
+    inputs:
+      mobile_run_id:
+        description: "Successful AIMPACT Mobile Build run ID dispatched by Central Control"
+        required: true
+        type: string
+      mobile_head_sha:
+        description: "Commit SHA verified by Central Control"
+        required: true
+        type: string
 
 concurrency:
-  group: aimpact-native-store-qa
+  group: aimpact-native-store-qa-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   store-configuration-and-product-gate:
@@ -20,6 +26,25 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: Verify originating mobile build gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MOBILE_RUN_ID: ${{ inputs.mobile_run_id }}
+          MOBILE_HEAD_SHA: ${{ inputs.mobile_head_sha }}
+        run: |
+          set -euo pipefail
+          test -n "$MOBILE_RUN_ID" || { echo "::error::MOBILE_BUILD_RUN_ID_REQUIRED"; exit 1; }
+          test -n "$MOBILE_HEAD_SHA" || { echo "::error::MOBILE_BUILD_SHA_REQUIRED"; exit 1; }
+          RUN="$(gh run view "$MOBILE_RUN_ID" --json conclusion,headSha,workflowName,jobs)"
+          test "$(printf '%s' "$RUN" | jq -r '.workflowName')" = "AIMPACT Mobile Build" || { echo "::error::MOBILE_BUILD_WORKFLOW_MISMATCH"; exit 1; }
+          test "$(printf '%s' "$RUN" | jq -r '.headSha')" = "$MOBILE_HEAD_SHA" || { echo "::error::MOBILE_BUILD_SHA_MISMATCH"; exit 1; }
+          test "$GITHUB_SHA" = "$MOBILE_HEAD_SHA" || { echo "::error::CHECKED_OUT_COMMIT_DIFFERS_FROM_VERIFIED_MOBILE_BUILD"; exit 1; }
+          test "$(printf '%s' "$RUN" | jq -r '.conclusion')" = "success" || { echo "::error::MOBILE_BUILD_NOT_SUCCESSFUL"; exit 1; }
+          for job in android-apk android-runtime ios-simulator; do
+            result="$(printf '%s' "$RUN" | jq -r --arg n "$job" '.jobs[] | select(.name==$n) | .conclusion' | head -n 1)"
+            test "$result" = "success" || { echo "::error::MOBILE_JOB_GATE_FAILED_$job"; exit 1; }
+          done
+          echo "MOBILE_BUILD_GATE=PASS RUN=$MOBILE_RUN_ID SHA=$MOBILE_HEAD_SHA"
       - name: Validate native store architecture
         run: |
           set -euo pipefail
@@ -29,6 +54,15 @@ jobs:
           test -s supabase/migrations/202610080003_store_entitlements.sql
           grep -q 'APPLE_ISSUER_ID' netlify/functions/iap-verify.mjs
           grep -q 'GOOGLE_SERVICE_ACCOUNT_EMAIL' netlify/functions/iap-verify.mjs
+          node <<'NODE'
+          const config = require("./mobile/app.json").expo;
+          const projectId = config.extra?.eas?.projectId;
+          if (!projectId) {
+            console.error("::error::EAS_PROJECT_ID_NOT_CONFIGURED");
+            process.exit(1);
+          }
+          console.log("EAS_PROJECT_ID_CONFIGURED");
+          NODE
           echo "NATIVE_STORE_ARCHITECTURE=PASS"
       - name: Audit Apple and Google verification credentials
         id: store-credentials
@@ -41,10 +75,11 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
           GOOGLE_SERVICE_ACCOUNT_KEY_BASE64: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64 }}
           GOOGLE_PACKAGE_NAME: ${{ secrets.GOOGLE_PACKAGE_NAME }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           set -euo pipefail
           missing=0
-          for v in APPLE_ISSUER_ID APPLE_KEY_ID APPLE_BUNDLE_ID GOOGLE_SERVICE_ACCOUNT_EMAIL GOOGLE_PACKAGE_NAME; do
+          for v in APPLE_ISSUER_ID APPLE_KEY_ID APPLE_BUNDLE_ID GOOGLE_SERVICE_ACCOUNT_EMAIL GOOGLE_PACKAGE_NAME EXPO_TOKEN; do
             if test -n "${!v}"; then echo "${v}=CONFIGURED"; else echo "${v}=MISSING"; missing=1; fi
           done
           if test -n "${APPLE_PRIVATE_KEY_BASE64}" || test -n "${APPLE_PRIVATE_KEY}"; then echo "APPLE_PRIVATE_KEY=CONFIGURED"; else echo "APPLE_PRIVATE_KEY=MISSING"; missing=1; fi
@@ -61,6 +96,7 @@ jobs:
           APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
           APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
           APPLE_PRIVATE_KEY: ${{ secrets.APPLE_PRIVATE_KEY }}
+          APPLE_PRIVATE_KEY_BASE64: ${{ secrets.APPLE_PRIVATE_KEY_BASE64 }}
           APPLE_BUNDLE_ID: ${{ secrets.APPLE_BUNDLE_ID }}
           IAP_PRODUCT_ID: ai.aimpact.quick_audit
         run: |
@@ -70,7 +106,9 @@ jobs:
           const now=Math.floor(Date.now()/1000);
           const h=b64(JSON.stringify({alg:"ES256",kid:process.env.APPLE_KEY_ID,typ:"JWT"}));
           const p=b64(JSON.stringify({iss:process.env.APPLE_ISSUER_ID,iat:now,exp:now+300,aud:"appstoreconnect-v1"}));
-          const sig=crypto.sign("sha256",Buffer.from(h+"."+p),{key:process.env.APPLE_PRIVATE_KEY.replace(/\\n/g,"\n"),dsaEncoding:"ieee-p1363"}).toString("base64url");
+          const rawKey=process.env.APPLE_PRIVATE_KEY || Buffer.from(process.env.APPLE_PRIVATE_KEY_BASE64 || "", "base64").toString("utf8");
+          if(!rawKey.trim()) throw new Error("APPLE_PRIVATE_KEY_MISSING");
+          const sig=crypto.sign("sha256",Buffer.from(h+"."+p),{key:rawKey.replace(/\\n/g,"\n"),dsaEncoding:"ieee-p1363"}).toString("base64url");
           const jwt=h+"."+p+"."+sig;
           (async()=>{
             const a=await fetch("https://api.appstoreconnect.apple.com/v1/apps?filter[bundleId]="+encodeURIComponent(process.env.APPLE_BUNDLE_ID),{headers:{Authorization:"Bearer "+jwt}});
@@ -88,7 +126,6 @@ jobs:
         env:
           GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
           GOOGLE_SERVICE_ACCOUNT_KEY_BASE64: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64 }}
-          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
           GOOGLE_PACKAGE_NAME: ${{ secrets.GOOGLE_PACKAGE_NAME }}
           IAP_PRODUCT_ID: ai.aimpact.quick_audit
         run: |
@@ -112,20 +149,21 @@ jobs:
             console.log("GOOGLE_IAP_PRODUCT=PASS",JSON.stringify({productId:d.productId,purchaseOptions:d.purchaseOptions?.length||0}));
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
-      - name: Native store architecture gate
+      - name: Enforce store credential gate
+        env:
+          STORE_CREDENTIALS: ${{ steps.store-credentials.outputs.STORE_VERIFICATION_CREDENTIALS }}
         run: |
+          set -euo pipefail
+          test "$STORE_CREDENTIALS" = "CONFIGURED" || { echo "::error::STORE_RELEASE_BLOCKED_CREDENTIALS"; exit 1; }
           echo "NATIVE_STORE_ARCHITECTURE_GATE=PASS"
-          if test "${{ steps.store-credentials.outputs.STORE_VERIFICATION_CREDENTIALS }}" = "CONFIGURED"; then
-            echo "STORE_PRODUCT_VERIFICATION=PASS"
-          else
-            echo "STORE_PRODUCT_VERIFICATION=BLOCKED_CREDENTIALS"
-          fi
+          echo "STORE_PRODUCT_VERIFICATION=PASS"
 
   auto-next-store-builds:
     if: ${{ success() }}
     needs: [store-configuration-and-product-gate]
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       actions: write
     steps:
       - name: Checkout repository for GitHub CLI workflow dispatch
@@ -137,8 +175,12 @@ jobs:
       - name: Dispatch iOS TestFlight build
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run ios-device-release.yml --ref main
+          MOBILE_RUN_ID: ${{ inputs.mobile_run_id }}
+          MOBILE_HEAD_SHA: ${{ inputs.mobile_head_sha }}
+        run: gh workflow run ios-device-release.yml --ref main -f mobile_run_id="$MOBILE_RUN_ID" -f mobile_head_sha="$MOBILE_HEAD_SHA" -f store_qa_run_id="$GITHUB_RUN_ID" -f store_qa_head_sha="$GITHUB_SHA"
       - name: Dispatch Android Internal Testing build
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run android-store-release.yml --ref main
+          MOBILE_RUN_ID: ${{ inputs.mobile_run_id }}
+          MOBILE_HEAD_SHA: ${{ inputs.mobile_head_sha }}
+        run: gh workflow run android-store-release.yml --ref main -f mobile_run_id="$MOBILE_RUN_ID" -f mobile_head_sha="$MOBILE_HEAD_SHA" -f store_qa_run_id="$GITHUB_RUN_ID" -f store_qa_head_sha="$GITHUB_SHA"

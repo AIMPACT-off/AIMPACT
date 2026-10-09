@@ -6,11 +6,15 @@ name: AIMPACT Central Control Validation
   pull_request:
     branches: [main]
   workflow_dispatch:
+  workflow_run:
+    workflows: ["AIMPACT Mobile Build", "AIMPACT Payment Control"]
+    branches: [main]
+    types: [completed]
   schedule:
     - cron: "*/30 * * * *"
 
 concurrency:
-  group: aimpact-central-control
+  group: aimpact-central-control-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -53,6 +57,32 @@ jobs:
         uses: actions/checkout@v4
       - name: Validate central-control policy
         run: node control-plane/validate-policy.mjs
+      - name: Enforce Android diagnostics and store release gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n mobile/scripts/android-runtime-check.sh
+          grep -Fq 'bash mobile/scripts/android-runtime-check.sh' .github/workflows/mobile-build.yml
+          grep -Fq 'actions/download-artifact@v4' .github/workflows/mobile-build.yml
+          grep -Fq 'sha256sum -c "$(basename "$APK").sha256"' .github/workflows/mobile-build.yml
+          grep -Fq 'AIMPACT-Android-Runtime-Diagnostics' .github/workflows/mobile-build.yml
+          grep -Fq 'cancel-in-progress: false' .github/workflows/mobile-build.yml
+          grep -Fq "github.event_name == 'push' && github.ref == 'refs/heads/main' && success()" .github/workflows/mobile-build.yml
+          for f in .github/workflows/android-store-release.yml .github/workflows/ios-device-release.yml; do
+            ! grep -q 'workflow_run:' "$f"
+            grep -q 'store_qa_run_id' "$f"
+            grep -q 'STORE_QA_NOT_SUCCESSFUL' "$f"
+            grep -q 'MOBILE_BUILD_NOT_SUCCESSFUL' "$f"
+          done
+          grep -q 'EAS_PROJECT_ID_NOT_CONFIGURED' .github/workflows/native-store-qa.yml
+          grep -q 'EAS_PROJECT_ID_NOT_CONFIGURED' .github/workflows/android-store-release.yml
+          grep -q 'EXPO_TOKEN; do' .github/workflows/native-store-qa.yml
+          grep -q 'store_qa_run_id="$GITHUB_RUN_ID"' .github/workflows/native-store-qa.yml
+          grep -q 'stripe-integration-gate:' .github/workflows/payment-control.yml
+          grep -q 'STRIPE_SECRET_KEY_NOT_CONFIGURED' .github/workflows/payment-control.yml
+          ! grep -q 'native-store-qa.yml' .github/workflows/payment-control.yml
+          echo "ANDROID_DIAGNOSTICS_AND_RELEASE_GATES=PASS"
+
       - name: Validate required company architecture
         shell: bash
         run: |
@@ -171,11 +201,41 @@ jobs:
           set -euo pipefail
           JOBS="$(gh run view "$RUN_ID" --json jobs --jq '.jobs[] | [.name,.status,.conclusion] | @tsv')"
           echo "$JOBS"
+          ANDROID_APK="$(printf '%s\n' "$JOBS" | awk -F '\t' '$1=="android-apk"{print $3}')"
           ANDROID_RUNTIME="$(printf '%s\n' "$JOBS" | awk -F '\t' '$1=="android-runtime"{print $3}')"
-          MOBILE_GATE="$(printf '%s\n' "$JOBS" | awk -F '\t' '$1=="mobile-release-gate"{print $3}')"
-          if [ "$RUN_CONCLUSION" = "success" ] && [ "$ANDROID_RUNTIME" = "success" ] && [ "$MOBILE_GATE" = "success" ]; then exit 0; fi
+          IOS_SIMULATOR="$(printf '%s\n' "$JOBS" | awk -F '\t' '$1=="ios-simulator"{print $3}')"
+          if [ "$RUN_CONCLUSION" = "success" ] && [ "$ANDROID_APK" = "success" ] && [ "$ANDROID_RUNTIME" = "success" ] && [ "$IOS_SIMULATOR" = "success" ]; then
+            echo "MOBILE_BUILD_GATE=PASS"
+            exit 0
+          fi
           if [ "$RUN_ATTEMPT" -lt 2 ]; then gh run rerun "$RUN_ID" --failed; exit 0; fi
           exit 1
+
+  dispatch-native-store-qa:
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'AIMPACT Mobile Build' && github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Verify all required mobile build jobs passed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          JOBS="$(gh run view "$RUN_ID" --json jobs --jq '.jobs[] | [.name,.conclusion] | @tsv')"
+          echo "$JOBS"
+          for job in android-apk android-runtime ios-simulator; do
+            result="$(printf '%s\n' "$JOBS" | awk -F '\t' -v name="$job" '$1==name{print $2}')"
+            if [ "$result" != "success" ]; then
+              echo "MOBILE_STORE_QA_BLOCKED=JOB_${job}_${result:-MISSING}"
+              exit 1
+            fi
+          done
+          gh workflow run native-store-qa.yml --ref main -f mobile_run_id="$RUN_ID" -f mobile_head_sha="$RUN_SHA"
+          echo "NATIVE_STORE_QA_DISPATCH=PASS MOBILE_RUN_ID=$RUN_ID MOBILE_SHA=$RUN_SHA"
 
   mobile-autorepair:
     if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'AIMPACT Mobile Build' && github.event.workflow_run.conclusion == 'failure' }}
@@ -233,9 +293,14 @@ jobs:
           JOBS="$(gh run view "$RUN_ID" --json jobs --jq '.jobs[] | [.name,.status,.conclusion] | @tsv')"
           echo "$JOBS"
           CODE_GATE="$(printf '%s\n' "$JOBS" | awk -F '\t' '$1=="payment-code-gate"{print $3}')"
-          if [ "$CODE_GATE" = "success" ] && [ "$RUN_CONCLUSION" = "success" ]; then exit 0; fi
-          if [ "$CODE_GATE" = "success" ] && [ "$RUN_CONCLUSION" = "failure" ]; then
-            if [ "$RUN_ATTEMPT" -lt 2 ]; then gh run rerun "$RUN_ID" --failed; exit 0; fi
+          INTEGRATION_GATE="$(printf '%s\n' "$JOBS" | awk -F '\t' '$1=="stripe-integration-gate"{print $3}')"
+          if [ "$CODE_GATE" = "success" ] && [ "$INTEGRATION_GATE" = "success" ] && [ "$RUN_CONCLUSION" = "success" ]; then
+            echo "PAYMENT_CODE_AND_STRIPE_INTEGRATION=PASS"
+            exit 0
+          fi
+          if [ "$CODE_GATE" = "success" ] && [ "$INTEGRATION_GATE" = "failure" ]; then
+            echo "PAYMENT_AUTOMATION_BLOCKED=STRIPE_SECRET_OR_API_CONFIGURATION"
+            echo "PAYMENT_AUTORETRY=SKIPPED_EXTERNAL_BLOCKER"
             exit 1
           fi
           if [ "$RUN_ATTEMPT" -lt 2 ]; then gh run rerun "$RUN_ID" --failed; exit 0; fi
