@@ -1,9 +1,9 @@
 import crypto from "node:crypto";
-import { QUICK_AUDIT_PRICE_KRW, QUICK_AUDIT_CURRENCY } from "../../lib/product-catalog.mjs";
+import { QUICK_AUDIT_PRICE_KRW, QUICK_AUDIT_CURRENCY as CANONICAL_CURRENCY } from "../../lib/product-catalog.mjs";
 
 const PAYMENT_LINK_ID = process.env.AIMPACT_QUICK_AUDIT_PAYMENT_LINK_ID || "plink_1UNpJEGeNSkj4zfGecYTrM3u";
 const QUICK_AUDIT_AMOUNT = Number(process.env.PRODUCT_PRICE_QUICK_AUDIT || QUICK_AUDIT_PRICE_KRW);
-const QUICK_AUDIT_CURRENCY = QUICK_AUDIT_CURRENCY.toLowerCase();
+const QUICK_AUDIT_CURRENCY = CANONICAL_CURRENCY.toLowerCase();
 
 function env(name) {
   const value = process.env[name];
