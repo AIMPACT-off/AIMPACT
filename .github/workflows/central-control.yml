@@ -63,6 +63,8 @@ jobs:
           set -euo pipefail
           bash -n mobile/scripts/android-runtime-check.sh
           grep -Fq 'bash mobile/scripts/android-runtime-check.sh' .github/workflows/mobile-build.yml
+          grep -Fq 'actions/download-artifact@v4' .github/workflows/mobile-build.yml
+          grep -Fq 'sha256sum -c "$(basename "$APK").sha256"' .github/workflows/mobile-build.yml
           grep -Fq 'AIMPACT-Android-Runtime-Diagnostics' .github/workflows/mobile-build.yml
           grep -Fq 'cancel-in-progress: false' .github/workflows/mobile-build.yml
           grep -Fq "github.event_name == 'push' && github.ref == 'refs/heads/main' && success()" .github/workflows/mobile-build.yml
