@@ -11,6 +11,11 @@ test("central control runs are isolated so later events cannot cancel earlier ev
   assert.match(central, /cancel-in-progress: false/);
 });
 
+test("skipped payment workflow events are not retried or mistaken for failed tests", () => {
+  assert.match(central, /RUN_CONCLUSION" = "skipped"[\\s\\S]*CODE_GATE" = "skipped"[\\s\\S]*PAYMENT_CONTROL_RUN_NOT_EXECUTED/);
+  assert.match(central, /PAYMENT_AUTORETRY=NOT_APPLICABLE/);
+});
+
 test("central payment control cannot pass without explicit E2E evidence", () => {
   assert.match(central, /grep -q 'PAYMENT_E2E=PASS'/);
   assert.match(central, /PAYMENT_E2E_NOT_VERIFIED/);
