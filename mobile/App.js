@@ -3,6 +3,7 @@ import { Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInpu
 import { StatusBar } from "expo-status-bar";
 import { useIAP } from "expo-iap";
 import { authConfigReady, sendOtp, verifyOtp, getSessionToken, getSessionUserId } from "./session";
+import { QUICK_AUDIT_PRICE_KRW } from "../lib/product-catalog.mjs";
 
 const ENTITLEMENT_API = "https://aimpact-ai.netlify.app/api/entitlement";
 const CHECKOUT_API = "https://aimpact-ai.netlify.app/api/checkout";
@@ -327,7 +328,7 @@ function App() {
                     <Text style={s.cardTitle}>Unlock the verified AI Quick Audit</Text>
                     <Text style={s.sub}>결제 후 고객 entitlement를 서버에서 검증하고 결과를 정식 고객 상태로 연결합니다.</Text>
               <View style={s.benefits}><Text style={s.benefit}>✓ 검증된 AI Quick Audit REPORT</Text><Text style={s.benefit}>✓ 고객별 AI 진단 기록</Text><Text style={s.benefit}>✓ 결제 후 즉시 REPORT 잠금 해제</Text></View>
-                    <TouchableOpacity style={s.primary} onPress={buy}><Text style={s.primaryText}>UNLOCK · ₩200,000 →</Text></TouchableOpacity>
+                    <TouchableOpacity style={s.primary} onPress={buy}><Text style={s.primaryText}>UNLOCK · {`₩${QUICK_AUDIT_PRICE_KRW.toLocaleString("ko-KR")}`} →</Text></TouchableOpacity>
                   </View>
                 )}
                 <TouchableOpacity style={s.secondary} onPress={resetAudit}><Text style={s.secondaryText}>START ANOTHER AUDIT</Text></TouchableOpacity>
@@ -345,7 +346,7 @@ function App() {
               <Text style={s.cardTitle}>AI Quick Audit</Text>
               <Text style={s.sub}>One real business process mapped into an AI opportunity, workflow and implementation order.</Text>
               <View style={s.benefits}><Text style={s.benefit}>✓ Business health & opportunity score</Text><Text style={s.benefit}>✓ Recommended AI workflow</Text><Text style={s.benefit}>✓ Verified entitlement unlock</Text></View>
-              <Text style={s.price}>₩200,000</Text>
+              <Text style={s.price}>{`₩${QUICK_AUDIT_PRICE_KRW.toLocaleString("ko-KR")}`}</Text>
               <Text style={s.muted}>one-time</Text>
               <TouchableOpacity style={s.primary} onPress={buy}><Text style={s.primaryText}>BUY / START →</Text></TouchableOpacity>
             </View>
@@ -365,7 +366,7 @@ function App() {
             <Text style={s.title}>Revenue is part{"\n"}of the product.</Text>
             <View style={s.card}>
               <Text style={s.label}>CHECKOUT</Text>
-              <Text style={s.price}>₩200,000</Text>
+              <Text style={s.price}>{`₩${QUICK_AUDIT_PRICE_KRW.toLocaleString("ko-KR")}`}</Text>
               <Text style={s.sub}>AI Quick Audit · one-time</Text>
               <TouchableOpacity style={s.primary} onPress={buy}><Text style={s.primaryText}>OPEN CHECKOUT →</Text></TouchableOpacity>
             </View>
