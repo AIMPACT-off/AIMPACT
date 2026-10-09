@@ -114,8 +114,8 @@ jobs:
           set -euo pipefail
           required=(AIMPACT_CENTRAL_CONTROL_SYSTEM.md AIMPACT_DECISION_AUTHORITY.md AIMPACT_CORE_TECHNOLOGY_AND_MONETIZATION.md AIMPACT_DATA_LINEAGE.md AIMPACT_VERIFICATION_SPEC.md AIMPACT_SYNC_SPEC.md RELEASE_CREDENTIALS_AND_BLOCKERS.md)
           for f in "${required[@]}"; do test -s "$f" || { echo "Missing required architecture artifact: $f"; exit 1; }; done
-      - name: Test immutable mobile release provenance
-        run: node --test tests/release-provenance.test.mjs
+      - name: Test immutable mobile release provenance and payment truth gates
+        run: node --test tests/release-provenance.test.mjs tests/payment-e2e-truth.test.mjs
       - name: Validate frontend and EAS configuration syntax
         run: |
           node --check app.js
@@ -132,6 +132,9 @@ jobs:
           grep -q 'revenue_requires_transaction' control-plane/policy.json
           grep -q 'outcome_requires_measurement' control-plane/policy.json
           grep -q 'verified_tool_requires_current_evidence' control-plane/policy.json
+          grep -q '"payment_e2e_verified"' control-plane/policy.json
+          grep -q 'PAYMENT_E2E_NOT_VERIFIED' .github/workflows/central-control.yml
+          grep -q 'PAYMENT_E2E=NOT_VERIFIED' .github/workflows/payment-control.yml
       - name: Validate customer revenue path configuration
         run: |
           set -euo pipefail
@@ -346,12 +349,26 @@ jobs:
         run: |
           set -euo pipefail
           JOBS="$(gh run view "$RUN_ID" --json jobs --jq '.jobs[] | [.name,.status,.conclusion] | @tsv')"
+          RUN_LOG="$(gh run view "$RUN_ID" --log 2>/dev/null || true)"
           echo "$JOBS"
           CODE_GATE="$(printf '%s\n' "$JOBS" | awk -F '\t' '$1=="payment-code-gate"{print $3}')"
           INTEGRATION_GATE="$(printf '%s\n' "$JOBS" | awk -F '\t' '$1=="stripe-integration-gate"{print $3}')"
           if [ "$CODE_GATE" = "success" ] && [ "$INTEGRATION_GATE" = "success" ] && [ "$RUN_CONCLUSION" = "success" ]; then
-            echo "PAYMENT_CODE_AND_PROVIDER_GATE=PASS (provider mode is reported by the integration job; MOCK_ONLY is not payment integration proof)"
-            exit 0
+            if printf '%s' "$RUN_LOG" | grep -q 'PAYMENT_E2E=PASS'; then
+              echo "PAYMENT_CODE_GATE=PASS"
+              echo "PAYMENT_E2E=PASS"
+              exit 0
+            fi
+            echo "::error::PAYMENT_E2E_NOT_VERIFIED"
+            if printf '%s' "$RUN_LOG" | grep -q 'PAYMENT_PROVIDER_GATE_MODE=MOCK_ONLY'; then
+              echo "PAYMENT_PROVIDER_GATE=BLOCKED_NO_PROVIDER_CREDENTIALS"
+            elif printf '%s' "$RUN_LOG" | grep -q 'PAYMENT_PROVIDER_GATE_MODE=STRIPE_SANDBOX_VERIFIED'; then
+              echo "PAYMENT_PROVIDER_GATE=LINK_CHECK_ONLY_NOT_E2E"
+            else
+              echo "PAYMENT_PROVIDER_GATE=NO_E2E_EVIDENCE"
+            fi
+            echo "PAYMENT_E2E=NOT_VERIFIED"
+            exit 1
           fi
           if [ "$RUN_CONCLUSION" = "skipped" ] && [ "$CODE_GATE" = "skipped" ] && [ "$INTEGRATION_GATE" = "skipped" ]; then
             echo "::warning::PAYMENT_PROVIDER_GATE=NOT_RUN"
@@ -360,6 +377,7 @@ jobs:
             exit 0
           fi
           if [ "$CODE_GATE" = "success" ] && [ "$INTEGRATION_GATE" = "failure" ]; then
+            echo "PAYMENT_E2E=NOT_VERIFIED"
             echo "PAYMENT_AUTOMATION_BLOCKED=SELECTED_PROVIDER_SECRET_OR_INTEGRATION_CONFIGURATION"
             echo "PAYMENT_AUTORETRY=SKIPPED_EXTERNAL_BLOCKER"
             exit 1

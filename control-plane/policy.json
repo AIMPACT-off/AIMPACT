@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "company": "AIMPACT",
   "principal": {
     "name": "Kim Hyung Nam",
@@ -135,6 +135,7 @@
       "server_ai_verified",
       "android_runtime_verified",
       "ios_device_distribution_verified",
+      "payment_e2e_verified",
       "live_entitlement_verified",
       "outcome_measurement_verified",
       "native_store_billing_verified",

@@ -73,6 +73,7 @@ jobs:
             echo "::warning::STRIPE_SECRET_KEY_NOT_CONFIGURED"
             echo "PAYMENT_PROVIDER_GATE_MODE=MOCK_ONLY"
             echo "STRIPE_INTEGRATION_GATE=SKIPPED_NO_PROVIDER_SECRET"
+            echo "PAYMENT_E2E=NOT_VERIFIED"
             exit 0
           fi
           if [ "$provider" = "toss" ]; then
@@ -87,6 +88,7 @@ jobs:
             fi
             echo "PAYMENT_PROVIDER_GATE_MODE=TOSS_CODE_PRESENT_REQUIRES_PROVIDER_SPECIFIC_TEST"
             echo "::error::TOSS_SANDBOX_PAYMENT_TEST_NOT_IMPLEMENTED"
+            echo "PAYMENT_E2E=NOT_VERIFIED"
             exit 1
           fi
           if [ "$provider" != "stripe" ]; then
@@ -112,4 +114,5 @@ jobs:
           print('STRIPE_SANDBOX_PAYMENT_LINK=PASS')
           print('PAYMENT_PROVIDER_GATE_MODE=STRIPE_SANDBOX_VERIFIED')
           print('STRIPE_INTEGRATION_GATE=PASS')
+          print('PAYMENT_E2E=NOT_VERIFIED')
           PY
