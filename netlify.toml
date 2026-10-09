@@ -25,6 +25,21 @@
   status = 200
 
 [[redirects]]
+  from = "/api/toss-checkout"
+  to = "/.netlify/functions/toss-checkout"
+  status = 200
+
+[[redirects]]
+  from = "/api/toss-confirm"
+  to = "/.netlify/functions/toss-confirm"
+  status = 200
+
+[[redirects]]
+  from = "/api/toss-webhook"
+  to = "/.netlify/functions/toss-webhook"
+  status = 200
+
+[[redirects]]
   from = "/api/iap-verify"
   to = "/.netlify/functions/iap-verify"
   status = 200
