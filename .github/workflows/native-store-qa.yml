@@ -36,21 +36,19 @@ jobs:
           APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
           APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
           APPLE_PRIVATE_KEY: ${{ secrets.APPLE_PRIVATE_KEY }}
+          APPLE_PRIVATE_KEY_BASE64: ${{ secrets.APPLE_PRIVATE_KEY_BASE64 }}
           APPLE_BUNDLE_ID: ${{ secrets.APPLE_BUNDLE_ID }}
           GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
-          GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}
+          GOOGLE_SERVICE_ACCOUNT_KEY_BASE64: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64 }}
           GOOGLE_PACKAGE_NAME: ${{ secrets.GOOGLE_PACKAGE_NAME }}
         run: |
           set -euo pipefail
           missing=0
-          for v in APPLE_ISSUER_ID APPLE_KEY_ID APPLE_PRIVATE_KEY APPLE_BUNDLE_ID GOOGLE_SERVICE_ACCOUNT_EMAIL GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY GOOGLE_PACKAGE_NAME; do
-            if test -n "${!v}"; then
-              echo "${v}=CONFIGURED"
-            else
-              echo "${v}=MISSING"
-              missing=1
-            fi
+          for v in APPLE_ISSUER_ID APPLE_KEY_ID APPLE_BUNDLE_ID GOOGLE_SERVICE_ACCOUNT_EMAIL GOOGLE_PACKAGE_NAME; do
+            if test -n "${!v}"; then echo "${v}=CONFIGURED"; else echo "${v}=MISSING"; missing=1; fi
           done
+          if test -n "${APPLE_PRIVATE_KEY_BASE64}" || test -n "${APPLE_PRIVATE_KEY}"; then echo "APPLE_PRIVATE_KEY=CONFIGURED"; else echo "APPLE_PRIVATE_KEY=MISSING"; missing=1; fi
+          if test -n "${GOOGLE_SERVICE_ACCOUNT_KEY_BASE64}"; then echo "GOOGLE_SERVICE_ACCOUNT_KEY_BASE64=CONFIGURED"; else echo "GOOGLE_SERVICE_ACCOUNT_KEY_BASE64=MISSING"; missing=1; fi
           if test "$missing" -eq 0; then
             echo "STORE_VERIFICATION_CREDENTIALS=CONFIGURED" >> "$GITHUB_OUTPUT"
           else
@@ -89,17 +87,20 @@ jobs:
         if: ${{ steps.store-credentials.outputs.STORE_VERIFICATION_CREDENTIALS == 'CONFIGURED' }}
         env:
           GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
-          GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}
+          GOOGLE_SERVICE_ACCOUNT_KEY_BASE64: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64 }}
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
           GOOGLE_PACKAGE_NAME: ${{ secrets.GOOGLE_PACKAGE_NAME }}
           IAP_PRODUCT_ID: ai.aimpact.quick_audit
         run: |
           node <<'NODE'
           const crypto=require("crypto");
+          const sa=JSON.parse(Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64,"base64").toString("utf8"));
+          if(sa.client_email!==process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL) throw new Error("GOOGLE_SERVICE_ACCOUNT_EMAIL_MISMATCH");
           const b64=v=>Buffer.from(v).toString("base64url");
           const now=Math.floor(Date.now()/1000);
           const h=b64(JSON.stringify({alg:"RS256",typ:"JWT"}));
-          const p=b64(JSON.stringify({iss:process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,scope:"https://www.googleapis.com/auth/androidpublisher",aud:"https://oauth2.googleapis.com/token",iat:now,exp:now+3600}));
-          const sig=crypto.createSign("RSA-SHA256").update(h+"."+p).sign(process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.replace(/\\n/g,"\n")).toString("base64url");
+          const p=b64(JSON.stringify({iss:sa.client_email,scope:"https://www.googleapis.com/auth/androidpublisher",aud:"https://oauth2.googleapis.com/token",iat:now,exp:now+3600}));
+          const sig=crypto.createSign("RSA-SHA256").update(h+"."+p).sign(sa.private_key).toString("base64url");
           (async()=>{
             const t=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body:new URLSearchParams({grant_type:"urn:ietf:params:oauth:grant-type:jwt-bearer",assertion:h+"."+p+"."+sig})});
             if(!t.ok) throw new Error("GOOGLE_OAUTH_HTTP_"+t.status);
