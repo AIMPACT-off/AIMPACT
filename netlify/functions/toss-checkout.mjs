@@ -1,7 +1,8 @@
 import crypto from "node:crypto";
+import { QUICK_AUDIT_PRICE_KRW } from "../../lib/product-catalog.mjs";
 
 const PRODUCT_KEY = "AI_QUICK_AUDIT";
-const PRODUCT_AMOUNT = Number(process.env.PRODUCT_PRICE_QUICK_AUDIT || 200000);
+const PRODUCT_AMOUNT = Number(process.env.PRODUCT_PRICE_QUICK_AUDIT || QUICK_AUDIT_PRICE_KRW);
 
 function json(statusCode, body) {
   return { statusCode, headers: { "content-type": "application/json", "cache-control": "no-store" }, body: JSON.stringify(body) };
