@@ -93,6 +93,9 @@ jobs:
           grep -q 'node --test tests/store-secret-readiness-watch.test.mjs' .github/workflows/store-secret-recovery.yml
           grep -q 'gh workflow run ios-device-release.yml --ref "$SOURCE_REF"' .github/workflows/native-store-qa.yml
           grep -q 'gh workflow run android-store-release.yml --ref "$SOURCE_REF"' .github/workflows/native-store-qa.yml
+          grep -q 'gh pr create' .github/workflows/central-control.yml
+          grep -q 'MOBILE_AUTOREPAIR_PULL_REQUEST=' .github/workflows/central-control.yml
+          ! grep -q 'git push origin HEAD:main' .github/workflows/central-control.yml
           grep -q 'APPLE_BUNDLE_ID' .github/workflows/native-store-qa.yml
           grep -q 'GOOGLE_SERVICE_ACCOUNT_EMAIL' .github/workflows/native-store-qa.yml
           grep -q 'GOOGLE_PACKAGE_NAME' .github/workflows/native-store-qa.yml
