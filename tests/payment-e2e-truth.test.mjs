@@ -34,6 +34,11 @@ test("mock provider and payment-link checks are explicitly not E2E", () => {
   assert.match(e2e, /entitlement/);
   assert.match(e2e, /idempotent/);
   assert.match(e2e, /PAYMENT_E2E=PASS/);
+  assert.match(e2e, /toss-checkout/);
+  assert.match(e2e, /chromium\.launch/);
+  assert.match(e2e, /DYNAMIC_ORDER_CREATED=PASS/);
+  assert.doesNotMatch(e2e, /TOSS_E2E_ORDER_ID|TOSS_E2E_PAYMENT_KEY/);
+  assert.match(e2e, /SUPABASE_LEDGER_MISMATCH_OR_DUPLICATE/);
   assert.ok((payment.match(/PAYMENT_E2E=NOT_VERIFIED/g) || []).length >= 2);
 });
 
