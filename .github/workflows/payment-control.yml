@@ -59,8 +59,6 @@ jobs:
         env:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           TOSS_SECRET_KEY: ${{ secrets.TOSS_SECRET_KEY }}
-          TOSS_E2E_ORDER_ID: ${{ secrets.TOSS_E2E_ORDER_ID }}
-          TOSS_E2E_PAYMENT_KEY: ${{ secrets.TOSS_E2E_PAYMENT_KEY }}
           TOSS_E2E_USER_ACCESS_TOKEN: ${{ secrets.TOSS_E2E_USER_ACCESS_TOKEN }}
           AIMPACT_E2E_BASE_URL: ${{ vars.AIMPACT_E2E_BASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -94,6 +92,8 @@ jobs:
               exit 1
             fi
             echo "PAYMENT_PROVIDER_GATE_MODE=TOSS_SANDBOX_E2E"
+            npm install --no-save --package-lock=false playwright
+            npx playwright install --with-deps chromium
             node scripts/toss-sandbox-e2e.mjs
           fi
           if [ "$provider" != "stripe" ]; then
