@@ -68,18 +68,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          provider="${PAYMENT_PROVIDER:-auto}"
+          provider="${PAYMENT_PROVIDER:-toss}"
           if [ "$provider" = "auto" ]; then
             if [ -n "${TOSS_SECRET_KEY:-}" ]; then provider="toss"; elif [ -n "${STRIPE_SECRET_KEY:-}" ]; then provider="stripe"; else provider="mock"; fi
           fi
           echo "PAYMENT_PROVIDER_SELECTED=$provider"
           if [ "$provider" = "mock" ]; then
-            echo "::warning::No payment provider credentials configured; only code-level checks ran. No live/sandbox payment integration is verified."
-            echo "::warning::STRIPE_SECRET_KEY_NOT_CONFIGURED"
+            echo "::error::MOCK_PROVIDER_FORBIDDEN_FOR_PAYMENT_CERTIFICATION"
             echo "PAYMENT_PROVIDER_GATE_MODE=MOCK_ONLY"
-            echo "STRIPE_INTEGRATION_GATE=SKIPPED_NO_PROVIDER_SECRET"
             echo "PAYMENT_E2E=NOT_VERIFIED"
-            exit 0
+            exit 1
           fi
           if [ "$provider" = "toss" ]; then
             if [ -z "${TOSS_SECRET_KEY:-}" ]; then
