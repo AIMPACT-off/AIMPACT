@@ -60,6 +60,8 @@ jobs:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           TOSS_SECRET_KEY: ${{ secrets.TOSS_SECRET_KEY }}
           TOSS_E2E_USER_ACCESS_TOKEN: ${{ secrets.TOSS_E2E_USER_ACCESS_TOKEN }}
+          TOSS_E2E_TEST_USER_EMAIL: ${{ secrets.TOSS_E2E_TEST_USER_EMAIL }}
+          TOSS_E2E_TEST_USER_PASSWORD: ${{ secrets.TOSS_E2E_TEST_USER_PASSWORD }}
           AIMPACT_E2E_BASE_URL: ${{ vars.AIMPACT_E2E_BASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
