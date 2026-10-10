@@ -3,7 +3,6 @@ import { chromium } from "playwright";
 const required = [
   "AIMPACT_E2E_BASE_URL",
   "TOSS_SECRET_KEY",
-  "TOSS_CLIENT_KEY",
   "TOSS_E2E_USER_ACCESS_TOKEN",
   "SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY"
@@ -21,7 +20,6 @@ const supabaseUrl = process.env.SUPABASE_URL.replace(/\/$/, "");
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const userToken = process.env.TOSS_E2E_USER_ACCESS_TOKEN.trim();
 const secret = process.env.TOSS_SECRET_KEY.trim();
-const clientKey = process.env.TOSS_CLIENT_KEY.trim();
 const amount = 200000;
 
 async function requestJson(url, options = {}) {
@@ -59,6 +57,7 @@ try {
     fail("DYNAMIC_CHECKOUT_ORDER_CREATION_FAILED");
   }
   const orderId = order.orderId;
+  const clientKey = order.clientKey;
   console.log("DYNAMIC_ORDER_CREATED=PASS");
 
   // Open the real Toss-hosted payment UI in Chromium. Toss sandbox _skipAuth simulates
