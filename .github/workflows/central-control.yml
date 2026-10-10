@@ -301,7 +301,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
-      actions: write
+      pull-requests: write
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
@@ -318,7 +318,11 @@ jobs:
           set -euo pipefail
           npm install --no-audit --no-fund
           npx expo install --fix
-      - name: Commit deterministic dependency repair
+      - name: Open guarded repair pull request instead of writing to main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
         shell: bash
         run: |
           set -euo pipefail
@@ -328,11 +332,14 @@ jobs:
           fi
           git config user.name "AIMPACT Central Control"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          BRANCH="automation/expo-dependency-repair-${RUN_ID}-${RUN_ATTEMPT}"
+          git switch -c "$BRANCH"
           git add mobile/package.json mobile/package-lock.json
           git commit -m "fix: auto-align Expo mobile dependencies"
-          git push origin HEAD:main
-          echo "MOBILE_AUTOREPAIR=COMMITTED"
-
+          git push origin "HEAD:refs/heads/$BRANCH"
+          PR_URL="$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$BRANCH" --title "fix: auto-align Expo mobile dependencies" --body "Automated dependency repair proposed by AIMPACT Central Control after Mobile Build run $RUN_ID (attempt $RUN_ATTEMPT). This change is isolated in a pull request and does not write directly to main. Merge only after required CI and release gates pass.")"
+          echo "MOBILE_AUTOREPAIR_PULL_REQUEST=$PR_URL"
+          echo "MOBILE_AUTOREPAIR=PR_OPENED"
   payment-autonomous-control:
     if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'AIMPACT Payment Control' }}
     runs-on: ubuntu-latest
