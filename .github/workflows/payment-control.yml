@@ -65,7 +65,7 @@ jobs:
           AIMPACT_E2E_BASE_URL: ${{ vars.AIMPACT_E2E_BASE_URL || secrets.AIMPACT_E2E_BASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          PAYMENT_PROVIDER: ${{ vars.AIMPACT_PAYMENT_PROVIDER || secrets.AIMPACT_PAYMENT_PROVIDER }}
+          PAYMENT_PROVIDER: ${{ vars.AIMPACT_PAYMENT_PROVIDER || secrets.AIMPACT_PAYMENT_PROVIDER || 'auto' }}
           PAYMENT_LINK_ID: plink_1UNpJEGeNSkj4zfGecYTrM3u
         shell: bash
         run: |
