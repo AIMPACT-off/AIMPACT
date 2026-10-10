@@ -49,15 +49,15 @@ try {
     body: JSON.stringify({ amount, productKey: "AI_QUICK_AUDIT" })
   });
   const order = checkout.body;
+  const clientKey = order?.clientKey;
   if (!checkout.response.ok || order?.provider !== "toss" || order?.verified !== false ||
-      !order?.orderId || !order?.customerKey || Number(order?.amount) !== amount ||
-      order?.currency !== "KRW" || order?.clientKey !== clientKey ||
+      !order?.orderId || !order?.customerKey || !clientKey || Number(order?.amount) !== amount ||
+      order?.currency !== "KRW" ||
       !String(order?.successUrl || "").startsWith(baseUrl) ||
       !String(order?.failUrl || "").startsWith(baseUrl)) {
     fail("DYNAMIC_CHECKOUT_ORDER_CREATION_FAILED");
   }
   const orderId = order.orderId;
-  const clientKey = order.clientKey;
   console.log("DYNAMIC_ORDER_CREATED=PASS");
 
   // Open the real Toss-hosted payment UI in Chromium. Toss sandbox _skipAuth simulates
