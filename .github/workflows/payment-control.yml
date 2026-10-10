@@ -42,39 +42,48 @@ jobs:
           node --check netlify/functions/toss-confirm.mjs
           node --check netlify/functions/toss-webhook.mjs
           node --check netlify/functions/entitlement.mjs
+          node --check scripts/toss-sandbox-e2e.mjs
           node --test tests/toss-payment.test.mjs
           grep -q '=== "paid"' netlify/functions/stripe-webhook.mjs
           grep -q 'verifyPaidEntitlement' mobile/App.js
           echo "PAYMENT_CODE_GATE=PASS"
 
   stripe-integration-gate:
-    if: ${{ github.event_name != 'pull_request' && (github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')) }}
+    if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && (github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')) }}
     needs: [payment-code-gate]
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Select configured provider without treating key presence as integration proof
         env:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           TOSS_SECRET_KEY: ${{ secrets.TOSS_SECRET_KEY }}
-          PAYMENT_PROVIDER: ${{ vars.AIMPACT_PAYMENT_PROVIDER }}
+          TOSS_E2E_USER_ACCESS_TOKEN: ${{ secrets.TOSS_E2E_USER_ACCESS_TOKEN }}
+          TOSS_E2E_TEST_USER_EMAIL: ${{ secrets.TOSS_E2E_TEST_USER_EMAIL }}
+          TOSS_E2E_TEST_USER_PASSWORD: ${{ secrets.TOSS_E2E_TEST_USER_PASSWORD }}
+          AIMPACT_E2E_BASE_URL: ${{ vars.AIMPACT_E2E_BASE_URL || secrets.AIMPACT_E2E_BASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          PAYMENT_PROVIDER: ${{ vars.AIMPACT_PAYMENT_PROVIDER || secrets.AIMPACT_PAYMENT_PROVIDER || 'auto' }}
           PAYMENT_LINK_ID: plink_1UNpJEGeNSkj4zfGecYTrM3u
         shell: bash
         run: |
           set -euo pipefail
-          provider="${PAYMENT_PROVIDER:-auto}"
+          # Safe presence-only diagnostics; never print secret values.
+          for name in TOSS_SECRET_KEY SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY AIMPACT_E2E_BASE_URL PAYMENT_PROVIDER TOSS_E2E_TEST_USER_EMAIL TOSS_E2E_TEST_USER_PASSWORD TOSS_E2E_USER_ACCESS_TOKEN; do
+            if [[ -n "${!name:-}" ]]; then echo "${name}_PRESENCE=SET"; else echo "${name}_PRESENCE=MISSING"; fi
+          done
+          provider="${PAYMENT_PROVIDER:-toss}"
           if [ "$provider" = "auto" ]; then
-            if [ -n "${TOSS_SECRET_KEY:-}" ]; then provider="toss"; elif [ -n "${STRIPE_SECRET_KEY:-}" ]; then provider="stripe"; else provider="mock"; fi
+            if [ -n "${TOSS_SECRET_KEY:-}" ]; then provider="toss"; elif [ -n "${STRIPE_SECRET_KEY:-}" ]; then provider="stripe"; else provider="toss"; fi
           fi
           echo "PAYMENT_PROVIDER_SELECTED=$provider"
           if [ "$provider" = "mock" ]; then
-            echo "::warning::No payment provider credentials configured; only code-level checks ran. No live/sandbox payment integration is verified."
-            echo "::warning::STRIPE_SECRET_KEY_NOT_CONFIGURED"
+            echo "::error::MOCK_PROVIDER_FORBIDDEN_FOR_PAYMENT_CERTIFICATION"
             echo "PAYMENT_PROVIDER_GATE_MODE=MOCK_ONLY"
-            echo "STRIPE_INTEGRATION_GATE=SKIPPED_NO_PROVIDER_SECRET"
             echo "PAYMENT_E2E=NOT_VERIFIED"
-            exit 0
+            exit 1
           fi
           if [ "$provider" = "toss" ]; then
             if [ -z "${TOSS_SECRET_KEY:-}" ]; then
@@ -86,10 +95,11 @@ jobs:
               echo "TOSS_SECRET_KEY_PRESENT_BUT_NOT_PROOF_OF_INTEGRATION"
               exit 1
             fi
-            echo "PAYMENT_PROVIDER_GATE_MODE=TOSS_CODE_PRESENT_REQUIRES_PROVIDER_SPECIFIC_TEST"
-            echo "::error::TOSS_SANDBOX_PAYMENT_TEST_NOT_IMPLEMENTED"
-            echo "PAYMENT_E2E=NOT_VERIFIED"
-            exit 1
+            echo "PAYMENT_PROVIDER_GATE_MODE=TOSS_SANDBOX_E2E"
+            npm install --no-save --package-lock=false playwright
+            npx playwright install --with-deps chromium
+            node scripts/toss-sandbox-e2e.mjs
+            exit 0
           fi
           if [ "$provider" != "stripe" ]; then
             echo "::error::UNSUPPORTED_PAYMENT_PROVIDER=$provider"
