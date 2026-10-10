@@ -93,6 +93,7 @@ jobs:
             npm install --no-save --package-lock=false playwright
             npx playwright install --with-deps chromium
             node scripts/toss-sandbox-e2e.mjs
+            exit 0
           fi
           if [ "$provider" != "stripe" ]; then
             echo "::error::UNSUPPORTED_PAYMENT_PROVIDER=$provider"
