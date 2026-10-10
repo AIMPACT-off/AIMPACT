@@ -81,3 +81,11 @@ test("five-minute store credential recovery is fail-closed and idempotent", () =
   assert.ok(recovery.includes('gh workflow run native-store-qa.yml --ref "$release_ref"'));
   assert.doesNotMatch(recovery, /echo "\\$EXPO_TOKEN|echo "\\$APPLE_PRIVATE_KEY|echo "\\$GOOGLE_SERVICE_ACCOUNT_KEY_BASE64/);
 });
+
+test("central-control automated dependency repair must use a PR, never push directly to main", () => {
+  assert.match(central, /Open guarded repair pull request instead of writing to main/);
+  assert.match(central, /pull-requests: write/);
+  assert.match(central, /gh pr create/);
+  assert.match(central, /MOBILE_AUTOREPAIR_PULL_REQUEST=/);
+  assert.doesNotMatch(central, /git push origin HEAD:main/);
+});
