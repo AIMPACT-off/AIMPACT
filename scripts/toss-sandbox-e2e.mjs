@@ -3,7 +3,6 @@ import { chromium } from "playwright";
 const required = [
   "AIMPACT_E2E_BASE_URL",
   "TOSS_SECRET_KEY",
-  "TOSS_E2E_USER_ACCESS_TOKEN",
   "SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY"
 ];
@@ -18,8 +17,31 @@ for (const name of required) {
 const baseUrl = process.env.AIMPACT_E2E_BASE_URL.replace(/\/$/, "");
 const supabaseUrl = process.env.SUPABASE_URL.replace(/\/$/, "");
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const userToken = process.env.TOSS_E2E_USER_ACCESS_TOKEN.trim();
 const secret = process.env.TOSS_SECRET_KEY.trim();
+
+async function resolveUserToken() {
+  const suppliedToken = String(process.env.TOSS_E2E_USER_ACCESS_TOKEN || "").trim();
+  if (suppliedToken && suppliedToken !== "Access Token") return suppliedToken;
+
+  const email = String(process.env.TOSS_E2E_TEST_USER_EMAIL || "").trim();
+  const password = String(process.env.TOSS_E2E_TEST_USER_PASSWORD || "");
+  if (!email || !password) {
+    console.error("PAYMENT_E2E=NOT_VERIFIED");
+    console.error("PAYMENT_E2E_MISSING_REQUIRED_CONFIGURATION=TOSS_E2E_TEST_USER_EMAIL_AND_TOSS_E2E_TEST_USER_PASSWORD");
+    process.exit(2);
+  }
+  const login = await requestJson(supabaseUrl + "/auth/v1/token?grant_type=password", {
+    method: "POST",
+    headers: { apikey: serviceKey, "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  });
+  if (!login.response.ok || !login.body?.access_token) {
+    console.error("PAYMENT_E2E=NOT_VERIFIED");
+    console.error("PAYMENT_E2E_FAILURE=TEST_USER_LOGIN_FAILED");
+    process.exit(2);
+  }
+  return String(login.body.access_token);
+}
 const amount = 200000;
 
 async function requestJson(url, options = {}) {
@@ -28,6 +50,7 @@ async function requestJson(url, options = {}) {
   try { body = await response.json(); } catch {}
   return { response, body };
 }
+const userToken = await resolveUserToken();
 function tossBasicAuth() {
   return "Basic " + Buffer.from(secret + ":", "utf8").toString("base64");
 }
