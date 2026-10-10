@@ -64,3 +64,28 @@ test("credential matrix distinguishes configured credentials from actual provide
   }
   assert.match(credentials, /Secret presence is not payment integration proof/);
 });
+
+test("five-minute store credential recovery is fail-closed and idempotent", () => {
+  const recovery = read(".github/workflows/store-credential-recovery.yml");
+  assert.ok(recovery.includes('cron: "*/5 * * * *"'));
+  assert.match(recovery, /workflow_dispatch:/);
+  for (const name of ["EXPO_TOKEN", "APPLE_ISSUER_ID", "APPLE_KEY_ID", "APPLE_BUNDLE_ID", "GOOGLE_SERVICE_ACCOUNT_EMAIL", "GOOGLE_SERVICE_ACCOUNT_KEY_BASE64", "GOOGLE_PACKAGE_NAME"]) {
+    assert.ok(recovery.includes(name), "missing credential check: " + name);
+  }
+  assert.match(recovery, /APPLE_PRIVATE_KEY_BASE64/);
+  assert.match(recovery, /MISSING_CREDENTIAL_NAMES/);
+  assert.match(recovery, /STORE_RELEASE_BLOCKED_CREDENTIALS/);
+  assert.match(recovery, /SKIPPED_FAILURE_NOT_CREDENTIAL_GATE/);
+  assert.match(recovery, /SKIPPED_ALREADY_ACTIVE/);
+  assert.match(recovery, /SKIPPED_QA_ALREADY_PASSED/);
+  assert.ok(recovery.includes('gh workflow run native-store-qa.yml --ref "$release_ref"'));
+  assert.doesNotMatch(recovery, /echo "\\$EXPO_TOKEN|echo "\\$APPLE_PRIVATE_KEY|echo "\\$GOOGLE_SERVICE_ACCOUNT_KEY_BASE64/);
+});
+
+test("central-control automated dependency repair must use a PR, never push directly to main", () => {
+  assert.match(central, /Open guarded repair pull request instead of writing to main/);
+  assert.match(central, /pull-requests: write/);
+  assert.match(central, /gh pr create/);
+  assert.match(central, /MOBILE_AUTOREPAIR_PULL_REQUEST=/);
+  assert.doesNotMatch(central, /git push origin HEAD:main/);
+});
