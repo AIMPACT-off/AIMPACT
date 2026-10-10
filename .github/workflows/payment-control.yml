@@ -76,7 +76,7 @@ jobs:
           done
           provider="${PAYMENT_PROVIDER:-toss}"
           if [ "$provider" = "auto" ]; then
-            if [ -n "${TOSS_SECRET_KEY:-}" ]; then provider="toss"; elif [ -n "${STRIPE_SECRET_KEY:-}" ]; then provider="stripe"; else provider="mock"; fi
+            if [ -n "${TOSS_SECRET_KEY:-}" ]; then provider="toss"; elif [ -n "${STRIPE_SECRET_KEY:-}" ]; then provider="stripe"; else provider="toss"; fi
           fi
           echo "PAYMENT_PROVIDER_SELECTED=$provider"
           if [ "$provider" = "mock" ]; then
