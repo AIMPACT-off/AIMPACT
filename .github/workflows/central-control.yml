@@ -100,7 +100,8 @@ jobs:
           grep -q 'stripe-integration-gate:' .github/workflows/payment-control.yml
           grep -q 'STRIPE_SECRET_KEY_NOT_CONFIGURED' .github/workflows/payment-control.yml
           grep -q 'PAYMENT_PROVIDER_GATE_MODE=MOCK_ONLY' .github/workflows/payment-control.yml
-          grep -q 'TOSS_SANDBOX_PAYMENT_TEST_NOT_IMPLEMENTED' .github/workflows/payment-control.yml
+          grep -q 'PAYMENT_PROVIDER_GATE_MODE=TOSS_SANDBOX_E2E' .github/workflows/payment-control.yml
+          grep -q 'node scripts/toss-sandbox-e2e.mjs' .github/workflows/payment-control.yml
           test -s netlify/functions/toss-checkout.mjs
           test -s netlify/functions/toss-confirm.mjs
           test -s netlify/functions/toss-webhook.mjs
