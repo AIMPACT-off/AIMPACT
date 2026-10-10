@@ -83,6 +83,14 @@ jobs:
           grep -q 'RELEASE_REF="ci/mobile-$RUN_ID"' .github/workflows/central-control.yml
           grep -q 'gh workflow run native-store-qa.yml --ref "$RELEASE_REF"' .github/workflows/central-control.yml
           grep -q 'source_ref:' .github/workflows/native-store-qa.yml
+          test -s .github/workflows/store-secret-recovery.yml
+          test -s tests/store-secret-readiness-watch.test.mjs
+          grep -Fq 'cron: "*/5 * * * *"' .github/workflows/store-secret-recovery.yml
+          grep -q 'STORE_CREDENTIAL_READINESS=BLOCKED' .github/workflows/store-secret-recovery.yml
+          grep -q 'STORE_QA_RECOVERY=DISPATCHED' .github/workflows/store-secret-recovery.yml
+          grep -q 'STORE_QA_RECOVERY=BLOCKED_PREVIOUS_FAILURE_NOT_CREDENTIAL_BLOCKED' .github/workflows/store-secret-recovery.yml
+          grep -q 'BLOCKED_SHA_NOT_ON_MAIN' .github/workflows/store-secret-recovery.yml
+          grep -q 'node --test tests/store-secret-readiness-watch.test.mjs' .github/workflows/store-secret-recovery.yml
           grep -q 'gh workflow run ios-device-release.yml --ref "$SOURCE_REF"' .github/workflows/native-store-qa.yml
           grep -q 'gh workflow run android-store-release.yml --ref "$SOURCE_REF"' .github/workflows/native-store-qa.yml
           grep -q 'APPLE_BUNDLE_ID' .github/workflows/native-store-qa.yml
