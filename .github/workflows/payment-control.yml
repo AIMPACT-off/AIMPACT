@@ -42,6 +42,7 @@ jobs:
           node --check netlify/functions/toss-confirm.mjs
           node --check netlify/functions/toss-webhook.mjs
           node --check netlify/functions/entitlement.mjs
+          node --check scripts/toss-sandbox-e2e.mjs
           node --test tests/toss-payment.test.mjs
           grep -q '=== "paid"' netlify/functions/stripe-webhook.mjs
           grep -q 'verifyPaidEntitlement' mobile/App.js
@@ -58,6 +59,12 @@ jobs:
         env:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           TOSS_SECRET_KEY: ${{ secrets.TOSS_SECRET_KEY }}
+          TOSS_E2E_ORDER_ID: ${{ secrets.TOSS_E2E_ORDER_ID }}
+          TOSS_E2E_PAYMENT_KEY: ${{ secrets.TOSS_E2E_PAYMENT_KEY }}
+          TOSS_E2E_USER_ACCESS_TOKEN: ${{ secrets.TOSS_E2E_USER_ACCESS_TOKEN }}
+          AIMPACT_E2E_BASE_URL: ${{ vars.AIMPACT_E2E_BASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           PAYMENT_PROVIDER: ${{ vars.AIMPACT_PAYMENT_PROVIDER }}
           PAYMENT_LINK_ID: plink_1UNpJEGeNSkj4zfGecYTrM3u
         shell: bash
@@ -86,10 +93,8 @@ jobs:
               echo "TOSS_SECRET_KEY_PRESENT_BUT_NOT_PROOF_OF_INTEGRATION"
               exit 1
             fi
-            echo "PAYMENT_PROVIDER_GATE_MODE=TOSS_CODE_PRESENT_REQUIRES_PROVIDER_SPECIFIC_TEST"
-            echo "::error::TOSS_SANDBOX_PAYMENT_TEST_NOT_IMPLEMENTED"
-            echo "PAYMENT_E2E=NOT_VERIFIED"
-            exit 1
+            echo "PAYMENT_PROVIDER_GATE_MODE=TOSS_SANDBOX_E2E"
+            node scripts/toss-sandbox-e2e.mjs
           fi
           if [ "$provider" != "stripe" ]; then
             echo "::error::UNSUPPORTED_PAYMENT_PROVIDER=$provider"
