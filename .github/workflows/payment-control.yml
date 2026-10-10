@@ -70,6 +70,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Safe presence-only diagnostics; never print secret values.
+          for name in TOSS_SECRET_KEY SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY AIMPACT_E2E_BASE_URL PAYMENT_PROVIDER TOSS_E2E_TEST_USER_EMAIL TOSS_E2E_TEST_USER_PASSWORD TOSS_E2E_USER_ACCESS_TOKEN; do
+            if [[ -n "${!name:-}" ]]; then echo "${name}_PRESENCE=SET"; else echo "${name}_PRESENCE=MISSING"; fi
+          done
           provider="${PAYMENT_PROVIDER:-toss}"
           if [ "$provider" = "auto" ]; then
             if [ -n "${TOSS_SECRET_KEY:-}" ]; then provider="toss"; elif [ -n "${STRIPE_SECRET_KEY:-}" ]; then provider="stripe"; else provider="mock"; fi
