@@ -42,7 +42,7 @@ test("EAS exposes separate internal Android and iOS simulator test profiles", ()
 });
 
 test("test workflow verifies test bundle IDs and uploads installable artifacts", () => {
-  assert.match(workflow, /APP_VARIANT=test/);
+  assert.match(workflow, /APP_VARIANT:\\s*test/);
   assert.match(workflow, /ai\.aimpact\.app\.test/);
   assert.match(workflow, /upload-artifact@v4/);
   assert.match(workflow, /AIMPACT-TEST-Android-APK/);
