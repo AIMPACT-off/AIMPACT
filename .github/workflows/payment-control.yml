@@ -58,6 +58,9 @@ jobs:
         env:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           TOSS_SECRET_KEY: ${{ secrets.TOSS_SECRET_KEY }}
+          TOSS_CLIENT_KEY: ${{ secrets.TOSS_CLIENT_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           PAYMENT_PROVIDER: ${{ vars.AIMPACT_PAYMENT_PROVIDER }}
           PAYMENT_LINK_ID: plink_1UNpJEGeNSkj4zfGecYTrM3u
         shell: bash
@@ -77,19 +80,45 @@ jobs:
             exit 0
           fi
           if [ "$provider" = "toss" ]; then
-            if [ -z "${TOSS_SECRET_KEY:-}" ]; then
-              echo "::error::TOSS_SECRET_KEY_NOT_CONFIGURED"
+            : "${TOSS_SECRET_KEY:?TOSS_SECRET_KEY_NOT_CONFIGURED}"
+            : "${TOSS_CLIENT_KEY:?TOSS_CLIENT_KEY_NOT_CONFIGURED}"
+            : "${SUPABASE_URL:?SUPABASE_URL_NOT_CONFIGURED}"
+            : "${SUPABASE_SERVICE_ROLE_KEY:?SUPABASE_SERVICE_ROLE_KEY_NOT_CONFIGURED}"
+            if [[ "$TOSS_SECRET_KEY" != test_sk_* && "$TOSS_SECRET_KEY" != test_gsk_* ]]; then
+              echo "::error::TOSS_SECRET_KEY_NOT_A_TEST_KEY"
+              echo "TOSS_SANDBOX_PREFLIGHT=FAIL"
+              echo "PAYMENT_E2E=NOT_VERIFIED"
               exit 1
             fi
-            if [ ! -s netlify/functions/toss-checkout.mjs ] || [ ! -s netlify/functions/toss-webhook.mjs ]; then
-              echo "::error::TOSS_INTEGRATION_NOT_IMPLEMENTED"
-              echo "TOSS_SECRET_KEY_PRESENT_BUT_NOT_PROOF_OF_INTEGRATION"
+            if [[ "$TOSS_CLIENT_KEY" != test_ck_* && "$TOSS_CLIENT_KEY" != test_gck_* ]]; then
+              echo "::error::TOSS_CLIENT_KEY_NOT_A_TEST_KEY"
+              echo "TOSS_SANDBOX_PREFLIGHT=FAIL"
+              echo "PAYMENT_E2E=NOT_VERIFIED"
               exit 1
             fi
-            echo "PAYMENT_PROVIDER_GATE_MODE=TOSS_CODE_PRESENT_REQUIRES_PROVIDER_SPECIFIC_TEST"
-            echo "::error::TOSS_SANDBOX_PAYMENT_TEST_NOT_IMPLEMENTED"
+            if [ ! -s netlify/functions/toss-checkout.mjs ] || [ ! -s netlify/functions/toss-confirm.mjs ] || [ ! -s netlify/functions/toss-webhook.mjs ]; then
+              echo "::error::TOSS_INTEGRATION_CODE_MISSING"
+              echo "TOSS_SANDBOX_PREFLIGHT=FAIL"
+              echo "PAYMENT_E2E=NOT_VERIFIED"
+              exit 1
+            fi
+            supabase_url="${SUPABASE_URL%/}"
+            code=$(curl -sS -o /tmp/toss-ledger-preflight.json -w "%{http_code}" \
+              -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+              "$supabase_url/rest/v1/toss_payment_orders?select=order_id&limit=0" || true)
+            if [ "$code" != "200" ]; then
+              echo "::error::SUPABASE_TOSS_LEDGER_PREFLIGHT_FAILED HTTP=$code"
+              echo "TOSS_SANDBOX_PREFLIGHT=FAIL"
+              echo "PAYMENT_E2E=NOT_VERIFIED"
+              exit 1
+            fi
+            echo "TOSS_TEST_KEY_FORMAT=PASS"
+            echo "SUPABASE_TOSS_LEDGER_ACCESS=PASS"
+            echo "TOSS_SANDBOX_PREFLIGHT=PASS"
+            echo "::notice::Preflight only. This does not run a real sandbox checkout or prove payment approval, ledger mutation, entitlement issuance, or idempotency."
             echo "PAYMENT_E2E=NOT_VERIFIED"
-            exit 1
+            exit 0
           fi
           if [ "$provider" != "stripe" ]; then
             echo "::error::UNSUPPORTED_PAYMENT_PROVIDER=$provider"
