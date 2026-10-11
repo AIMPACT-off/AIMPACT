@@ -73,6 +73,7 @@ try {
   });
   const order = checkout.body;
   const clientKey = order?.clientKey;
+  if (clientKey && !/^test_(ck|gck)_/.test(String(clientKey))) fail("TOSS_CLIENT_KEY_NOT_TEST_MODE");
   if (!checkout.response.ok || order?.provider !== "toss" || order?.verified !== false ||
       !order?.orderId || !order?.customerKey || !clientKey || Number(order?.amount) !== amount ||
       order?.currency !== "KRW" ||
@@ -89,13 +90,14 @@ try {
   const page = await browser.newPage();
   await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
   await page.setContent('<!doctype html><html><body><button id="pay">Pay sandbox order</button></body></html>');
-  await page.addScriptTag({ url: "https://js.tosspayments.com/v1/payment" });
+  await page.addScriptTag({ url: "https://js.tosspayments.com/v2/standard" });
   await page.evaluate(({ clientKey, customerKey, orderId, amount, successUrl, failUrl }) => {
     const toss = window.TossPayments(clientKey);
     const payment = toss.payment({ customerKey });
     document.querySelector("#pay").addEventListener("click", () => {
-      payment.requestPayment("카드", {
-        amount,
+      payment.requestPayment({
+        method: "CARD",
+        amount: { currency: "KRW", value: amount },
         orderId,
         orderName: "AIMPACT AI Quick Audit",
         successUrl,
