@@ -25,6 +25,45 @@ test("Toss confirm rejects unauthenticated callers", async () => {
   assert.equal(response.statusCode, 401);
   assert.equal(responseBody(response).verified, false);
 });
+test("Toss checkout uses the allowlisted Netlify deploy preview for sandbox return URLs", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const envNames = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "TOSS_CLIENT_KEY", "AIMPACT_TOSS_RETURN_ORIGIN"];
+  const previousEnv = Object.fromEntries(envNames.map((name) => [name, process.env[name]]));
+  process.env.SUPABASE_URL = "https://supabase.example";
+  process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-test-only";
+  process.env.TOSS_CLIENT_KEY = "test_ck_example";
+  delete process.env.AIMPACT_TOSS_RETURN_ORIGIN;
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    for (const name of envNames) {
+      if (previousEnv[name] === undefined) delete process.env[name];
+      else process.env[name] = previousEnv[name];
+    }
+  });
+  globalThis.fetch = async (url, options = {}) => {
+    const target = String(url);
+    if (target.endsWith("/auth/v1/user")) {
+      return new Response(JSON.stringify({ id: "00000000-0000-4000-8000-000000000001", email: "buyer@example.com" }), { status: 200 });
+    }
+    if (target.includes("/rest/v1/toss_payment_orders")) {
+      assert.equal(options.method, "POST");
+      return new Response(null, { status: 201 });
+    }
+    throw new Error("Unexpected mocked network call: " + target);
+  };
+  const preview = "https://deploy-preview-56--aimpact-ai.netlify.app";
+  const response = await tossCheckout({
+    httpMethod: "POST",
+    headers: { authorization: "Bearer user-access-token", origin: preview },
+    body: JSON.stringify({ amount: 200000, productKey: "AI_QUICK_AUDIT" })
+  });
+  const body = responseBody(response);
+  assert.equal(response.statusCode, 200);
+  assert.equal(body.successUrl, preview + "/payment-success");
+  assert.equal(body.failUrl, preview + "/payment-fail");
+  assert.match(body.clientKey, /^test_ck_/);
+});
+
 
 test("Toss confirm rejects amount tampering before contacting providers", async () => {
   const response = await tossConfirm({
