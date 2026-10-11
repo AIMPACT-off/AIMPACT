@@ -244,7 +244,8 @@ jobs:
           exit 1
 
   dispatch-native-store-qa:
-    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'AIMPACT Mobile Build' && github.event.workflow_run.conclusion == 'success' }}
+    needs: [launch-readiness]
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'AIMPACT Mobile Build' && github.event.workflow_run.conclusion == 'success' && needs.launch-readiness.outputs.store_ready == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -410,11 +411,16 @@ jobs:
           echo "PAYMENT_E2E_NEXT=await_verified_checkout_entitlement"
 
   launch-readiness:
+    outputs:
+      payment_ready: ${{ steps.check.outputs.payment_ready }}
+      store_ready: ${{ steps.check.outputs.store_ready }}
+      missing: ${{ steps.check.outputs.missing }}
     if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.name == 'AIMPACT Payment Control' || github.event.workflow_run.name == 'AIMPACT Mobile Build') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Consolidate payment and store-release blockers
+      - name: Consolidate payment and store-release blockers without exposing values
+        id: check
         env:
           TOSS_SECRET_KEY: ${{ secrets.TOSS_SECRET_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -437,51 +443,83 @@ jobs:
         run: |
           set -euo pipefail
           missing=()
-          summary="$RUNNER_TEMP/launch-readiness.txt"
-          : > "$summary"
-          check_required() {
-            local name="$1"
+          payment_missing=()
+          store_missing=()
+          report="$RUNNER_TEMP/launch-readiness.txt"
+          : > "$report"
+          check_one() {
+            local group="$1" name="$2"
             if [ -n "${!name:-}" ]; then
-              echo "CONFIGURED=$name" | tee -a "$summary"
+              echo "CONFIGURED=$name" | tee -a "$report"
             else
-              echo "MISSING=$name" | tee -a "$summary"
+              echo "MISSING=$name" | tee -a "$report"
               missing+=("$name")
+              if [ "$group" = "payment" ]; then payment_missing+=("$name"); else store_missing+=("$name"); fi
             fi
           }
-          echo "AIMPACT_LAUNCH_READINESS=DIAGNOSTIC_ONLY"
-          echo "PAYMENT_PROVIDER_SELECTED=${PAYMENT_PROVIDER:-toss}"
           if [ "${PAYMENT_PROVIDER:-toss}" = "toss" ]; then
-            for name in TOSS_SECRET_KEY SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY AIMPACT_E2E_BASE_URL; do check_required "$name"; done
+            for name in TOSS_SECRET_KEY SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY AIMPACT_E2E_BASE_URL; do check_one payment "$name"; done
             if [ -n "${TOSS_E2E_USER_ACCESS_TOKEN:-}" ]; then
-              echo "CONFIGURED=TOSS_E2E_USER_ACCESS_TOKEN" | tee -a "$summary"
+              echo "CONFIGURED=TOSS_E2E_USER_ACCESS_TOKEN" | tee -a "$report"
             elif [ -n "${TOSS_E2E_TEST_USER_EMAIL:-}" ] && [ -n "${TOSS_E2E_TEST_USER_PASSWORD:-}" ]; then
-              echo "CONFIGURED=TOSS_E2E_TEST_USER_EMAIL_AND_PASSWORD" | tee -a "$summary"
+              echo "CONFIGURED=TOSS_E2E_TEST_USER_EMAIL_AND_PASSWORD" | tee -a "$report"
             else
-              echo "MISSING=TOSS_E2E_USER_ACCESS_TOKEN_OR_TEST_USER_EMAIL_PASSWORD" | tee -a "$summary"
+              echo "MISSING=TOSS_E2E_USER_ACCESS_TOKEN_OR_TEST_USER_EMAIL_PASSWORD" | tee -a "$report"
               missing+=("TOSS_E2E_USER_ACCESS_TOKEN_OR_TEST_USER_EMAIL_PASSWORD")
+              payment_missing+=("TOSS_E2E_USER_ACCESS_TOKEN_OR_TEST_USER_EMAIL_PASSWORD")
             fi
           fi
-          for name in EXPO_TOKEN APPLE_ISSUER_ID APPLE_KEY_ID APPLE_BUNDLE_ID GOOGLE_SERVICE_ACCOUNT_EMAIL GOOGLE_SERVICE_ACCOUNT_KEY_BASE64 GOOGLE_PACKAGE_NAME; do check_required "$name"; done
+          for name in EXPO_TOKEN APPLE_ISSUER_ID APPLE_KEY_ID APPLE_BUNDLE_ID GOOGLE_SERVICE_ACCOUNT_EMAIL GOOGLE_SERVICE_ACCOUNT_KEY_BASE64 GOOGLE_PACKAGE_NAME; do check_one store "$name"; done
           if [ -n "${APPLE_PRIVATE_KEY:-}" ] || [ -n "${APPLE_PRIVATE_KEY_BASE64:-}" ]; then
-            echo "CONFIGURED=APPLE_PRIVATE_KEY_OR_APPLE_PRIVATE_KEY_BASE64" | tee -a "$summary"
+            echo "CONFIGURED=APPLE_PRIVATE_KEY_OR_APPLE_PRIVATE_KEY_BASE64" | tee -a "$report"
           else
-            echo "MISSING=APPLE_PRIVATE_KEY_OR_APPLE_PRIVATE_KEY_BASE64" | tee -a "$summary"
+            echo "MISSING=APPLE_PRIVATE_KEY_OR_APPLE_PRIVATE_KEY_BASE64" | tee -a "$report"
             missing+=("APPLE_PRIVATE_KEY_OR_APPLE_PRIVATE_KEY_BASE64")
+            store_missing+=("APPLE_PRIVATE_KEY_OR_APPLE_PRIVATE_KEY_BASE64")
           fi
+          payment_ready=true
+          store_ready=true
+          [ "${#payment_missing[@]}" -eq 0 ] || payment_ready=false
+          [ "${#store_missing[@]}" -eq 0 ] || store_ready=false
+          missing_csv="$(IFS=,; echo "${missing[*]}")"
+          echo "payment_ready=$payment_ready" >> "$GITHUB_OUTPUT"
+          echo "store_ready=$store_ready" >> "$GITHUB_OUTPUT"
+          echo "missing=$missing_csv" >> "$GITHUB_OUTPUT"
           {
             echo "## AIMPACT centralized launch readiness"
             echo
-            echo "- This report checks configuration presence only; it does not certify a payment or store release."
-            echo "- PAYMENT_E2E=PASS remains valid only when the real Toss E2E job proves approval, ledger, entitlement, and idempotency."
-            echo "- Store submission remains blocked until native store QA and signing/submission workflows pass."
+            echo "- Payment configuration present: **$payment_ready**"
+            echo "- Store-release configuration present: **$store_ready**"
+            echo "- This is a configuration report only, not proof of payment approval or store publication."
+            echo "- A payment is certified only when the real Toss E2E proves provider approval, ledger ownership/uniqueness, entitlement, and idempotency."
             echo
-            echo '### Configuration findings'
-            cat "$summary"
+            echo "### Findings"
+            cat "$report"
           } >> "$GITHUB_STEP_SUMMARY"
-          if [ "${#missing[@]}" -gt 0 ]; then
+          echo "PAYMENT_CONFIGURATION_READY=$payment_ready"
+          echo "STORE_CONFIGURATION_READY=$store_ready"
+          echo "LAUNCH_BLOCKERS=${missing_csv:-NONE}"
+
+  launch-certification-gate:
+    needs: [launch-readiness]
+    if: ${{ always() && github.event_name != 'workflow_run' || (always() && (github.event.workflow_run.name == 'AIMPACT Payment Control' || github.event.workflow_run.name == 'AIMPACT Mobile Build')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Enforce consolidated launch gates
+        env:
+          PAYMENT_READY: ${{ needs.launch-readiness.outputs.payment_ready }}
+          STORE_READY: ${{ needs.launch-readiness.outputs.store_ready }}
+          MISSING: ${{ needs.launch-readiness.outputs.missing }}
+        run: |
+          set -euo pipefail
+          if [ "$PAYMENT_READY" != "true" ] || [ "$STORE_READY" != "true" ]; then
             echo "LAUNCH_READINESS=BLOCKED"
-            printf 'LAUNCH_BLOCKERS=%s\n' "$(IFS=,; echo "${missing[*]}")"
+            echo "PAYMENT_CONFIGURATION_READY=${PAYMENT_READY:-unknown}"
+            echo "STORE_CONFIGURATION_READY=${STORE_READY:-unknown}"
+            echo "LAUNCH_BLOCKERS=${MISSING:-PREFLIGHT_JOB_FAILED}"
             exit 1
           fi
           echo "LAUNCH_CONFIGURATION=COMPLETE"
           echo "LAUNCH_READINESS=CONFIGURED_NOT_RELEASE_CERTIFIED"
+          echo "PAYMENT_E2E=NOT_VERIFIED_UNTIL_REAL_E2E_PASS"
