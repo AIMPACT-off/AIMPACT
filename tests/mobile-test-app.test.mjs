@@ -16,6 +16,13 @@ test("test variant has a distinct application identity and keeps production iden
   const appSource = readFileSync(new URL("../mobile/App.js", import.meta.url), "utf8");
   assert.match(appSource, /EXPO_PUBLIC_APP_VARIANT === "test"/);
   assert.match(appSource, /TEST BUILD · NOT FOR PRODUCTION/);
+  assert.match(appSource, /EXPO_PUBLIC_TEST_API_BASE_URL/);
+  assert.match(appSource, /IS_TEST_BUILD && !API_BASE/);
+  assert.match(appSource, /EXPO_PUBLIC_TEST_IAP_ENABLED !== "true"/);
+  const sessionSource = readFileSync(new URL("../mobile/session.js", import.meta.url), "utf8");
+  assert.match(sessionSource, /EXPO_PUBLIC_TEST_SUPABASE_URL/);
+  assert.match(sessionSource, /EXPO_PUBLIC_TEST_SUPABASE_ANON_KEY/);
+  assert.match(sessionSource, /IS_TEST_BUILD/);
 });
 
 test("EAS exposes separate internal Android and iOS simulator test profiles", () => {
