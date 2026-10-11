@@ -85,6 +85,12 @@ try {
   const orderId = order.orderId;
   console.log("DYNAMIC_ORDER_CREATED=PASS");
 
+  const authenticatedUser = await requestJson(supabaseUrl + "/auth/v1/user", {
+    headers: { apikey: serviceKey, Authorization: "Bearer " + userToken }
+  });
+  const authUserId = String(authenticatedUser.body?.id || "");
+  if (!authenticatedUser.response.ok || !authUserId) fail("SUPABASE_TEST_USER_ID_UNVERIFIED");
+
   // Open the real Toss-hosted payment UI in Chromium. Toss sandbox _skipAuth simulates
   // authentication only in test mode; the payment still has to return a real paymentKey.
   browser = await chromium.launch({ headless: true });
@@ -158,7 +164,7 @@ try {
   const rows = Array.isArray(ledger.body) ? ledger.body : [];
   const row = rows[0];
   if (!ledger.response.ok || rows.length !== 1 || !row || row.order_id !== orderId ||
-      row.product_key !== "AI_QUICK_AUDIT" || Number(row.amount) !== amount ||
+      row.auth_user_id !== authUserId || row.product_key !== "AI_QUICK_AUDIT" || Number(row.amount) !== amount ||
       row.currency !== "KRW" || row.status !== "paid" || row.payment_key !== paymentKey || !row.paid_at) {
     fail("SUPABASE_LEDGER_MISMATCH_OR_DUPLICATE");
   }
