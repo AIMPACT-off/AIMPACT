@@ -73,8 +73,7 @@ jobs:
           fi
           test -n "$AAPT" && test -x "$AAPT"
           "$AAPT" dump badging "$APK" | grep -F "package: name='ai.aimpact.app.test'"
-          (cd "$(dirname "$APK")" && sha256sum "$(basename "$APK")" > "$(basename "$APK").sha256")
-          sha256sum -c "$APK.sha256"
+          (cd "$(dirname "$APK")" && sha256sum "$(basename "$APK")" > "$(basename "$APK").sha256" && sha256sum -c "$(basename "$APK").sha256")
           echo "AIMPACT_TEST_APP_BUILD=PASS"
           echo "ANDROID_TEST_APK=$APK"
       - uses: actions/upload-artifact@v4
