@@ -439,6 +439,7 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
           GOOGLE_SERVICE_ACCOUNT_KEY_BASE64: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64 }}
           GOOGLE_PACKAGE_NAME: ${{ secrets.GOOGLE_PACKAGE_NAME }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -457,7 +458,9 @@ jobs:
               if [ "$group" = "payment" ]; then payment_missing+=("$name"); else store_missing+=("$name"); fi
             fi
           }
-          if [ "${PAYMENT_PROVIDER:-toss}" = "toss" ]; then
+          provider="${PAYMENT_PROVIDER:-toss}"
+          echo "PAYMENT_PROVIDER_SELECTED=$provider"
+          if [ "$provider" = "toss" ]; then
             for name in TOSS_SECRET_KEY SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY AIMPACT_E2E_BASE_URL; do check_one payment "$name"; done
             if [ -n "${TOSS_E2E_USER_ACCESS_TOKEN:-}" ]; then
               echo "CONFIGURED=TOSS_E2E_USER_ACCESS_TOKEN" | tee -a "$report"
@@ -468,6 +471,10 @@ jobs:
               missing+=("TOSS_E2E_USER_ACCESS_TOKEN_OR_TEST_USER_EMAIL_PASSWORD")
               payment_missing+=("TOSS_E2E_USER_ACCESS_TOKEN_OR_TEST_USER_EMAIL_PASSWORD")
             fi
+          else
+            echo "MISSING=UNSUPPORTED_OR_NON_TOSS_PAYMENT_PROVIDER" | tee -a "$report"
+            missing+=("UNSUPPORTED_OR_NON_TOSS_PAYMENT_PROVIDER")
+            payment_missing+=("UNSUPPORTED_OR_NON_TOSS_PAYMENT_PROVIDER")
           fi
           for name in EXPO_TOKEN APPLE_ISSUER_ID APPLE_KEY_ID APPLE_BUNDLE_ID GOOGLE_SERVICE_ACCOUNT_EMAIL GOOGLE_SERVICE_ACCOUNT_KEY_BASE64 GOOGLE_PACKAGE_NAME; do check_one store "$name"; done
           if [ -n "${APPLE_PRIVATE_KEY:-}" ] || [ -n "${APPLE_PRIVATE_KEY_BASE64:-}" ]; then
@@ -490,8 +497,8 @@ jobs:
             echo
             echo "- Payment configuration present: **$payment_ready**"
             echo "- Store-release configuration present: **$store_ready**"
-            echo "- This is a configuration report only, not proof of payment approval or store publication."
-            echo "- A payment is certified only when the real Toss E2E proves provider approval, ledger ownership/uniqueness, entitlement, and idempotency."
+            echo "- Configuration presence is not proof of Toss approval or store publication."
+            echo "- Payment certification requires real Toss approval, a unique user-owned paid ledger row, Quick Audit entitlement, and idempotent replay."
             echo
             echo "### Findings"
             cat "$report"
@@ -502,7 +509,7 @@ jobs:
 
   launch-certification-gate:
     needs: [launch-readiness]
-    if: ${{ always() && github.event_name != 'workflow_run' || (always() && (github.event.workflow_run.name == 'AIMPACT Payment Control' || github.event.workflow_run.name == 'AIMPACT Mobile Build')) }}
+    if: ${{ always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_run') }}
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
@@ -523,3 +530,41 @@ jobs:
           echo "LAUNCH_CONFIGURATION=COMPLETE"
           echo "LAUNCH_READINESS=CONFIGURED_NOT_RELEASE_CERTIFIED"
           echo "PAYMENT_E2E=NOT_VERIFIED_UNTIL_REAL_E2E_PASS"
+
+  payment-e2e-autodispatch:
+    needs: [launch-readiness]
+    if: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && needs.launch-readiness.outputs.payment_ready == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch real Toss E2E only when configuration is present and no recent run exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          target_ref="fix/toss-sandbox-e2e-verification"
+          if gh api "repos/$GITHUB_REPOSITORY/contents/scripts/toss-sandbox-e2e.mjs?ref=main" >/dev/null 2>&1; then
+            target_ref="main"
+          fi
+          echo "PAYMENT_E2E_TARGET_REF=$target_ref"
+          active="$(gh run list --workflow "AIMPACT Payment Control" --branch "$target_ref" --status in_progress --limit 1 --json databaseId)"
+          active_id="$(printf '%s' "$active" | jq -r '.[0].databaseId // empty')"
+          if [ -n "$active_id" ]; then
+            echo "PAYMENT_E2E_AUTODISPATCH=SKIPPED_ACTIVE_RUN RUN=$active_id"
+            exit 0
+          fi
+          recent="$(gh run list --workflow "AIMPACT Payment Control" --branch "$target_ref" --limit 1 --json databaseId,createdAt)"
+          recent_id="$(printf '%s' "$recent" | jq -r '.[0].databaseId // empty')"
+          recent_at="$(printf '%s' "$recent" | jq -r '.[0].createdAt // empty')"
+          if [ -n "$recent_at" ]; then
+            recent_epoch="$(date -d "$recent_at" +%s)"
+            now_epoch="$(date +%s)"
+            if [ "$((now_epoch-recent_epoch))" -lt 1500 ]; then
+              echo "PAYMENT_E2E_AUTODISPATCH=SKIPPED_RECENT_RUN RUN=$recent_id"
+              exit 0
+            fi
+          fi
+          gh workflow run payment-control.yml --ref "$target_ref"
+          echo "PAYMENT_E2E_AUTODISPATCH=DISPATCHED REF=$target_ref"
