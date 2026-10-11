@@ -33,6 +33,9 @@ test("EAS exposes separate internal Android and iOS simulator test profiles", ()
   assert.equal(eas.build["test-ios-simulator"].env.APP_VARIANT, "test");
   assert.equal(eas.build["test-ios-simulator"].env.EXPO_PUBLIC_APP_VARIANT, "test");
   assert.equal(eas.build["test-ios-simulator"].ios.simulator, true);
+  assert.equal(eas.build["test-ios-device"].env.APP_VARIANT, "test");
+  assert.equal(eas.build["test-ios-device"].distribution, "internal");
+  assert.equal(eas.build["test-ios-device"].ios.simulator, false);
   assert.equal(eas.build.production.autoIncrement, true);
   assert.equal(eas.build.production.env.APP_VARIANT, "production");
   assert.equal(eas.build.production.env.EXPO_PUBLIC_APP_VARIANT, "production");
