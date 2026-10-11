@@ -38,6 +38,16 @@
       "ios": {
         "simulator": true
       }
+    },
+    "test-ios-device": {
+      "distribution": "internal",
+      "env": {
+        "APP_VARIANT": "test",
+        "EXPO_PUBLIC_APP_VARIANT": "test"
+      },
+      "ios": {
+        "simulator": false
+      }
     }
   },
   "submit": {
