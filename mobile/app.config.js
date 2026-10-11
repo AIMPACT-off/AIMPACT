@@ -1,4 +1,4 @@
-export default ({ config }) => {
+module.exports = ({ config }) => {
   const testBuild = process.env.APP_VARIANT === "test";
   const base = config || {};
   return {
