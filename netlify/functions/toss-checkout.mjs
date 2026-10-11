@@ -68,7 +68,21 @@ export async function handler(event) {
   });
   if (!response.ok) return json(503, { error: "PAYMENT_ORDER_STORE_UNAVAILABLE", verified: false });
 
-  const origin = process.env.AIMPACT_TOSS_RETURN_ORIGIN || "https://aimpact-ai.netlify.app";
+  const configuredOrigin = String(process.env.AIMPACT_TOSS_RETURN_ORIGIN || "").trim();
+  const requestedOrigin = String(event.headers?.origin || event.headers?.Origin || "").trim();
+  let origin = configuredOrigin || "https://aimpact-ai.netlify.app";
+  if (!configuredOrigin && requestedOrigin) {
+    try {
+      const candidate = new URL(requestedOrigin);
+      const allowedHost = candidate.hostname === "aimpact-ai.netlify.app" ||
+        /^deploy-preview-\\d+--aimpact-ai\\.netlify\\.app$/.test(candidate.hostname);
+      if (candidate.protocol === "https:" && allowedHost && candidate.origin === requestedOrigin) {
+        origin = candidate.origin;
+      }
+    } catch {
+      // Ignore malformed/untrusted Origin and retain the configured production fallback.
+    }
+  }
   return json(200, {
     verified: false,
     provider: "toss",
