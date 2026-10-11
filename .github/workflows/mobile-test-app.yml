@@ -66,7 +66,13 @@ jobs:
           set -euo pipefail
           APK="android/app/build/outputs/apk/release/app-release.apk"
           test -s "$APK"
-          aapt dump badging "$APK" | grep -F "package: name='ai.aimpact.app.test'"
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
+          AAPT="$(find "$SDK_ROOT/build-tools" -maxdepth 2 -type f -name aapt -print 2>/dev/null | sort -V | tail -n 1)"
+          if [[ -z "$AAPT" ]]; then
+            AAPT="$(command -v aapt || true)"
+          fi
+          test -n "$AAPT" && test -x "$AAPT"
+          "$AAPT" dump badging "$APK" | grep -F "package: name='ai.aimpact.app.test'"
           (cd "$(dirname "$APK")" && sha256sum "$(basename "$APK")" > "$(basename "$APK").sha256")
           sha256sum -c "$APK.sha256"
           echo "AIMPACT_TEST_APP_BUILD=PASS"
