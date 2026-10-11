@@ -42,7 +42,7 @@ jobs:
           APP_VARIANT: test
         run: |
           set -euo pipefail
-          npx expo config --type public > /tmp/aimpact-test-config.json
+          npx expo config --type public | node -e 'let s=""; process.stdin.on("data",d=>s+=d).on("end",()=>{const start=s.indexOf("{"); const end=s.lastIndexOf("}"); if(start<0||end<start) process.exit(1); process.stdout.write(s.slice(start,end+1));});' > /tmp/aimpact-test-config.json
           node -e 'const c=require("/tmp/aimpact-test-config.json"); if(c.name!=="AIMPACT TEST"||c.android?.package!=="ai.aimpact.app.test"||c.ios?.bundleIdentifier!=="ai.aimpact.app.test"||c.extra?.isTestBuild!==true) process.exit(1); console.log("TEST_APP_CONFIG=PASS")'
       - name: Run test-app configuration contract tests
         working-directory: .
@@ -102,7 +102,7 @@ jobs:
           APP_VARIANT: test
         run: |
           set -euo pipefail
-          npx expo config --type public > /tmp/aimpact-test-config.json
+          npx expo config --type public | node -e 'let s=""; process.stdin.on("data",d=>s+=d).on("end",()=>{const start=s.indexOf("{"); const end=s.lastIndexOf("}"); if(start<0||end<start) process.exit(1); process.stdout.write(s.slice(start,end+1));});' > /tmp/aimpact-test-config.json
           node -e 'const c=require("/tmp/aimpact-test-config.json"); if(c.name!=="AIMPACT TEST"||c.ios?.bundleIdentifier!=="ai.aimpact.app.test") process.exit(1); console.log("IOS_TEST_APP_CONFIG=PASS")'
       - name: Expo Doctor
         run: npx expo-doctor
