@@ -548,6 +548,10 @@ jobs:
         run: |
           set -euo pipefail
           target_ref="fix/toss-sandbox-e2e-verification"
+          if gh api "repos/$GITHUB_REPOSITORY/contents/scripts/toss-sandbox-e2e.mjs?ref=main" >/dev/null 2>&1; then
+            target_ref="main"
+          fi
+          echo "PAYMENT_E2E_TARGET_REF=$target_ref"
           active="$(gh run list --workflow "AIMPACT Payment Control" --branch "$target_ref" --status in_progress --limit 1 --json databaseId)"
           active_id="$(printf '%s' "$active" | jq -r '.[0].databaseId // empty')"
           if [ -n "$active_id" ]; then
