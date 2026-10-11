@@ -1,6 +1,8 @@
 name: AIMPACT Prelaunch Test App
 
 on:
+  push:
+    branches: [feat/aimpact-prelaunch-test-app]
   pull_request:
     branches: [main]
     paths:
