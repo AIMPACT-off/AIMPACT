@@ -67,7 +67,8 @@ try {
     method: "POST",
     headers: {
       Authorization: "Bearer " + userToken,
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      Origin: baseUrl
     },
     body: JSON.stringify({ amount, productKey: "AI_QUICK_AUDIT" })
   });
@@ -195,9 +196,13 @@ try {
   console.log("QUICK_AUDIT_ENTITLEMENT=PASS");
   console.log("PAYMENT_IDEMPOTENCY=PASS");
   console.log("PAYMENT_E2E=PASS");
-} catch {
+} catch (error) {
   console.error("PAYMENT_E2E=NOT_VERIFIED");
+  const safeName = error && typeof error.name === "string" && /^[A-Za-z][A-Za-z0-9_]{0,50}$/.test(error.name)
+    ? error.name
+    : "Error";
   console.error("PAYMENT_E2E_FAILURE=UNEXPECTED_RUNTIME_ERROR");
+  console.error("PAYMENT_E2E_ERROR_TYPE=" + safeName);
   process.exit(1);
 } finally {
   if (browser) await browser.close().catch(() => {});
