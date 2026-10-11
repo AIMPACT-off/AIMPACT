@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: aimpact-test-app-${{ github.ref }}
+  group: aimpact-test-app-${{ github.ref }}-${{ github.run_id }}
   cancel-in-progress: false
 
 jobs:
