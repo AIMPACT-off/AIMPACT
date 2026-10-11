@@ -20,6 +20,9 @@ jobs:
   android-test-apk:
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    env:
+      APP_VARIANT: test
+      EXPO_PUBLIC_APP_VARIANT: test
     defaults:
       run:
         working-directory: mobile
@@ -77,6 +80,9 @@ jobs:
   ios-test-simulator:
     runs-on: macos-15
     timeout-minutes: 35
+    env:
+      APP_VARIANT: test
+      EXPO_PUBLIC_APP_VARIANT: test
     defaults:
       run:
         working-directory: mobile
