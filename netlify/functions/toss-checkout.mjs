@@ -75,7 +75,7 @@ export async function handler(event) {
     try {
       const candidate = new URL(requestedOrigin);
       const allowedHost = candidate.hostname === "aimpact-ai.netlify.app" ||
-        /^deploy-preview-\\d+--aimpact-ai\\.netlify\\.app$/.test(candidate.hostname);
+        new RegExp("^deploy-preview-[0-9]+--aimpact-ai[.]netlify[.]app$").test(candidate.hostname);
       if (candidate.protocol === "https:" && allowedHost && candidate.origin === requestedOrigin) {
         origin = candidate.origin;
       }
