@@ -210,6 +210,11 @@ function App() {
 
   return (
     <SafeAreaView style={s.safe}>
+      {process.env.EXPO_PUBLIC_APP_VARIANT === "test" && (
+        <View style={{ backgroundColor: "#b45309", paddingVertical: 6, alignItems: "center" }}>
+          <Text style={{ color: "#ffffff", fontSize: 10, fontWeight: "900", letterSpacing: 1.2 }}>TEST BUILD · NOT FOR PRODUCTION</Text>
+        </View>
+      )}
       <StatusBar style="light" />
       <View style={s.header}>
         <Text style={s.logo}>AIMPACT</Text>
