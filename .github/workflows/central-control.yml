@@ -408,3 +408,80 @@ jobs:
           echo "PAYMENT_E2E_MODE=OBSERVE_ONLY"
           echo "PAYMENT_E2E_RULE=never_fake_paid_state"
           echo "PAYMENT_E2E_NEXT=await_verified_checkout_entitlement"
+
+  launch-readiness:
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.name == 'AIMPACT Payment Control' || github.event.workflow_run.name == 'AIMPACT Mobile Build') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Consolidate payment and store-release blockers
+        env:
+          TOSS_SECRET_KEY: ${{ secrets.TOSS_SECRET_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AIMPACT_E2E_BASE_URL: ${{ vars.AIMPACT_E2E_BASE_URL || secrets.AIMPACT_E2E_BASE_URL }}
+          PAYMENT_PROVIDER: ${{ vars.AIMPACT_PAYMENT_PROVIDER || secrets.AIMPACT_PAYMENT_PROVIDER || 'toss' }}
+          TOSS_E2E_USER_ACCESS_TOKEN: ${{ secrets.TOSS_E2E_USER_ACCESS_TOKEN }}
+          TOSS_E2E_TEST_USER_EMAIL: ${{ secrets.TOSS_E2E_TEST_USER_EMAIL }}
+          TOSS_E2E_TEST_USER_PASSWORD: ${{ secrets.TOSS_E2E_TEST_USER_PASSWORD }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
+          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
+          APPLE_PRIVATE_KEY: ${{ secrets.APPLE_PRIVATE_KEY }}
+          APPLE_PRIVATE_KEY_BASE64: ${{ secrets.APPLE_PRIVATE_KEY_BASE64 }}
+          APPLE_BUNDLE_ID: ${{ secrets.APPLE_BUNDLE_ID }}
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+          GOOGLE_SERVICE_ACCOUNT_KEY_BASE64: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64 }}
+          GOOGLE_PACKAGE_NAME: ${{ secrets.GOOGLE_PACKAGE_NAME }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          summary="$RUNNER_TEMP/launch-readiness.txt"
+          : > "$summary"
+          check_required() {
+            local name="$1"
+            if [ -n "${!name:-}" ]; then
+              echo "CONFIGURED=$name" | tee -a "$summary"
+            else
+              echo "MISSING=$name" | tee -a "$summary"
+              missing+=("$name")
+            fi
+          }
+          echo "AIMPACT_LAUNCH_READINESS=DIAGNOSTIC_ONLY"
+          echo "PAYMENT_PROVIDER_SELECTED=${PAYMENT_PROVIDER:-toss}"
+          if [ "${PAYMENT_PROVIDER:-toss}" = "toss" ]; then
+            for name in TOSS_SECRET_KEY SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY AIMPACT_E2E_BASE_URL; do check_required "$name"; done
+            if [ -n "${TOSS_E2E_USER_ACCESS_TOKEN:-}" ]; then
+              echo "CONFIGURED=TOSS_E2E_USER_ACCESS_TOKEN" | tee -a "$summary"
+            elif [ -n "${TOSS_E2E_TEST_USER_EMAIL:-}" ] && [ -n "${TOSS_E2E_TEST_USER_PASSWORD:-}" ]; then
+              echo "CONFIGURED=TOSS_E2E_TEST_USER_EMAIL_AND_PASSWORD" | tee -a "$summary"
+            else
+              echo "MISSING=TOSS_E2E_USER_ACCESS_TOKEN_OR_TEST_USER_EMAIL_PASSWORD" | tee -a "$summary"
+              missing+=("TOSS_E2E_USER_ACCESS_TOKEN_OR_TEST_USER_EMAIL_PASSWORD")
+            fi
+          fi
+          for name in EXPO_TOKEN APPLE_ISSUER_ID APPLE_KEY_ID APPLE_BUNDLE_ID GOOGLE_SERVICE_ACCOUNT_EMAIL GOOGLE_SERVICE_ACCOUNT_KEY_BASE64 GOOGLE_PACKAGE_NAME; do check_required "$name"; done
+          if [ -n "${APPLE_PRIVATE_KEY:-}" ] || [ -n "${APPLE_PRIVATE_KEY_BASE64:-}" ]; then
+            echo "CONFIGURED=APPLE_PRIVATE_KEY_OR_APPLE_PRIVATE_KEY_BASE64" | tee -a "$summary"
+          else
+            echo "MISSING=APPLE_PRIVATE_KEY_OR_APPLE_PRIVATE_KEY_BASE64" | tee -a "$summary"
+            missing+=("APPLE_PRIVATE_KEY_OR_APPLE_PRIVATE_KEY_BASE64")
+          fi
+          {
+            echo "## AIMPACT centralized launch readiness"
+            echo
+            echo "- This report checks configuration presence only; it does not certify a payment or store release."
+            echo "- PAYMENT_E2E=PASS remains valid only when the real Toss E2E job proves approval, ledger, entitlement, and idempotency."
+            echo "- Store submission remains blocked until native store QA and signing/submission workflows pass."
+            echo
+            echo '### Configuration findings'
+            cat "$summary"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "LAUNCH_READINESS=BLOCKED"
+            printf 'LAUNCH_BLOCKERS=%s\n' "$(IFS=,; echo "${missing[*]}")"
+            exit 1
+          fi
+          echo "LAUNCH_CONFIGURATION=COMPLETE"
+          echo "LAUNCH_READINESS=CONFIGURED_NOT_RELEASE_CERTIFIED"
