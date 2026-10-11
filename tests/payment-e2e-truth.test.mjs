@@ -26,7 +26,9 @@ test("central payment control cannot pass without explicit E2E evidence", () => 
 test("mock provider and payment-link checks are explicitly not E2E", () => {
   assert.match(payment, /PAYMENT_PROVIDER_GATE_MODE=MOCK_ONLY/);
   assert.match(payment, /PAYMENT_PROVIDER_GATE_MODE=STRIPE_SANDBOX_VERIFIED/);
-  assert.match(payment, /TOSS_SANDBOX_PAYMENT_TEST_NOT_IMPLEMENTED/);
+  assert.match(payment, /TOSS_SANDBOX_PREFLIGHT=PASS/);
+  assert.match(payment, /PAYMENT_E2E=NOT_VERIFIED/);
+  assert.match(payment, /Preflight only\. This does not run a real sandbox checkout/);
   assert.ok((payment.match(/PAYMENT_E2E=NOT_VERIFIED/g) || []).length >= 3);
 });
 
