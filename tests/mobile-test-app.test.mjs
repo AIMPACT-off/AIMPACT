@@ -13,13 +13,18 @@ test("test variant has a distinct application identity and keeps production iden
   assert.match(appConfig, /ai\.aimpact\.app"/);
   assert.match(appConfig, /aimpact-test/);
   assert.match(appConfig, /isTestBuild: testBuild/);
+  const appSource = readFileSync(new URL("../mobile/App.js", import.meta.url), "utf8");
+  assert.match(appSource, /EXPO_PUBLIC_APP_VARIANT === "test"/);
+  assert.match(appSource, /TEST BUILD · NOT FOR PRODUCTION/);
 });
 
 test("EAS exposes separate internal Android and iOS simulator test profiles", () => {
   assert.equal(eas.build["test-android"].env.APP_VARIANT, "test");
+  assert.equal(eas.build["test-android"].env.EXPO_PUBLIC_APP_VARIANT, "test");
   assert.equal(eas.build["test-android"].distribution, "internal");
   assert.equal(eas.build["test-android"].android.buildType, "apk");
   assert.equal(eas.build["test-ios-simulator"].env.APP_VARIANT, "test");
+  assert.equal(eas.build["test-ios-simulator"].env.EXPO_PUBLIC_APP_VARIANT, "test");
   assert.equal(eas.build["test-ios-simulator"].ios.simulator, true);
   assert.equal(eas.build.production.autoIncrement, true);
 });
