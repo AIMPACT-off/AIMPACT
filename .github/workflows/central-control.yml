@@ -243,7 +243,8 @@ jobs:
           exit 1
 
   dispatch-native-store-qa:
-    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'AIMPACT Mobile Build' && github.event.workflow_run.conclusion == 'success' }}
+    needs: [launch-readiness]
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'AIMPACT Mobile Build' && github.event.workflow_run.conclusion == 'success' && needs.launch-readiness.outputs.store_ready == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -407,3 +408,158 @@ jobs:
           echo "PAYMENT_E2E_MODE=OBSERVE_ONLY"
           echo "PAYMENT_E2E_RULE=never_fake_paid_state"
           echo "PAYMENT_E2E_NEXT=await_verified_checkout_entitlement"
+
+  launch-readiness:
+    outputs:
+      payment_ready: ${{ steps.check.outputs.payment_ready }}
+      store_ready: ${{ steps.check.outputs.store_ready }}
+      missing: ${{ steps.check.outputs.missing }}
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.name == 'AIMPACT Payment Control' || github.event.workflow_run.name == 'AIMPACT Mobile Build') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Consolidate payment and store-release blockers without exposing values
+        id: check
+        env:
+          TOSS_SECRET_KEY: ${{ secrets.TOSS_SECRET_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AIMPACT_E2E_BASE_URL: ${{ vars.AIMPACT_E2E_BASE_URL || secrets.AIMPACT_E2E_BASE_URL }}
+          PAYMENT_PROVIDER: ${{ vars.AIMPACT_PAYMENT_PROVIDER || secrets.AIMPACT_PAYMENT_PROVIDER || 'toss' }}
+          TOSS_E2E_USER_ACCESS_TOKEN: ${{ secrets.TOSS_E2E_USER_ACCESS_TOKEN }}
+          TOSS_E2E_TEST_USER_EMAIL: ${{ secrets.TOSS_E2E_TEST_USER_EMAIL }}
+          TOSS_E2E_TEST_USER_PASSWORD: ${{ secrets.TOSS_E2E_TEST_USER_PASSWORD }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
+          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
+          APPLE_PRIVATE_KEY: ${{ secrets.APPLE_PRIVATE_KEY }}
+          APPLE_PRIVATE_KEY_BASE64: ${{ secrets.APPLE_PRIVATE_KEY_BASE64 }}
+          APPLE_BUNDLE_ID: ${{ secrets.APPLE_BUNDLE_ID }}
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+          GOOGLE_SERVICE_ACCOUNT_KEY_BASE64: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64 }}
+          GOOGLE_PACKAGE_NAME: ${{ secrets.GOOGLE_PACKAGE_NAME }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          payment_missing=()
+          store_missing=()
+          report="$RUNNER_TEMP/launch-readiness.txt"
+          : > "$report"
+          check_one() {
+            local group="$1" name="$2"
+            if [ -n "${!name:-}" ]; then
+              echo "CONFIGURED=$name" | tee -a "$report"
+            else
+              echo "MISSING=$name" | tee -a "$report"
+              missing+=("$name")
+              if [ "$group" = "payment" ]; then payment_missing+=("$name"); else store_missing+=("$name"); fi
+            fi
+          }
+          provider="${PAYMENT_PROVIDER:-toss}"
+          echo "PAYMENT_PROVIDER_SELECTED=$provider"
+          if [ "$provider" = "toss" ]; then
+            for name in TOSS_SECRET_KEY SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY AIMPACT_E2E_BASE_URL; do check_one payment "$name"; done
+            if [ -n "${TOSS_E2E_USER_ACCESS_TOKEN:-}" ]; then
+              echo "CONFIGURED=TOSS_E2E_USER_ACCESS_TOKEN" | tee -a "$report"
+            elif [ -n "${TOSS_E2E_TEST_USER_EMAIL:-}" ] && [ -n "${TOSS_E2E_TEST_USER_PASSWORD:-}" ]; then
+              echo "CONFIGURED=TOSS_E2E_TEST_USER_EMAIL_AND_PASSWORD" | tee -a "$report"
+            else
+              echo "MISSING=TOSS_E2E_USER_ACCESS_TOKEN_OR_TEST_USER_EMAIL_PASSWORD" | tee -a "$report"
+              missing+=("TOSS_E2E_USER_ACCESS_TOKEN_OR_TEST_USER_EMAIL_PASSWORD")
+              payment_missing+=("TOSS_E2E_USER_ACCESS_TOKEN_OR_TEST_USER_EMAIL_PASSWORD")
+            fi
+          else
+            echo "MISSING=UNSUPPORTED_OR_NON_TOSS_PAYMENT_PROVIDER" | tee -a "$report"
+            missing+=("UNSUPPORTED_OR_NON_TOSS_PAYMENT_PROVIDER")
+            payment_missing+=("UNSUPPORTED_OR_NON_TOSS_PAYMENT_PROVIDER")
+          fi
+          for name in EXPO_TOKEN APPLE_ISSUER_ID APPLE_KEY_ID APPLE_BUNDLE_ID GOOGLE_SERVICE_ACCOUNT_EMAIL GOOGLE_SERVICE_ACCOUNT_KEY_BASE64 GOOGLE_PACKAGE_NAME; do check_one store "$name"; done
+          if [ -n "${APPLE_PRIVATE_KEY:-}" ] || [ -n "${APPLE_PRIVATE_KEY_BASE64:-}" ]; then
+            echo "CONFIGURED=APPLE_PRIVATE_KEY_OR_APPLE_PRIVATE_KEY_BASE64" | tee -a "$report"
+          else
+            echo "MISSING=APPLE_PRIVATE_KEY_OR_APPLE_PRIVATE_KEY_BASE64" | tee -a "$report"
+            missing+=("APPLE_PRIVATE_KEY_OR_APPLE_PRIVATE_KEY_BASE64")
+            store_missing+=("APPLE_PRIVATE_KEY_OR_APPLE_PRIVATE_KEY_BASE64")
+          fi
+          payment_ready=true
+          store_ready=true
+          [ "${#payment_missing[@]}" -eq 0 ] || payment_ready=false
+          [ "${#store_missing[@]}" -eq 0 ] || store_ready=false
+          missing_csv="$(IFS=,; echo "${missing[*]}")"
+          echo "payment_ready=$payment_ready" >> "$GITHUB_OUTPUT"
+          echo "store_ready=$store_ready" >> "$GITHUB_OUTPUT"
+          echo "missing=$missing_csv" >> "$GITHUB_OUTPUT"
+          {
+            echo "## AIMPACT centralized launch readiness"
+            echo
+            echo "- Payment configuration present: **$payment_ready**"
+            echo "- Store-release configuration present: **$store_ready**"
+            echo "- Configuration presence is not proof of Toss approval or store publication."
+            echo "- Payment certification requires real Toss approval, a unique user-owned paid ledger row, Quick Audit entitlement, and idempotent replay."
+            echo
+            echo "### Findings"
+            cat "$report"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "PAYMENT_CONFIGURATION_READY=$payment_ready"
+          echo "STORE_CONFIGURATION_READY=$store_ready"
+          echo "LAUNCH_BLOCKERS=${missing_csv:-NONE}"
+
+  launch-certification-gate:
+    needs: [launch-readiness]
+    if: ${{ always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_run') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Enforce consolidated launch gates
+        env:
+          PAYMENT_READY: ${{ needs.launch-readiness.outputs.payment_ready }}
+          STORE_READY: ${{ needs.launch-readiness.outputs.store_ready }}
+          MISSING: ${{ needs.launch-readiness.outputs.missing }}
+        run: |
+          set -euo pipefail
+          if [ "$PAYMENT_READY" != "true" ] || [ "$STORE_READY" != "true" ]; then
+            echo "LAUNCH_READINESS=BLOCKED"
+            echo "PAYMENT_CONFIGURATION_READY=${PAYMENT_READY:-unknown}"
+            echo "STORE_CONFIGURATION_READY=${STORE_READY:-unknown}"
+            echo "LAUNCH_BLOCKERS=${MISSING:-PREFLIGHT_JOB_FAILED}"
+            exit 1
+          fi
+          echo "LAUNCH_CONFIGURATION=COMPLETE"
+          echo "LAUNCH_READINESS=CONFIGURED_NOT_RELEASE_CERTIFIED"
+          echo "PAYMENT_E2E=NOT_VERIFIED_UNTIL_REAL_E2E_PASS"
+
+  payment-e2e-autodispatch:
+    needs: [launch-readiness]
+    if: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && needs.launch-readiness.outputs.payment_ready == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch real Toss E2E only when configuration is present and no recent run exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          target_ref="fix/toss-sandbox-e2e-verification"
+          active="$(gh run list --workflow "AIMPACT Payment Control" --branch "$target_ref" --status in_progress --limit 1 --json databaseId)"
+          active_id="$(printf '%s' "$active" | jq -r '.[0].databaseId // empty')"
+          if [ -n "$active_id" ]; then
+            echo "PAYMENT_E2E_AUTODISPATCH=SKIPPED_ACTIVE_RUN RUN=$active_id"
+            exit 0
+          fi
+          recent="$(gh run list --workflow "AIMPACT Payment Control" --branch "$target_ref" --limit 1 --json databaseId,createdAt)"
+          recent_id="$(printf '%s' "$recent" | jq -r '.[0].databaseId // empty')"
+          recent_at="$(printf '%s' "$recent" | jq -r '.[0].createdAt // empty')"
+          if [ -n "$recent_at" ]; then
+            recent_epoch="$(date -d "$recent_at" +%s)"
+            now_epoch="$(date +%s)"
+            if [ "$((now_epoch-recent_epoch))" -lt 1500 ]; then
+              echo "PAYMENT_E2E_AUTODISPATCH=SKIPPED_RECENT_RUN RUN=$recent_id"
+              exit 0
+            fi
+          fi
+          gh workflow run payment-control.yml --ref "$target_ref"
+          echo "PAYMENT_E2E_AUTODISPATCH=DISPATCHED REF=$target_ref"
