@@ -17,6 +17,9 @@ concurrency:
 jobs:
   android-apk:
     runs-on: ubuntu-latest
+    env:
+      APP_VARIANT: production
+      EXPO_PUBLIC_APP_VARIANT: production
     defaults:
       run:
         working-directory: mobile
@@ -124,6 +127,9 @@ jobs:
   ios-simulator:
     runs-on: macos-15
     timeout-minutes: 25
+    env:
+      APP_VARIANT: production
+      EXPO_PUBLIC_APP_VARIANT: production
     defaults:
       run:
         working-directory: mobile
