@@ -48,5 +48,6 @@ test("test workflow verifies test bundle IDs and uploads installable artifacts",
   assert.match(workflow, /AIMPACT-TEST-Android-APK/);
   assert.match(workflow, /AIMPACT-TEST-iOS-Simulator/);
   assert.match(workflow, /AIMPACT_TEST_APP_BUILD=PASS/);
-  assert.match(workflow, /lastIndexOf\("\}"\)/);
+  assert.match(workflow, /expo config --type public --json/);
+  assert.match(workflow, /2>\/tmp\/aimpact-expo-config\.log/);
 });
