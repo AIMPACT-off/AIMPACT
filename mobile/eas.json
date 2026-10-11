@@ -18,7 +18,8 @@
     "test-android": {
       "distribution": "internal",
       "env": {
-        "APP_VARIANT": "test"
+        "APP_VARIANT": "test",
+        "EXPO_PUBLIC_APP_VARIANT": "test"
       },
       "android": {
         "buildType": "apk"
@@ -27,7 +28,8 @@
     "test-ios-simulator": {
       "distribution": "internal",
       "env": {
-        "APP_VARIANT": "test"
+        "APP_VARIANT": "test",
+        "EXPO_PUBLIC_APP_VARIANT": "test"
       },
       "ios": {
         "simulator": true
