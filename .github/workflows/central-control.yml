@@ -11,7 +11,7 @@ name: AIMPACT Central Control Validation
     branches: [main]
     types: [completed]
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "*/10 * * * *"
 
 concurrency:
   group: aimpact-central-control-${{ github.ref }}-${{ github.event.workflow_run.id || github.run_id }}
