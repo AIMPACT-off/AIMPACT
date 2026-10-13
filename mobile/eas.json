@@ -13,7 +13,41 @@
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "APP_VARIANT": "production",
+        "EXPO_PUBLIC_APP_VARIANT": "production"
+      }
+    },
+    "test-android": {
+      "distribution": "internal",
+      "env": {
+        "APP_VARIANT": "test",
+        "EXPO_PUBLIC_APP_VARIANT": "test"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "test-ios-simulator": {
+      "distribution": "internal",
+      "env": {
+        "APP_VARIANT": "test",
+        "EXPO_PUBLIC_APP_VARIANT": "test"
+      },
+      "ios": {
+        "simulator": true
+      }
+    },
+    "test-ios-device": {
+      "distribution": "internal",
+      "env": {
+        "APP_VARIANT": "test",
+        "EXPO_PUBLIC_APP_VARIANT": "test"
+      },
+      "ios": {
+        "simulator": false
+      }
     }
   },
   "submit": {

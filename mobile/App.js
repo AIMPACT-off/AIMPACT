@@ -5,10 +5,14 @@ import { useIAP } from "expo-iap";
 import { authConfigReady, sendOtp, verifyOtp, getSessionToken, getSessionUserId } from "./session";
 import { QUICK_AUDIT_PRICE_KRW } from "./product-catalog.mjs";
 
-const ENTITLEMENT_API = "https://aimpact-ai.netlify.app/api/entitlement";
-const CHECKOUT_API = "https://aimpact-ai.netlify.app/api/checkout";
-const AUDIT_API = "https://aimpact-ai.netlify.app/api/audit";
-const IAP_VERIFY_API = "https://aimpact-ai.netlify.app/api/iap-verify";
+const IS_TEST_BUILD = process.env.EXPO_PUBLIC_APP_VARIANT === "test";
+const API_BASE = IS_TEST_BUILD
+  ? String(process.env.EXPO_PUBLIC_TEST_API_BASE_URL || "").replace(/\/$/, "")
+  : "https://aimpact-ai.netlify.app";
+const ENTITLEMENT_API = API_BASE ? API_BASE + "/api/entitlement" : "";
+const CHECKOUT_API = API_BASE ? API_BASE + "/api/checkout" : "";
+const AUDIT_API = API_BASE ? API_BASE + "/api/audit" : "";
+const IAP_VERIFY_API = API_BASE ? API_BASE + "/api/iap-verify" : "";
 const IAP_PRODUCT_ID = "ai.aimpact.quick_audit";
 
 function App() {
@@ -124,6 +128,10 @@ function App() {
   const run = async () => {
     setNotice("");
     if (!sessionToken) { setNotice("고객 인증 후 AI AUDIT을 실행할 수 있습니다."); return; }
+    if (IS_TEST_BUILD && !API_BASE) {
+      setNotice("테스트 API가 설정되지 않았습니다. 운영 API는 테스트 앱에서 사용하지 않습니다.");
+      return;
+    }
     if (!company.trim() || !email.trim() || !problem.trim()) {
       setNotice("회사명·이메일·실제 업무 문제를 입력해 주세요.");
       return;
@@ -173,6 +181,10 @@ function App() {
   };
 
   const buy = async () => {
+    if (IS_TEST_BUILD && process.env.EXPO_PUBLIC_TEST_IAP_ENABLED !== "true") {
+      setNotice("테스트 앱의 스토어 구매는 샌드박스 IAP를 명시적으로 활성화하기 전까지 차단됩니다.");
+      return;
+    }
     if (!sessionToken) { setNotice("고객 인증 후 결제를 시작할 수 있습니다."); return; }
     if (!iapConnected) { setNotice("Apple / Google 스토어 연결이 아직 준비되지 않았습니다."); return; }
     if (!iapProducts?.some(p => p.id === IAP_PRODUCT_ID)) { setNotice("AI Quick Audit 스토어 상품이 아직 준비되지 않았습니다."); return; }
@@ -210,6 +222,11 @@ function App() {
 
   return (
     <SafeAreaView style={s.safe}>
+      {process.env.EXPO_PUBLIC_APP_VARIANT === "test" && (
+        <View style={{ backgroundColor: "#b45309", paddingVertical: 6, alignItems: "center" }}>
+          <Text style={{ color: "#ffffff", fontSize: 10, fontWeight: "900", letterSpacing: 1.2 }}>TEST BUILD · NOT FOR PRODUCTION</Text>
+        </View>
+      )}
       <StatusBar style="light" />
       <View style={s.header}>
         <Text style={s.logo}>AIMPACT</Text>

@@ -1,5 +1,14 @@
-const SUPABASE_URL = String(process.env.EXPO_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "");
-const SUPABASE_ANON_KEY = String(process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "");
+const IS_TEST_BUILD = process.env.EXPO_PUBLIC_APP_VARIANT === "test";
+const SUPABASE_URL = String(
+  IS_TEST_BUILD
+    ? process.env.EXPO_PUBLIC_TEST_SUPABASE_URL || ""
+    : process.env.EXPO_PUBLIC_SUPABASE_URL || ""
+).replace(/\/$/, "");
+const SUPABASE_ANON_KEY = String(
+  IS_TEST_BUILD
+    ? process.env.EXPO_PUBLIC_TEST_SUPABASE_ANON_KEY || ""
+    : process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || ""
+);
 
 export const authConfigReady = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 
@@ -33,7 +42,6 @@ export async function verifyOtp(email, token) {
 export function getSessionToken(session) {
   return String(session?.access_token || "");
 }
-
 
 export function getSessionUserId(accessToken) {
   try {
