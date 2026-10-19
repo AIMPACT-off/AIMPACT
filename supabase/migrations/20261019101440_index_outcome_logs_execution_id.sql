@@ -1,0 +1,1 @@
+create index if not exists outcome_logs_execution_id_idx on public.outcome_logs(execution_id);
