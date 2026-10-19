@@ -54,6 +54,36 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
+      - name: Diagnose runtime configuration presence without exposing values
+        env:
+          TOSS_SECRET_KEY: ${{ secrets.TOSS_SECRET_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AIMPACT_E2E_BASE_URL: ${{ vars.AIMPACT_E2E_BASE_URL }}
+          TOSS_E2E_USER_ACCESS_TOKEN: ${{ secrets.TOSS_E2E_USER_ACCESS_TOKEN }}
+          TOSS_E2E_USER_EMAIL: ${{ secrets.TOSS_E2E_USER_EMAIL }}
+          TOSS_E2E_USER_PASSWORD: ${{ secrets.TOSS_E2E_USER_PASSWORD }}
+          TOSS_CLIENT_KEY: ${{ secrets.TOSS_CLIENT_KEY }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
+          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
+          APPLE_BUNDLE_ID: ${{ vars.APPLE_BUNDLE_ID }}
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+          GOOGLE_SERVICE_ACCOUNT_KEY_BASE64: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64 }}
+          GOOGLE_PACKAGE_NAME: ${{ vars.GOOGLE_PACKAGE_NAME }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in TOSS_SECRET_KEY SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY AIMPACT_E2E_BASE_URL TOSS_CLIENT_KEY EXPO_TOKEN APPLE_ISSUER_ID APPLE_KEY_ID APPLE_BUNDLE_ID GOOGLE_SERVICE_ACCOUNT_EMAIL GOOGLE_SERVICE_ACCOUNT_KEY_BASE64 GOOGLE_PACKAGE_NAME; do
+            if [ -n "${!name:-}" ]; then printf '%s_CONFIGURED=true\\n' "$name"; else printf '%s_CONFIGURED=false\\n' "$name"; fi
+          done
+          if [ -n "${TOSS_E2E_USER_ACCESS_TOKEN:-}" ] || { [ -n "${TOSS_E2E_USER_EMAIL:-}" ] && [ -n "${TOSS_E2E_USER_PASSWORD:-}" ]; }; then
+            echo "TOSS_E2E_USER_AUTH_CONFIGURED=true"
+          else
+            echo "TOSS_E2E_USER_AUTH_CONFIGURED=false"
+          fi
+          echo "NOTE=Presence-only diagnostics; values are never printed and configuration presence does not prove E2E success."
+
       - name: Select configured provider without treating key presence as integration proof
         env:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
