@@ -31,6 +31,8 @@ create table if not exists public.audit_logs (
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
+alter table public.audit_logs
+  add column if not exists created_at timestamptz not null default now();
 create index if not exists audit_logs_tenant_created_idx
   on public.audit_logs(tenant_id, created_at desc);
 create index if not exists audit_logs_execution_idx
