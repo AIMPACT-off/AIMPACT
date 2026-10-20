@@ -1,6 +1,10 @@
 name: AIMPACT Naver Blog Research Queue
 
 on:
+  pull_request:
+    paths:
+      - "scripts/naver_blog_auto_pipeline.py"
+      - ".github/workflows/naver-blog-research-queue.yml"
   workflow_dispatch:
   schedule:
     # Daily 23:10 Korea Standard Time (14:10 UTC)
