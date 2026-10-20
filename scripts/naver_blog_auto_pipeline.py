@@ -23,11 +23,11 @@ from typing import Any
 
 FEEDS = [
     {"name": "World Health Organization", "url": "https://www.who.int/rss-feeds/news-english.xml", "domains": ["who.int"], "areas": ["health", "aging", "childcare"]},
-    {"name": "U.S. Food and Drug Administration", "url": "https://www.fda.gov/about-fda/contact-fda/stay-informed/rss-feeds/press-releases/rss.xml", "domains": ["fda.gov"], "areas": ["health", "skin-care", "beauty"]},
+    {"name": "U.S. Food and Drug Administration", "url": "https://www.fda.gov/AboutFDA/ContactFDA/StayInformed/RSSFeeds/PressReleases/rss.xml", "domains": ["fda.gov"], "areas": ["health", "skin-care", "beauty"]},
     {"name": "U.S. Securities and Exchange Commission", "url": "https://www.sec.gov/news/pressreleases.rss", "domains": ["sec.gov"], "areas": ["stocks", "global-markets", "finance"]},
-    {"name": "U.S. National Institutes of Health", "url": "https://www.nih.gov/news-events/news-releases/rss.xml", "domains": ["nih.gov"], "areas": ["health", "aging", "childcare", "research"]},
+    {"name": "U.S. National Institutes of Health", "url": "https://nih.at/news.rss", "domains": ["nih.gov"], "areas": ["health", "aging", "childcare", "research"]},
 ]
-USER_AGENT = "AIMPACT-ResearchQueue/1.0 (+https://github.com/AIMPACT-off/AIMPACT)"
+USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 AIMPACT-ResearchQueue/1.0 (AIMPACT-off@gmail.com)"
 MAX_PER_FEED = 12
 
 
