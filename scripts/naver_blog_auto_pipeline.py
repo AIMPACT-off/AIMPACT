@@ -23,7 +23,7 @@ from typing import Any
 
 FEEDS = [
     {"name": "World Health Organization", "url": "https://www.who.int/rss-feeds/news-english.xml", "domains": ["who.int"], "areas": ["health", "aging", "childcare"]},
-    {"name": "U.S. Food and Drug Administration", "url": "https://www.fda.gov/AboutFDA/ContactFDA/StayInformed/RSSFeeds/PressReleases/rss.xml", "domains": ["fda.gov"], "areas": ["health", "skin-care", "beauty"]},
+    {"name": "U.S. Food and Drug Administration", "url": "https://www.fda.gov/AboutFDA/ContactFDA/StayInformed/RSSFeeds/Drugs/rss.xml", "domains": ["fda.gov"], "areas": ["health", "skin-care", "beauty"]},
     {"name": "U.S. Securities and Exchange Commission", "url": "https://www.sec.gov/news/pressreleases.rss", "domains": ["sec.gov"], "areas": ["stocks", "global-markets", "finance"]},
     {"name": "U.S. National Institutes of Health", "url": "https://nih.at/news.rss", "domains": ["nih.gov"], "areas": ["health", "aging", "childcare", "research"]},
 ]
