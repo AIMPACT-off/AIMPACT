@@ -25,7 +25,7 @@ FEEDS = [
     {"name": "World Health Organization", "url": "https://www.who.int/rss-feeds/news-english.xml", "domains": ["who.int"], "areas": ["health", "aging", "childcare"]},
     {"name": "U.S. Food and Drug Administration", "url": "https://www.fda.gov/about-fda/contact-fda/stay-informed/rss-feeds/press-releases/rss.xml", "domains": ["fda.gov"], "areas": ["health", "skin-care", "beauty"]},
     {"name": "U.S. Securities and Exchange Commission", "url": "https://www.sec.gov/news/pressreleases.rss", "domains": ["sec.gov"], "areas": ["stocks", "global-markets", "finance"]},
-    {"name": "U.S. Federal Trade Commission", "url": "https://www.ftc.gov/feeds/press-release.xml", "domains": ["ftc.gov"], "areas": ["consumer", "business", "ecommerce"]},
+    {"name": "U.S. National Institutes of Health", "url": "https://www.nih.gov/news-events/news-releases/rss.xml", "domains": ["nih.gov"], "areas": ["health", "aging", "childcare", "research"]},
 ]
 USER_AGENT = "AIMPACT-ResearchQueue/1.0 (+https://github.com/AIMPACT-off/AIMPACT)"
 MAX_PER_FEED = 12
@@ -99,7 +99,10 @@ def fetch_feed(source: dict[str, Any], timeout: int = 18) -> tuple[list[dict[str
             if response.status != 200:
                 return [], f"HTTP_{response.status}"
             raw = response.read(2_500_000)
-        return parse_feed(raw.decode("utf-8", errors="replace"), source), None
+        items = parse_feed(raw.decode("utf-8", errors="replace"), source)
+        if not items:
+            return [], "NO_PARSEABLE_ITEMS_OR_NONFEED_RESPONSE"
+        return items, None
     except (urllib.error.URLError, TimeoutError, OSError, ET.ParseError) as exc:
         reason = getattr(exc, "reason", None)
         return [], f"{type(exc).__name__}: {reason or str(exc)[:180]}"
@@ -192,7 +195,7 @@ def main() -> int:
             "name": source["name"],
             "status": "PASS" if items and not error else ("PARTIAL" if items else "FAIL"),
             "items": len(items),
-            "error": error,
+            "error": error or "",
             "url": source["url"],
         })
         all_items.extend(items)
