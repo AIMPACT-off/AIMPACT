@@ -1,0 +1,39 @@
+name: AIMPACT Instagram Daily Content Package
+on:
+  schedule:
+    # 09:00 Korea Standard Time (UTC+9)
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Optional date YYYY-MM-DD"
+        required: false
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: instagram-daily-content
+  cancel-in-progress: false
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Generate Korean content package
+        shell: bash
+        run: |
+          if [ -n "${{ inputs.date }}" ]; then
+            python scripts/instagram_auto_generator.py --date "${{ inputs.date }}" --output artifacts/instagram
+          else
+            python scripts/instagram_auto_generator.py --output artifacts/instagram
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aimpact-instagram-content-${{ github.run_id }}
+          path: artifacts/instagram/
+          if-no-files-found: error
+          retention-days: 30
