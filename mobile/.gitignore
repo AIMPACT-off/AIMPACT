@@ -1,1 +1,15 @@
 credentials/google-service-account.json
+node_modules/
+.expo/
+.expo-*
+.expo-home/
+.pnpm-store/
+.pnpm-cache/
+.tmp/
+.env
+.env.*
+!.env.example
+.expo-export-*/
+artifacts/
+android/
+ios/

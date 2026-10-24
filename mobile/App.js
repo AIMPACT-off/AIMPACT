@@ -1,12 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useIAP } from "expo-iap";
 import { authConfigReady, sendOtp, verifyOtp, getSessionToken, getSessionUserId } from "./session";
-import { QUICK_AUDIT_PRICE_KRW } from "./product-catalog.mjs";
 
 const ENTITLEMENT_API = "https://aimpact-ai.netlify.app/api/entitlement";
-const CHECKOUT_API = "https://aimpact-ai.netlify.app/api/checkout";
 const AUDIT_API = "https://aimpact-ai.netlify.app/api/audit";
 const IAP_VERIFY_API = "https://aimpact-ai.netlify.app/api/iap-verify";
 const IAP_PRODUCT_ID = "ai.aimpact.quick_audit";
@@ -27,6 +25,44 @@ function App() {
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState("");
   const sessionUserId = getSessionUserId(sessionToken);
+  const processedIapRef = useRef(new Set());
+  const verifyIapPurchase = async (purchase, finishTransaction) => {
+    if (!sessionToken) {
+      setNotice("스토어 거래가 계정에 연결되지 않았습니다. 로그인 후 구매 복원을 시도해 주세요.");
+      return false;
+    }
+    if (purchase?.productId !== IAP_PRODUCT_ID) return false;
+    const transactionKey = [Platform.OS, purchase.productId, purchase.transactionId || purchase.id || purchase.purchaseToken || "unknown"].join(":");
+    if (processedIapRef.current.has(transactionKey)) return false;
+    processedIapRef.current.add(transactionKey);
+    try {
+      const response = await fetch(IAP_VERIFY_API, {
+        method: "POST",
+        headers: { "content-type": "application/json", Authorization: "Bearer " + sessionToken },
+        body: JSON.stringify({
+          platform: Platform.OS,
+          productId: purchase.productId,
+          purchaseToken: purchase.purchaseToken || "",
+          transactionId: purchase.transactionId || purchase.id || ""
+        })
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body?.verified !== true) {
+        processedIapRef.current.delete(transactionKey);
+        setNotice("스토어 거래를 서버에서 확인하지 못했습니다. 검증 전에는 결제 완료로 처리하지 않았습니다.");
+        return false;
+      }
+      await finishTransaction({ purchase, isConsumable: false });
+      setPaid(true);
+      setNotice("Apple / Google 결제가 서버에서 검증되었습니다. 업무 정보를 입력해 진단을 시작하세요.");
+      setTab("audit");
+      return true;
+    } catch {
+      processedIapRef.current.delete(transactionKey);
+      setNotice("스토어 거래 확인에 실패했습니다. 거래를 보존했으니 다시 시도해 주세요.");
+      return false;
+    }
+  };
   const {
     connected: iapConnected,
     products: iapProducts,
@@ -34,9 +70,14 @@ function App() {
     fetchProducts,
     getAvailablePurchases,
     requestPurchase,
+    finishTransaction,
   } = useIAP({
+    onPurchaseSuccess: purchase => { void verifyIapPurchase(purchase, finishTransaction); },
     onPurchaseError: () => setNotice("스토어 결제가 취소되었거나 실패했습니다."),
+    onError: () => setNotice("Apple / Google 스토어 연결을 확인하지 못했습니다."),
   });
+
+  const storeProduct = iapProducts?.find(product => product.id === IAP_PRODUCT_ID);
 
   const requestOtp = async () => {
     try {
@@ -58,7 +99,7 @@ function App() {
       const token = getSessionToken(session);
       if (!token) throw new Error("AUTH_SESSION_MISSING");
       setSessionToken(token);
-      setNotice("고객 인증 완료 · 테넌트가 중앙통제에 영구 연결됩니다.");
+      setNotice("이메일 인증 완료 · 진단 요청 시 계정을 서버에서 확인합니다.");
     } catch {
       setNotice("인증코드가 올바르지 않거나 만료되었습니다.");
     }
@@ -102,34 +143,24 @@ function App() {
     let cancelled = false;
     (async () => {
       for (const purchase of availablePurchases) {
-        if (purchase?.productId !== IAP_PRODUCT_ID || !purchase?.purchaseToken) continue;
-        try {
-          const response = await fetch(IAP_VERIFY_API, {
-            method: "POST",
-            headers: { "content-type": "application/json", Authorization: "Bearer " + sessionToken },
-            body: JSON.stringify({ platform: Platform.OS, productId: purchase.productId, purchaseToken: purchase.purchaseToken, transactionId: purchase.transactionId })
-          });
-          const body = await response.json();
-          if (!cancelled && body?.verified === true) {
-            setPaid(true);
-            setNotice("스토어 entitlement 동기화 완료 · REPORT unlocked");
-            break;
-          }
-        } catch {}
+        if (cancelled || purchase?.productId !== IAP_PRODUCT_ID) continue;
+        const verified = await verifyIapPurchase(purchase, finishTransaction);
+        if (verified || cancelled) break;
       }
     })();
     return () => { cancelled = true; };
-  }, [sessionToken, iapConnected, availablePurchases]);
+  }, [sessionToken, iapConnected, availablePurchases, finishTransaction]);
 
   const run = async () => {
     setNotice("");
     if (!sessionToken) { setNotice("고객 인증 후 AI AUDIT을 실행할 수 있습니다."); return; }
+    if (!paid) { setNotice('AI Quick Audit 결제 검증 후에만 비용이 발생하는 진단을 실행할 수 있습니다.'); setTab('products'); return; }
     if (!company.trim() || !email.trim() || !problem.trim()) {
       setNotice("회사명·이메일·실제 업무 문제를 입력해 주세요.");
       return;
     }
     try {
-      setNotice("AI AUDIT 실행 중 · 중앙 서버에서 검증 가능한 진단을 생성합니다.");
+      setNotice("AI가 진단 초안을 생성하는 중입니다. 결과는 사람 검토 전까지 사실 검증으로 간주되지 않습니다.");
       const response = await fetch(AUDIT_API, {
         method: "POST",
         headers: { "content-type": "application/json", Authorization: "Bearer " + sessionToken },
@@ -142,7 +173,7 @@ function App() {
         })
       });
       const body = await response.json();
-      if (!response.ok || body?.verified !== true || !body?.report) {
+      if (!response.ok || body?.generationStatus !== "generated" || !body?.report) {
         setNotice(body?.error === "AI_PROVIDER_NOT_CONFIGURED"
           ? "AI 엔진이 아직 개통되지 않았습니다. 중앙통제에서 공급자 인증을 완료해야 합니다."
           : "AI 진단을 완료하지 못했습니다. 결제나 결과를 허위로 표시하지 않습니다.");
@@ -156,7 +187,7 @@ function App() {
       };
       setResult(audit);
       setHistory(prev => [audit, ...prev].slice(0, 5));
-      setNotice("AI AUDIT 완료 · 서버 검증 및 감사 기록 저장 PASS");
+      setNotice("AI 초안 생성 및 감사 로그 기록 완료 · 사실 검증과 사람 검토 전");
       setTab("reports");
     } catch {
       setNotice("AI 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.");
@@ -221,7 +252,7 @@ function App() {
 
       {!sessionToken && (
         <View style={s.card}>
-          <Text style={s.label}>CUSTOMER AUTH · REQUIRED FOR VERIFIED AI AUDIT</Text>
+          <Text style={s.label}>CUSTOMER AUTH · REQUIRED FOR SERVER AI DRAFT</Text>
           <TextInput value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="you@company.com" placeholderTextColor="#656a73" style={s.input} />
           {!otpSent ? (
             <TouchableOpacity style={s.secondary} onPress={requestOtp}><Text style={s.secondaryText}>SEND EMAIL CODE</Text></TouchableOpacity>
@@ -325,10 +356,10 @@ function App() {
                 {!paid && (
                   <View style={s.unlock}>
                     <Text style={s.label}>FULL REPORT</Text>
-                    <Text style={s.cardTitle}>Unlock the verified AI Quick Audit</Text>
+                    <Text style={s.cardTitle}>Unlock the AI Quick Audit report</Text>
                     <Text style={s.sub}>결제 후 고객 entitlement를 서버에서 검증하고 결과를 정식 고객 상태로 연결합니다.</Text>
-              <View style={s.benefits}><Text style={s.benefit}>✓ 검증된 AI Quick Audit REPORT</Text><Text style={s.benefit}>✓ 고객별 AI 진단 기록</Text><Text style={s.benefit}>✓ 결제 후 즉시 REPORT 잠금 해제</Text></View>
-                    <TouchableOpacity style={s.primary} onPress={buy}><Text style={s.primaryText}>UNLOCK · {`₩${QUICK_AUDIT_PRICE_KRW.toLocaleString("ko-KR")}`} →</Text></TouchableOpacity>
+              <View style={s.benefits}><Text style={s.benefit}>✓ AI 생성 진단 · 사실 검증 및 사람 검토 전</Text><Text style={s.benefit}>✓ 인증 계정 연결 · 테넌트 분리 검증 진행 중</Text><Text style={s.benefit}>✓ 결제 후 즉시 REPORT 잠금 해제</Text></View>
+                    <TouchableOpacity style={s.primary} onPress={buy}><Text style={s.primaryText}>UNLOCK · {storeProduct?.displayPrice || "STORE PRICE UNAVAILABLE"} →</Text></TouchableOpacity>
                   </View>
                 )}
                 <TouchableOpacity style={s.secondary} onPress={resetAudit}><Text style={s.secondaryText}>START ANOTHER AUDIT</Text></TouchableOpacity>
@@ -346,8 +377,8 @@ function App() {
               <Text style={s.cardTitle}>AI Quick Audit</Text>
               <Text style={s.sub}>One real business process mapped into an AI opportunity, workflow and implementation order.</Text>
               <View style={s.benefits}><Text style={s.benefit}>✓ Business health & opportunity score</Text><Text style={s.benefit}>✓ Recommended AI workflow</Text><Text style={s.benefit}>✓ Verified entitlement unlock</Text></View>
-              <Text style={s.price}>{`₩${QUICK_AUDIT_PRICE_KRW.toLocaleString("ko-KR")}`}</Text>
-              <Text style={s.muted}>one-time</Text>
+              <Text style={s.price}>{storeProduct?.displayPrice || "스토어 가격 미확인"}</Text>
+              <Text style={s.muted}>{storeProduct ? "Apple / Google store displayed price · one-time" : "스토어 상품 등록 및 가격 확인 필요"}</Text>
               <TouchableOpacity style={s.primary} onPress={buy}><Text style={s.primaryText}>BUY / START →</Text></TouchableOpacity>
             </View>
             <View style={s.card}>
@@ -366,14 +397,14 @@ function App() {
             <Text style={s.title}>Revenue is part{"\n"}of the product.</Text>
             <View style={s.card}>
               <Text style={s.label}>CHECKOUT</Text>
-              <Text style={s.price}>{`₩${QUICK_AUDIT_PRICE_KRW.toLocaleString("ko-KR")}`}</Text>
-              <Text style={s.sub}>AI Quick Audit · one-time</Text>
+              <Text style={s.price}>{storeProduct?.displayPrice || "스토어 가격 미확인"}</Text>
+              <Text style={s.sub}>AI Quick Audit · {storeProduct ? "Apple / Google store displayed price" : "스토어 상품 등록 및 가격 확인 필요"}</Text>
               <TouchableOpacity style={s.primary} onPress={buy}><Text style={s.primaryText}>OPEN CHECKOUT →</Text></TouchableOpacity>
             </View>
             <View style={s.card}>
               <Text style={s.label}>ENTITLEMENT</Text>
               <Text style={s.cardTitle}>{paid ? "VERIFIED · UNLOCKED" : "VERIFICATION REQUIRED"}</Text>
-              <Text style={s.sub}>{paid ? "서버 검증된 결제 entitlement가 확인되었습니다." : "Stripe checkout return 자체를 결제 증거로 취급하지 않습니다. 서버 검증 후 고객 entitlement를 활성화합니다."}</Text>
+              <Text style={s.sub}>{paid ? "서버 검증된 결제 entitlement가 확인되었습니다." : "스토어 또는 결제 제공자가 서버 검증한 Quick Audit 권한만 인정합니다."}</Text>
             </View>
             {history.length > 0 && (
               <View style={s.card}>

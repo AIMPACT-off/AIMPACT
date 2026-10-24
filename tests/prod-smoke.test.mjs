@@ -3,12 +3,13 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
 import { once } from "node:events";
+import { fileURLToPath } from "node:url";
 
-const script = new URL("../scripts/prod-smoke.mjs", import.meta.url);
+const script = fileURLToPath(new URL("../scripts/prod-smoke.mjs", import.meta.url));
 const keys = ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"];
 function execute(env) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [script.pathname], { env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(process.execPath, [script], { env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "", stderr = "";
     child.stdout.on("data", chunk => stdout += chunk);
     child.stderr.on("data", chunk => stderr += chunk);

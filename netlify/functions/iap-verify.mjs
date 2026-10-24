@@ -16,20 +16,38 @@ function decodeJwtPayload(token) {
   if (!part) throw new Error("TOKEN_INVALID");
   return JSON.parse(Buffer.from(part.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((part.length + 3) % 4), "base64").toString("utf8"));
 }
+function applePrivateKey() {
+  if (process.env.APPLE_PRIVATE_KEY) return String(process.env.APPLE_PRIVATE_KEY).replace(/\\n/g, "\n");
+  if (process.env.APPLE_PRIVATE_KEY_BASE64) return Buffer.from(process.env.APPLE_PRIVATE_KEY_BASE64, "base64").toString("utf8");
+  return env("APPLE_PRIVATE_KEY");
+}
 function appleJwt() {
   const header = b64url(JSON.stringify({ alg: "ES256", kid: env("APPLE_KEY_ID"), typ: "JWT" }));
   const now = Math.floor(Date.now() / 1000);
   const payload = b64url(JSON.stringify({ iss: env("APPLE_ISSUER_ID"), iat: now, exp: now + 300, aud: "appstoreconnect-v1", bid: env("APPLE_BUNDLE_ID") }));
   const input = header + "." + payload;
-  const signature = crypto.sign("sha256", Buffer.from(input), { key: env("APPLE_PRIVATE_KEY").replace(/\\n/g, "\n"), dsaEncoding: "ieee-p1363" });
+  const signature = crypto.sign("sha256", Buffer.from(input), { key: applePrivateKey(), dsaEncoding: "ieee-p1363" });
   return input + "." + signature.toString("base64url");
 }
-async function googleAccessToken() {
+function googleServiceAccount() {
+  let json = {};
+  if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64) {
+    try { json = JSON.parse(Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64, "base64").toString("utf8")); }
+    catch { throw new Error("GOOGLE_SERVICE_ACCOUNT_CREDENTIALS_INVALID"); }
+  }
+  const email = String(process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || json.client_email || "");
+  const privateKey = String(process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || json.private_key || "").replace(/\\n/g, "\n");
+  if (process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && json.client_email && process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL !== json.client_email) {
+    throw new Error("GOOGLE_SERVICE_ACCOUNT_EMAIL_MISMATCH");
+  }
+  return { email, privateKey };
+}
+async function googleAccessToken(credentials) {
   const now = Math.floor(Date.now() / 1000);
   const header = b64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const payload = b64url(JSON.stringify({ iss: env("GOOGLE_SERVICE_ACCOUNT_EMAIL"), scope: "https://www.googleapis.com/auth/androidpublisher", aud: "https://oauth2.googleapis.com/token", iat: now, exp: now + 3600 }));
+  const payload = b64url(JSON.stringify({ iss: credentials.email, scope: "https://www.googleapis.com/auth/androidpublisher", aud: "https://oauth2.googleapis.com/token", iat: now, exp: now + 3600 }));
   const input = header + "." + payload;
-  const signature = crypto.createSign("RSA-SHA256").update(input).sign(env("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY").replace(/\\n/g, "\n")).toString("base64url");
+  const signature = crypto.createSign("RSA-SHA256").update(input).sign(credentials.privateKey).toString("base64url");
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -69,8 +87,11 @@ async function persist({ supabaseUrl, key, user, platform, productId, transactio
 }
 async function verifyApple(purchase, expectedUserId) {
   const token = String(purchase.purchaseToken || "");
-  const untrusted = decodeJwtPayload(token);
-  const transactionId = String(purchase.transactionId || untrusted.transactionId || "");
+  let untrusted = {};
+  if (token) {
+    try { untrusted = decodeJwtPayload(token); } catch { throw new Error("APPLE_TRANSACTION_TOKEN_INVALID"); }
+  }
+  const transactionId = String(purchase.transactionId || purchase.id || untrusted.transactionId || "");
   const productId = String(purchase.productId || untrusted.productId || "");
   if (!transactionId || !productId) throw new Error("APPLE_TRANSACTION_FIELDS_MISSING");
   const host = String(process.env.APPLE_ENVIRONMENT || "production").toLowerCase() === "sandbox" ? "https://api.storekit-sandbox.apple.com" : "https://api.storekit.apple.com";
@@ -83,15 +104,16 @@ async function verifyApple(purchase, expectedUserId) {
   const signed = body?.signedTransactionInfo;
   const verified = decodeJwtPayload(signed);
   if (verified.bundleId !== env("APPLE_BUNDLE_ID") || verified.productId !== productId || String(verified.transactionId) !== transactionId) throw new Error("APPLE_TRANSACTION_MISMATCH");
+  if (verified.revocationDate || verified.revocationReason) throw new Error("APPLE_TRANSACTION_REVOKED");
   if (!verified.appAccountToken || String(verified.appAccountToken).toLowerCase() !== String(expectedUserId).toLowerCase()) throw new Error("APPLE_ACCOUNT_BINDING_MISMATCH");
   return { transactionId, productId, orderId: transactionId, purchasedAt: verified.purchaseDate ? new Date(Number(verified.purchaseDate)).toISOString() : null, metadata: { environment: verified.environment || "unknown", originalTransactionId: verified.originalTransactionId || null } };
 }
-async function verifyGoogle(purchase, expectedUserId) {
+async function verifyGoogle(purchase, expectedUserId, credentials) {
   const token = String(purchase.purchaseToken || "");
   const productId = String(purchase.productId || "");
   if (!token || !productId) throw new Error("GOOGLE_TRANSACTION_FIELDS_MISSING");
   const packageName = env("GOOGLE_PACKAGE_NAME");
-  const accessToken = await googleAccessToken();
+  const accessToken = await googleAccessToken(credentials);
   const base = "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/" + encodeURIComponent(packageName) + "/purchases/products/" + encodeURIComponent(productId) + "/tokens/" + encodeURIComponent(token);
   const response = await fetch(base, { headers: { Authorization: "Bearer " + accessToken } });
   if (!response.ok) throw new Error("GOOGLE_PURCHASE_NOT_VERIFIED");
@@ -116,11 +138,12 @@ export async function handler(event) {
     if (!["ios", "android"].includes(platform) || !productId || productId !== expected) return json(400, { error: "INVALID_STORE_PRODUCT", verified: false });
     let verified;
     if (platform === "ios") {
-      if (!process.env.APPLE_ISSUER_ID || !process.env.APPLE_KEY_ID || !process.env.APPLE_PRIVATE_KEY || !process.env.APPLE_BUNDLE_ID) return json(503, { error: "STORE_PROVIDER_NOT_CONFIGURED", verified: false, platform });
+      if (!process.env.APPLE_ISSUER_ID || !process.env.APPLE_KEY_ID || (!process.env.APPLE_PRIVATE_KEY && !process.env.APPLE_PRIVATE_KEY_BASE64) || !process.env.APPLE_BUNDLE_ID) return json(503, { error: "STORE_PROVIDER_NOT_CONFIGURED", verified: false, platform });
       verified = await verifyApple(body, user.id);
     } else {
-      if (!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || !process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || !process.env.GOOGLE_PACKAGE_NAME) return json(503, { error: "STORE_PROVIDER_NOT_CONFIGURED", verified: false, platform });
-      verified = await verifyGoogle(body, user.id);
+      const credentials = googleServiceAccount();
+      if (!credentials.email || !credentials.privateKey || !process.env.GOOGLE_PACKAGE_NAME) return json(503, { error: "STORE_PROVIDER_NOT_CONFIGURED", verified: false, platform });
+      verified = await verifyGoogle(body, user.id, credentials);
     }
     await persist({ supabaseUrl, key, user, platform, productId: verified.productId, transactionId: verified.transactionId, orderId: verified.orderId, purchasedAt: verified.purchasedAt, metadata: verified.metadata });
     return json(200, { verified: true, entitlement: "AI_QUICK_AUDIT", platform, productId: verified.productId, transactionId: verified.transactionId });

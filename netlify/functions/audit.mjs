@@ -70,6 +70,23 @@ async function insertSupabase(path, payload) {
   if (!response.ok) throw new Error("AUDIT_STORE_UNAVAILABLE");
 }
 
+async function hasPaidQuickAuditEntitlement({ supabaseUrl, serviceRoleKey, authUserId }) {
+  const common = { select: "product_key,amount,currency,status", auth_user_id: "eq." + authUserId, limit: "1" };
+  const queries = [
+    ["store_entitlements", { select: "product_id,status", auth_user_id: "eq." + authUserId, product_id: "eq.ai.aimpact.quick_audit", status: "eq.active", limit: "1" }],
+    ["toss_payment_orders", { ...common, product_key: "eq.AI_QUICK_AUDIT", amount: "eq.200000", currency: "eq.KRW", status: "eq.paid" }],
+    ["payment_entitlements", { ...common, product_key: "eq.AI_QUICK_AUDIT", amount: "eq.200000", currency: "eq.KRW", status: "eq.paid" }]
+  ];
+  const results = await Promise.all(queries.map(async ([table, filters]) => {
+    const query = new URLSearchParams(filters);
+    const response = await fetch(supabaseUrl + "/rest/v1/" + table + "?" + query, {
+      headers: { apikey: serviceRoleKey, Authorization: "Bearer " + serviceRoleKey }
+    });
+    if (!response.ok) throw new Error("ENTITLEMENT_LOOKUP_FAILED");
+    return response.json();
+  }));
+  return results.some(rows => Array.isArray(rows) && rows.length > 0);
+}
 export async function handler(event) {
   if (event.httpMethod !== "POST") return json(405, { error: "method_not_allowed" });
   const rawBody = event.body || "";
@@ -85,10 +102,73 @@ export async function handler(event) {
     return json(400, { error: "invalid_audit_input", detail: error.message });
   }
 
-  if (!MODEL) return json(503, { error: "AI_PROVIDER_NOT_CONFIGURED", verified: false });
+  // Authenticate and establish the tenant before any billable model call.
+  const authorization = event.headers?.authorization || event.headers?.Authorization || "";
+  const bearer = authorization.match(/^Bearer\s+(.+)$/i)?.[1] || "";
+  if (!bearer) return json(401, { error: "AUTH_REQUIRED", generationStatus: "not_generated" });
+
+  let supabaseUrl;
+  let serviceRoleKey;
+  try {
+    supabaseUrl = env("SUPABASE_URL").replace(/\/$/, "");
+    serviceRoleKey = env("SUPABASE_SERVICE_ROLE_KEY");
+  } catch {
+    return json(503, { error: "AUTH_PROVIDER_NOT_CONFIGURED", generationStatus: "not_generated" });
+  }
+
+  let authResponse;
+  try {
+    authResponse = await fetch(supabaseUrl + "/auth/v1/user", {
+      headers: { apikey: serviceRoleKey, Authorization: "Bearer " + bearer }
+    });
+  } catch {
+    return json(503, { error: "AUTH_PROVIDER_UNAVAILABLE", generationStatus: "not_generated" });
+  }
+  if (!authResponse.ok) return json(401, { error: "AUTH_INVALID", generationStatus: "not_generated" });
+
+  let authUser;
+  try { authUser = await authResponse.json(); } catch {
+    return json(503, { error: "AUTH_PROVIDER_INVALID_RESPONSE", generationStatus: "not_generated" });
+  }
+  const authUserId = String(authUser?.id || "").trim();
+  const authEmail = String(authUser?.email || "").trim().toLowerCase();
+  if (!authUserId || !authEmail) return json(401, { error: "AUTH_INVALID", generationStatus: "not_generated" });
+  if (input.email.toLowerCase() !== authEmail) {
+    return json(403, { error: "AUTH_EMAIL_MISMATCH", generationStatus: "not_generated" });
+  }
+
+  let entitled;
+  try { entitled = await hasPaidQuickAuditEntitlement({ supabaseUrl, serviceRoleKey, authUserId }); }
+  catch { return json(503, { error: "PAYMENT_VERIFICATION_UNAVAILABLE", generationStatus: "not_generated" }); }
+  if (!entitled) return json(402, { error: "PAYMENT_REQUIRED", generationStatus: "not_generated" });
+  let tenantId;
+  try {
+    const tenantResponse = await fetch(supabaseUrl + "/rest/v1/rpc/aimpact_get_or_create_tenant", {
+      method: "POST",
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: "Bearer " + serviceRoleKey,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        p_auth_user_id: authUserId,
+        p_company_name: input.company,
+        p_email: authEmail
+      })
+    });
+    if (!tenantResponse.ok) return json(503, { error: "TENANT_STORE_UNAVAILABLE", generationStatus: "not_generated" });
+    tenantId = await tenantResponse.json();
+  } catch {
+    return json(503, { error: "TENANT_STORE_UNAVAILABLE", generationStatus: "not_generated" });
+  }
+  if (typeof tenantId !== "string" || !tenantId) {
+    return json(503, { error: "TENANT_BINDING_UNAVAILABLE", generationStatus: "not_generated" });
+  }
+
+  if (!MODEL) return json(503, { error: "AI_PROVIDER_NOT_CONFIGURED", generationStatus: "not_generated" });
   let apiKey;
   try { apiKey = env("OPENAI_API_KEY"); } catch {
-    return json(503, { error: "AI_PROVIDER_NOT_CONFIGURED", verified: false });
+    return json(503, { error: "AI_PROVIDER_NOT_CONFIGURED", generationStatus: "not_generated" });
   }
 
   const system = [
@@ -122,55 +202,25 @@ export async function handler(event) {
         ]
       })
     });
-    if (!response.ok) return json(503, { error: "AI_PROVIDER_UNAVAILABLE", verified: false });
+    if (!response.ok) return json(503, { error: "AI_PROVIDER_UNAVAILABLE", generationStatus: "not_generated" });
     modelResponse = await response.json();
   } catch {
-    return json(503, { error: "AI_PROVIDER_UNAVAILABLE", verified: false });
+    return json(503, { error: "AI_PROVIDER_UNAVAILABLE", generationStatus: "not_generated" });
   }
 
   let report;
   try {
     report = requireReportShape(extractJson(modelResponse?.choices?.[0]?.message?.content));
   } catch (error) {
-    return json(502, { error: "AI_REPORT_INVALID", detail: error.message, verified: false });
+    return json(502, { error: "AI_REPORT_INVALID", detail: error.message, generationStatus: "not_generated" });
   }
-
-  const authorization = event.headers?.authorization || event.headers?.Authorization || "";
-  const bearer = authorization.match(/^Bearer\s+(.+)$/i)?.[1] || "";
-  if (!bearer) return json(401, { error: "AUTH_REQUIRED", verified: false });
-
-  const supabaseUrl = env("SUPABASE_URL").replace(/\/$/, "");
-  const serviceRoleKey = env("SUPABASE_SERVICE_ROLE_KEY");
-  const authResponse = await fetch(supabaseUrl + "/auth/v1/user", {
-    headers: { apikey: serviceRoleKey, Authorization: "Bearer " + bearer }
-  });
-  if (!authResponse.ok) return json(401, { error: "AUTH_INVALID", verified: false });
-  const authUser = await authResponse.json();
-  const authUserId = String(authUser?.id || "").trim();
-  if (!authUserId) return json(401, { error: "AUTH_INVALID", verified: false });
-
-  const tenantResponse = await fetch(supabaseUrl + "/rest/v1/rpc/aimpact_get_or_create_tenant", {
-    method: "POST",
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: "Bearer " + serviceRoleKey,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      p_auth_user_id: authUserId,
-      p_company_name: input.company,
-      p_email: authUser.email || input.email
-    })
-  });
-  if (!tenantResponse.ok) return json(503, { error: "TENANT_STORE_UNAVAILABLE", verified: false });
-  const tenantId = await tenantResponse.json();
-  if (typeof tenantId !== "string" || !tenantId) return json(503, { error: "TENANT_BINDING_UNAVAILABLE", verified: false });
 
   const executionId = crypto.randomUUID();
   const inputHash = sha256(JSON.stringify(input));
   const outputHash = sha256(JSON.stringify(report));
+  const eventType = "AI_AUDIT_DRAFT_GENERATED";
   const eventHash = sha256(JSON.stringify({
-    eventType: "AI_AUDIT_COMPLETED",
+    eventType,
     executionId,
     inputHash,
     outputHash
@@ -179,10 +229,10 @@ export async function handler(event) {
   try {
     await insertSupabase("execution_logs", {
       tenant_id: tenantId,
-      workflow_id: "ai-audit",
+      workflow_id: "ai-audit-draft",
       execution_id: executionId,
       status: "succeeded",
-      mode: "sandbox",
+      mode: "dry_run",
       input_hash: inputHash,
       output_hash: outputHash,
       started_at: new Date().toISOString(),
@@ -191,7 +241,7 @@ export async function handler(event) {
     });
     await insertSupabase("audit_logs", {
       tenant_id: tenantId,
-      event_type: "AI_AUDIT_COMPLETED",
+      event_type: eventType,
       actor_id: authUserId,
       execution_id: executionId,
       input_hash: inputHash,
@@ -201,11 +251,14 @@ export async function handler(event) {
       metadata: { model: MODEL, confidence: report.confidence }
     });
   } catch {
-    return json(503, { error: "AUDIT_STORE_UNAVAILABLE", verified: false });
+    return json(503, { error: "AUDIT_STORE_UNAVAILABLE", generationStatus: "generated_but_not_recorded" });
   }
 
   return json(200, {
-    verified: true,
+    generationStatus: "generated",
+    qualityStatus: "not_reviewed",
+    humanReviewRequired: true,
+    paymentStatus: "verified",
     auditId: executionId,
     tenantId,
     report,
@@ -214,6 +267,7 @@ export async function handler(event) {
       outputHash,
       eventHash,
       model: MODEL,
+      integrityStatus: "recorded_not_truth_verified",
       measurementStatus: "not_measured"
     }
   });
