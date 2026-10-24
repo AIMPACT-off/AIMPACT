@@ -1,0 +1,57 @@
+name: AIMPACT Naver Blog Research Queue
+
+on:
+  pull_request:
+    paths:
+      - "scripts/naver_blog_auto_pipeline.py"
+      - ".github/workflows/naver-blog-research-queue.yml"
+  workflow_dispatch:
+  schedule:
+    # Daily 23:10 Korea Standard Time (14:10 UTC)
+    - cron: "10 14 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: naver-blog-research-queue
+  cancel-in-progress: false
+
+jobs:
+  build-research-queue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run offline parser tests
+        run: python3 scripts/naver_blog_auto_pipeline.py --self-test
+
+      - name: Collect official-source RSS items
+        id: collect
+        continue-on-error: true
+        run: python3 scripts/naver_blog_auto_pipeline.py
+
+      - name: Upload research queue and execution evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aimpact-naver-blog-research-queue-${{ github.run_id }}
+          path: artifacts/naver-blog/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Fail run when no source item was collected
+        if: steps.collect.outcome != 'success'
+        run: |
+          echo "NAVER_BLOG_RESEARCH_QUEUE=FAIL"
+          echo "No source items were collected. Review feed availability and artifact logs."
+          exit 1
+
+      - name: Report explicit publication boundary
+        run: |
+          echo "NAVER_BLOG_RESEARCH_QUEUE=PASS"
+          echo "NAVER_BLOG_FACT_CHECK=NOT_VERIFIED"
+          echo "NAVER_BLOG_PUBLISH=NOT_VERIFIED"
+          echo "Research collection passed; human editorial review and authorized Naver publishing are still required."
