@@ -29,6 +29,11 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: mobile/package.json
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
       - name: Load public Supabase client config
         run: |
           node <<'NODE'
@@ -50,7 +55,7 @@ jobs:
       - name: Validate Android JavaScript bundle
         run: npx expo export --platform android --output-dir .expo-export --clear
       - name: Generate native Android project
-        run: npx expo prebuild --platform android --non-interactive
+        run: CI=1 npx expo prebuild --platform android
       - name: Build installable Android APK
         working-directory: mobile/android
         run: ./gradlew assembleRelease --no-daemon
@@ -169,7 +174,7 @@ jobs:
       - name: Validate iOS JavaScript bundle
         run: npx expo export --platform ios --output-dir .expo-export-ios --clear
       - name: Generate native iOS project
-        run: npx expo prebuild --platform ios --non-interactive
+        run: CI=1 npx expo prebuild --platform ios
       - name: Install CocoaPods dependencies
         run: pod install --project-directory=ios
       - name: Select available iOS Simulator
