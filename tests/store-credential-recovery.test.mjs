@@ -27,3 +27,10 @@ test("recovery requires the immutable successful mobile build source and only re
   assert.match(workflow, /SKIPPED_QA_ALREADY_PASSED/);
   assert.match(workflow, /gh workflow run native-store-qa\.yml --ref "\$release_ref"/);
 });
+test("recovery dispatches first QA when no prior QA exists, but fails closed on unrelated QA failures", () => {
+  assert.match(workflow, /qa_count=.*jq 'length'/);
+  assert.match(workflow, /FIRST_ATTEMPT_NO_PRIOR_QA/);
+  assert.match(workflow, /RETRY_CREDENTIAL_GATE_FAILURE/);
+  assert.match(workflow, /BLOCKED_UNEXPECTED_QA_HISTORY/);
+  assert.match(workflow, /SKIPPED_FAILURE_NOT_CREDENTIAL_GATE/);
+});
