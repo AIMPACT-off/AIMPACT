@@ -1,0 +1,36 @@
+name: AIMPACT Instagram Prelaunch QA
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "content/INSTAGRAM_QUICK_AUDIT_CAROUSEL_01.md"
+      - "scripts/instagram-prelaunch-qa.mjs"
+      - "package.json"
+      - ".github/workflows/instagram-prelaunch-qa.yml"
+  push:
+    branches:
+      - "feat/instagram-prelaunch-automation"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: instagram-prelaunch-qa-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  instagram-prelaunch-qa:
+    name: Run Instagram content prelaunch QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run explicit Instagram prelaunch QA
+        run: npm run test:instagram-prelaunch

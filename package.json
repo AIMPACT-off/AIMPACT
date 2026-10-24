@@ -13,7 +13,8 @@
     "test:audit-dispatcher-handshake": "node --test tests/audit-dispatcher-handshake.test.mjs",
     "test:prod-smoke": "node --test tests/prod-smoke.test.mjs",
     "test:enterprise-readiness": "node --test tests/enterprise-readiness.test.mjs",
-    "test:stripe-webhook": "node --test tests/stripe-webhook.test.mjs"
+    "test:stripe-webhook": "node --test tests/stripe-webhook.test.mjs",
+    "test:instagram-prelaunch": "node scripts/instagram-prelaunch-qa.mjs"
   },
   "dependencies": {
     "zod": "3.25.76",
