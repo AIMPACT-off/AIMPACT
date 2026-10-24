@@ -4,74 +4,150 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,follow">
-<title>Early Access — AIMPACT</title>
-<meta name="description" content="Apply for early access to AIMPACT's AI business operations service.">
+<meta name="description" content="AIMPACT Early Access — AI business audit and workflow implementation.">
+<title>AIMPACT — Early Access</title>
 <style>
-:root{color-scheme:light;--ink:#111;--muted:#777;--line:#ddd;--paper:#f7f7f5}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,Arial,sans-serif}a{color:inherit}.wrap{max-width:1120px;margin:auto;padding:32px 6vw 80px}header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:22px}.logo{font-weight:800;letter-spacing:.16em;text-decoration:none}.back{font-size:11px;letter-spacing:.1em;text-decoration:none}.hero{padding:10vh 0 7vh}.eyebrow{font-size:10px;font-weight:700;letter-spacing:.2em;color:var(--muted)}h1{font-size:clamp(48px,8vw,100px);line-height:.9;letter-spacing:-.07em;margin:24px 0;max-width:850px}.intro{font-size:18px;line-height:1.6;color:#555;max-width:650px}.layout{display:grid;grid-template-columns:1fr minmax(320px,480px);gap:8vw;align-items:start}.steps{display:grid;gap:24px;margin-top:12px}.step{border-top:1px solid var(--line);padding-top:16px}.step b{font-size:11px;letter-spacing:.12em}.step p{color:var(--muted);font-size:14px;line-height:1.6}.formbox{background:#fff;padding:30px;border:1px solid var(--line)}.formbox h2{font-size:24px;margin:0 0 8px}.hint{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:22px}label.field{display:block;font-size:11px;font-weight:700;letter-spacing:.04em;margin:15px 0 6px}.required{color:#a22}input,textarea,select{width:100%;font:inherit;padding:13px;border:1px solid #ccc;background:#fff;border-radius:0;font-size:14px}textarea{min-height:110px;resize:vertical}.consentbox{border:1px solid var(--line);padding:15px;margin:20px 0;font-size:11px;line-height:1.6;color:#555}.consentrow{display:flex;gap:10px;align-items:flex-start;margin-top:12px;color:#111}.consentrow input{width:auto;margin-top:3px}.submit{width:100%;padding:16px;background:#111;color:#fff;border:0;font-size:11px;font-weight:700;letter-spacing:.14em;cursor:pointer}.submit:disabled{opacity:.4;cursor:not-allowed}.notice{font-size:12px;line-height:1.6;margin-top:14px;min-height:20px}.legal{border-top:1px solid var(--line);margin-top:60px;padding-top:22px;color:var(--muted);font-size:11px;line-height:1.7}.legal a{color:var(--ink)}@media(max-width:760px){.layout{grid-template-columns:1fr}.hero{padding:70px 0 45px}.formbox{padding:22px}.wrap{padding-left:22px;padding-right:22px}}
+:root{--ink:#0b0b0b;--paper:#f4f4f1;--muted:#777;--line:#d7d7d2;--soft:#e9e9e4;--white:#fff}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,Arial,sans-serif}
+a{color:inherit;text-decoration:none}.wrap{max-width:1280px;margin:auto;padding:28px 5vw 80px}
+header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding:0 0 20px}
+.logo{font-size:14px;font-weight:900;letter-spacing:.22em}.back{font-size:10px;letter-spacing:.16em}
+.hero{padding:11vh 0 8vh;border-bottom:1px solid var(--line)}
+.eyebrow{font-size:9px;font-weight:800;letter-spacing:.22em;color:var(--muted)}
+h1{font-size:clamp(62px,10vw,148px);line-height:.82;letter-spacing:-.075em;margin:25px 0 34px;max-width:1050px}
+.intro{font-size:18px;line-height:1.65;color:#555;max-width:680px}.heroMeta{display:flex;gap:28px;margin-top:42px;font-size:9px;letter-spacing:.16em;color:#777}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,520px);gap:9vw;padding-top:70px}
+.steps{display:grid;align-content:start}.step{border-top:1px solid var(--line);padding:21px 0 26px;display:grid;grid-template-columns:110px 1fr;gap:20px}.step b{font-size:10px;letter-spacing:.14em}.step p{margin:0;max-width:500px;color:#666;font-size:14px;line-height:1.65}
+.formbox{background:var(--white);border:1px solid var(--line);padding:34px;box-shadow:0 18px 60px #00000008}.formbox h2{font-size:30px;letter-spacing:-.04em;margin:0 0 8px}.hint{font-size:12px;line-height:1.65;color:var(--muted);margin:0 0 24px}
+label.field{display:block;font-size:10px;font-weight:800;letter-spacing:.08em;margin:18px 0 7px}.required{color:#8b2222}
+input,textarea,select{width:100%;font:inherit;padding:14px;border:1px solid #c9c9c4;background:#fff;border-radius:0;font-size:14px;outline:none}
+input:focus,textarea:focus,select:focus{border-color:#111}textarea{min-height:125px;resize:vertical}
+.consentbox{border:1px solid var(--line);padding:16px;margin:22px 0;font-size:10px;line-height:1.7;color:#666}.consentbox b{color:#111;font-size:10px}.consentrow{display:flex;gap:10px;align-items:flex-start;margin-top:13px;color:#111}.consentrow input{width:auto;margin-top:3px}
+.submit{width:100%;padding:17px;background:#111;color:#fff;border:0;font-size:10px;font-weight:800;letter-spacing:.16em;cursor:pointer}.submit:disabled{opacity:.38;cursor:not-allowed}
+.notice{font-size:11px;line-height:1.65;color:#666;min-height:20px;margin:14px 0 0}
+.gate{margin-top:22px;padding:15px;background:#f2f2ee;border-left:2px solid #111;font-size:10px;line-height:1.65}.gate strong{letter-spacing:.1em}
+.legal{border-top:1px solid var(--line);margin-top:70px;padding-top:22px;color:var(--muted);font-size:10px;line-height:1.75}
+@media(max-width:760px){.wrap{padding:22px 20px 60px}.hero{padding:70px 0 55px}h1{font-size:clamp(56px,17vw,90px)}.heroMeta{display:grid;gap:10px}.layout{grid-template-columns:1fr;gap:45px;padding-top:45px}.step{grid-template-columns:85px 1fr}.formbox{padding:24px}}
 </style>
 </head>
 <body>
 <div class="wrap">
 <header><a class="logo" href="/">AIMPACT</a><a class="back" href="/">BACK TO MAIN SITE ↗</a></header>
+
 <section class="hero">
-<p class="eyebrow">EARLY ACCESS · BUSINESS OPERATIONS</p>
-<h1>MAKE AI WORK<br>FOR YOUR BUSINESS.</h1>
-<p class="intro">Tell us where work gets stuck. AIMPACT identifies the right AI opportunities, designs practical workflows, and helps your team move from experimentation to measurable operations.</p>
+<p class="eyebrow">EARLY ACCESS · AI × BUSINESS × GROWTH</p>
+<h1>MAKE AI<br>WORK.</h1>
+<p class="intro">Tell AIMPACT where work gets stuck. We identify the business problem, verify the right AI options, design the workflow and define the path to implementation.</p>
+<div class="heroMeta"><span>DISCOVER → VERIFY → COMPARE → APPLY</span><span>ISSUE 001 · 2026</span></div>
 </section>
+
 <div class="layout">
 <div class="steps">
-<div class="step"><b>01 / DISCOVER</b><p>We understand the task, team, tools and friction behind your current process.</p></div>
-<div class="step"><b>02 / VERIFY & COMPARE</b><p>We evaluate viable AI options against your actual requirements—not hype.</p></div>
-<div class="step"><b>03 / APPLY</b><p>We map a practical workflow and agree on the implementation scope with you.</p></div>
-<div class="step"><b>04 / MEASURE</b><p>Where baseline data is available, we track time, cost and operational impact.</p></div>
+<div class="step"><b>01 / DISCOVER</b><p>Understand the actual task, people, tools, bottlenecks and business outcome behind the process.</p></div>
+<div class="step"><b>02 / VERIFY</b><p>Separate useful AI capabilities from noise and validate whether an option is relevant to the operating problem.</p></div>
+<div class="step"><b>03 / COMPARE</b><p>Evaluate practical alternatives by workflow fit, implementation difficulty, cost and expected operational impact.</p></div>
+<div class="step"><b>04 / APPLY</b><p>Turn the selected opportunity into a concrete workflow, implementation scope and measurement plan.</p></div>
 </div>
-<section class="formbox">
-<h2>Request early access</h2>
-<p class="hint">Share one business problem. Required fields are marked with an asterisk. No passwords, API keys or customer personal data, please.</p>
-<form id="waitlistForm">
-<label class="field" for="company">Company name <span class="required">*</span></label><input id="company" maxlength="160" autocomplete="organization" required>
-<label class="field" for="name">Your name <span class="required">*</span></label><input id="name" maxlength="120" autocomplete="name" required>
-<label class="field" for="email">Work email <span class="required">*</span></label><input id="email" type="email" maxlength="320" autocomplete="email" required>
-<label class="field" for="website">Company website</label><input id="website" type="url" maxlength="500" placeholder="https://">
-<label class="field" for="problem">What business process would you like to improve? <span class="required">*</span></label><textarea id="problem" maxlength="4000" required placeholder="e.g. Product information, content production, customer support, reporting, internal operations…"></textarea>
-<label class="field" for="channel">Preferred contact method</label><select id="channel"><option value="Email">Email</option><option value="Phone / messaging (share details in the next step)">Phone / messaging</option><option value="Video call">Video call</option></select>
-<div class="consentbox"><b>Personal information collection and use</b><br>
-Purpose: to review your early-access request, understand the business problem, contact you about the request, and arrange a consultation if appropriate.<br>
-Items: company name, your name, work email (required); company website and preferred contact method (optional); business-process description (required).<br>
-Retention: until the request and related consultation are completed, then promptly deleted; in any event, no longer than 6 months from submission unless a separate legal retention obligation applies. A deletion request will be handled without undue delay unless retention is required by law.<br>
-Refusal: you may refuse consent. Required items are necessary to review and respond to the request, so submission will not be available without consent. Optional items may be left blank.
-<label class="consentrow"><input id="consent" type="checkbox" required><span>I have read and agree to the collection and use of my personal information as described above. <span class="required">*</span></span></label>
+
+<section class="formbox" aria-labelledby="formTitle">
+<h2 id="formTitle">Request early access</h2>
+<p class="hint">One real business problem is enough to start. Do not enter passwords, API keys, payment details or customer personal data.</p>
+
+<form id="waitlistForm" novalidate>
+<label class="field" for="company">COMPANY NAME <span class="required">*</span></label>
+<input id="company" maxlength="160" autocomplete="organization" required>
+
+<label class="field" for="name">YOUR NAME <span class="required">*</span></label>
+<input id="name" maxlength="120" autocomplete="name" required>
+
+<label class="field" for="email">WORK EMAIL <span class="required">*</span></label>
+<input id="email" type="email" maxlength="320" autocomplete="email" required>
+
+<label class="field" for="website">COMPANY WEBSITE</label>
+<input id="website" type="url" maxlength="500" placeholder="https://">
+
+<label class="field" for="problem">WHAT BUSINESS PROCESS WOULD YOU LIKE TO IMPROVE? <span class="required">*</span></label>
+<textarea id="problem" maxlength="4000" required placeholder="e.g. content production, reporting, customer support, product operations, internal workflows…"></textarea>
+
+<label class="field" for="channel">PREFERRED CONTACT METHOD</label>
+<select id="channel"><option value="Email">Email</option><option value="Phone / messaging">Phone / messaging</option><option value="Video call">Video call</option></select>
+
+<div class="consentbox">
+<b>PERSONAL INFORMATION COLLECTION & USE</b><br>
+Purpose: review the early-access request, understand the business problem, contact the requester and arrange a consultation when appropriate.<br>
+Required items: company name, name, work email and business-process description. Optional: company website and preferred contact method.<br>
+Retention: until the request and related consultation are completed, and no longer than 6 months from submission unless a separate legal retention obligation applies. Deletion requests are handled without undue delay unless retention is required by law.
+<label class="consentrow"><input id="consent" type="checkbox" required><span>I have read and agree to the collection and use described above. <span class="required">*</span></span></label>
 </div>
+
 <button class="submit" id="submit" type="submit" disabled>EARLY ACCESS INTAKE NOT YET OPEN</button>
-<p class="notice" id="status" role="status" aria-live="polite">Applications are temporarily paused while AIMPACT completes final privacy and data-storage verification. No information entered on this page is submitted or stored.</p>
+<p class="notice" id="status" role="status" aria-live="polite">The interface is ready, but submission is intentionally disabled while the server-side intake, database policy and privacy controls are being verified.</p>
+<div class="gate"><strong>FAIL-CLOSED GATE</strong><br>Form data is not transmitted or stored while intake is disabled. The submit handler will remain blocked until the reviewed PR #19 endpoint and database controls are verified.</div>
 </form>
 </section>
 </div>
-<div class="legal">AIMPACT · Privacy contact: <a href="mailto:AIMPACT-off@gmail.com">AIMPACT-off@gmail.com</a><br>
-This page is a pre-launch intake draft. It must not accept personal information until the operator identity, privacy notice, hosting region / any overseas transfer, access controls, deletion process and live database insert policy have been verified. Privacy notice version: 2026-10-04.</div>
+
+<div class="legal">
+AIMPACT · Privacy contact: <a href="mailto:AIMPACT-off@gmail.com">AIMPACT-off@gmail.com</a><br>
+Phase 1 UI build: ready for review. Intake execution: blocked pending backend/database verification. Privacy notice version: 2026-10-04.
 </div>
+</div>
+
 <script>
 /*
- * FAIL-CLOSED LAUNCH GATE:
- * Keep false until the legal operator details, Supabase processing/region,
- * any overseas-transfer notice, retention/deletion workflow and RLS insert
- * policy have been verified. This page intentionally does not submit data.
+ * AIMPACT PHASE 1 FAIL-CLOSED GATE
+ * UI is production-shaped, but no personal information leaves the browser.
+ * Enable only after PR #19 endpoint + schema + RLS/storage policy are tested.
  */
 const WAITLIST_INTAKE_ENABLED = false;
 const form = document.getElementById("waitlistForm");
 const button = document.getElementById("submit");
+const status = document.getElementById("status");
+
 if (WAITLIST_INTAKE_ENABLED) {
   button.disabled = false;
   button.textContent = "REQUEST EARLY ACCESS →";
-  document.getElementById("status").textContent = "Your request will be securely submitted to AIMPACT.";
 }
+
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!WAITLIST_INTAKE_ENABLED) {
-    document.getElementById("status").textContent = "Intake is not open yet. Your information has not been submitted or stored.";
+    status.textContent = "Intake is not open yet. Your information has not been submitted or stored.";
     return;
   }
-  // Enable only after a reviewed, tested server-side intake endpoint is configured.
+
+  const payload = {
+    company: document.getElementById("company").value.trim(),
+    name: document.getElementById("name").value.trim(),
+    email: document.getElementById("email").value.trim(),
+    website: document.getElementById("website").value.trim(),
+    problem: document.getElementById("problem").value.trim(),
+    channel: document.getElementById("channel").value,
+    consent: document.getElementById("consent").checked,
+    notice_version: "2026-10-04"
+  };
+
+  button.disabled = true;
+  button.textContent = "SUBMITTING…";
+
+  try {
+    const response = await fetch("/.netlify/functions/waitlist-intake", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.message || "Submission failed.");
+
+    status.textContent = "Request received. AIMPACT will review the information and contact you by email.";
+    form.reset();
+  } catch (error) {
+    status.textContent = error.message || "Unable to submit. Please try again later.";
+  } finally {
+    button.disabled = false;
+    button.textContent = "REQUEST EARLY ACCESS →";
+  }
 });
 </script>
 </body>
