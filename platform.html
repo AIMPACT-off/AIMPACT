@@ -33,10 +33,10 @@ footer{padding:30px 34px;border-top:1px solid var(--line);color:var(--muted);fon
     <button data-view="automation">AUTOMATION</button>
     <button data-view="billing">BILLING</button>
   </nav>
-  <div class="sideBottom">TENANT<br><b id="tenantName">Demo Company</b><br><br>PLATFORM STATUS<br><span style="color:#9df0bd">SAFE CORE · READY</span></div>
+  <div class="sideBottom">TENANT<br><b id="tenantName">Demo Company</b><br><br>PLATFORM STATUS<br><span style="color:#ffd58a">NOT VERIFIED FOR PRODUCTION</span></div>
 </aside>
 <main>
-<header class="top"><span id="crumb">AIMPACT / OVERVIEW</span><span class="pill" id="commercialStatus">SECURE CHECKOUT · QUICK AUDIT ₩200,000</span></header>
+<header class="top"><span id="crumb">AIMPACT / OVERVIEW</span><span class="pill" id="commercialStatus">CHECKOUT CONFIGURED · NOT VERIFIED</span></header>
 
 <section id="dashboard" class="view active">
   <div class="eyebrow">AIMPACT BUSINESS OS</div><h1 class="title">See the business.<br>Decide. Act. Measure.</h1>
@@ -68,13 +68,13 @@ footer{padding:30px 34px;border-top:1px solid var(--line);color:var(--muted);fon
 
 <section id="market" class="view">
   <div class="eyebrow">02 · AIMPACT PRODUCTS</div><h1 class="title">Buy the outcome.<br>Use the platform.</h1>
-  <p class="sub">The storefront is part of the product. Customers choose a service, pay, receive a tenant entitlement and use the same workspace to track results.</p>
+  <p class="sub">상품 선택 화면입니다. 결제 승인, 고객 entitlement 부여, 결과 전달은 운영 환경에서 검증되지 않았습니다.</p>
   <div class="grid g3 section">
-    <article class="card product"><span class="tag">START</span><h3>AI Quick Audit</h3><p>One business process mapped into AI opportunities, tools, workflow and next actions.</p><div class="price">₩200,000 <small>one-time</small></div><button class="btn primary" onclick="selectPlan('AI Quick Audit','₩200,000')">BUY / START</button></article>
+    <article class="card product"><span class="tag">START · SALE NOT VERIFIED</span><h3>AI Quick Audit</h3><p>One business process mapped into AI opportunities, tools, workflow and next actions.</p><div class="price">₩200,000 <small>configured candidate · not verified for sale</small></div><button class="btn primary" onclick="selectPlan('AI Quick Audit','₩200,000')">SELECT · CHECKOUT UNVERIFIED</button></article>
     <article class="card product"><span class="tag">GROW</span><h3>Business AI Platform</h3><p>Recurring audit, reports, ROI tracking, workflow recommendations and continuous improvement workspace.</p><div class="price">₩490,000 <small>/ month · draft</small></div><button class="btn primary" onclick="selectPlan('Business AI Platform','₩490,000 / month')">SUBSCRIBE</button></article>
     <article class="card product"><span class="tag">ENTERPRISE</span><h3>AI Transformation</h3><p>Custom tenant, integrations, implementation, security package and enterprise operating support.</p><div class="price">CUSTOM <small>contract</small></div><button class="btn" onclick="go('billing')">REQUEST PROPOSAL</button></article>
   </div>
-  <div class="notice section" id="checkoutNotice">Secure checkout requires email authentication and server-side payment verification. If provider credentials or database migration are not ready, the checkout will fail closed.</div>
+  <div class="notice section" id="checkoutNotice">결제와 상품 가격은 코드에 설정되어 있으나, 실제 판매 승인과 샌드박스 E2E는 확인되지 않았습니다. 이 화면은 결제 완료를 의미하지 않습니다.</div>
 </section>
 
 <section id="reports" class="view">
@@ -99,11 +99,11 @@ footer{padding:30px 34px;border-top:1px solid var(--line);color:var(--muted);fon
 <section id="billing" class="view">
   <div class="eyebrow">05 · BILLING</div><h1 class="title">Revenue is part<br>of the product.</h1>
   <div class="grid g3 section">
-    <div class="card metric"><span>QUICK AUDIT</span><b>₩99K</b><small>LIVE checkout</small></div>
+    <div class="card metric"><span>QUICK AUDIT</span><b>₩200K</b><small>configured amount · sale NOT VERIFIED</small></div>
     <div class="card metric"><span>USAGE</span><b>—</b><small>Live events appear after verified customer activity</small></div>
-    <div class="card metric"><span>STATUS</span><b style="font-size:22px">LIVE</b><small>Quick Audit payment active</small></div>
+    <div class="card metric"><span>STATUS</span><b style="font-size:18px">NOT VERIFIED</b><small>결제 E2E 미확인</small></div>
   </div>
-  <div class="card section"><h2>Commercial flow</h2><p class="sub">Quick Audit → live checkout → payment confirmation → customer audit → report delivery. The Quick Audit payment destination is LIVE. Customer fulfillment is not marked complete until payment is independently verified and the audit is delivered.</p><button class="btn primary" onclick="selectPlan('Business AI Platform','₩490,000 / month')">TEST CHECKOUT FLOW →</button></div>
+  <div class="card section"><h2>Commercial flow</h2><p class="sub">Quick Audit 결제 경로와 20만 원 가격은 코드에 설정되어 있습니다. 실제 운영 승인, 원장 기록, 권한 부여, 결과 전달은 아직 검증되지 않았습니다.</p><button class="btn primary" onclick="selectPlan('Business AI Platform','₩490,000 / month')">TEST CHECKOUT FLOW →</button></div>
 </section>
 
 <footer>AIMPACT · AI × BUSINESS × GROWTH · PRODUCT PLATFORM V1 · SAFETY CORE REMAINS CONTROLLED</footer>
@@ -133,7 +133,7 @@ function runAudit(){
  const saving=h?Math.round(h*0.35):null;
  const value=(saving&&cost)?Math.round(cost*(saving/Math.max(h,1))):null;
  const score=Math.min(95,45+(h?20:0)+(cost?15:0)+(p.length>80?10:0)+(match[0]!=='GENERAL PROCESS'?10:0));
- document.getElementById('auditResult').innerHTML='<div class="result"><span class="tag">AIMPACT AUDIT · EVIDENCE-BASED RESULT</span><div class="score">'+score+'</div><div class="risk">OPPORTUNITY PRIORITY · '+match[0]+'</div><div class="finding"><strong>CONCLUSION</strong><span>'+match[2]+'</span></div><div class="finding"><strong>RECOMMENDED WORKFLOW</strong><span>'+match[3]+'</span></div><div class="finding"><strong>EXPECTED IMPACT</strong><span>'+(saving?('입력하신 '+h+'시간 기준 월 약 '+saving+'시간의 반복 업무 절감 후보입니다.'):'시간 데이터가 없어 절감시간을 추정하지 않습니다.')+(value?' 입력 비용 기준 단순 환산 후보값은 월 '+value.toLocaleString()+'원입니다. 실제 ROI로 확정하지 않습니다.':'')+'</span></div><div class="finding"><strong>IMPLEMENTATION ORDER</strong><span>1. 현재 프로세스 캡처 → 2. 반복 단계 자동화 → 3. AI 판단 단계 적용 → 4. 사람 승인 → 5. 결과·ROI 측정</span></div><div class="finding"><strong>DATA STATUS</strong><span>'+(h||cost?'고객 입력값 기반':'정량 증거 미입력')+' · 검증되지 않은 절감·ROI는 성과로 표시하지 않습니다.</span></div><button class="btn primary" onclick="go('reports')">GENERATE EXECUTIVE REPORT →</button></div>';
+ document.getElementById('auditResult').innerHTML='<div class="result"><span class="tag">RULE-BASED PREVIEW · NOT VALIDATED</span><div class="score">'+score+'</div><div class="risk">HEURISTIC PRIORITY · '+match[0]+'</div><div class="finding"><strong>CONCLUSION</strong><span>'+match[2]+'</span></div><div class="finding"><strong>RECOMMENDED WORKFLOW</strong><span>'+match[3]+'</span></div><div class="finding"><strong>SCENARIO ONLY · ASSUMED 35% · NOT MEASURED</strong><span>'+(saving?('입력하신 '+h+'시간 기준 월 약 '+saving+'시간의 반복 업무 절감 후보입니다.'):'시간 데이터가 없어 절감시간을 추정하지 않습니다.')+(value?' 입력 비용 기준 단순 환산 후보값은 월 '+value.toLocaleString()+'원입니다. 실제 ROI로 확정하지 않습니다.':'')+'</span></div><div class="finding"><strong>IMPLEMENTATION ORDER</strong><span>1. 현재 프로세스 캡처 → 2. 반복 단계 자동화 → 3. AI 판단 단계 적용 → 4. 사람 승인 → 5. 결과·ROI 측정</span></div><div class="finding"><strong>DATA STATUS</strong><span>'+(h||cost?'고객 입력값 기반':'정량 증거 미입력')+' · 검증되지 않은 절감·ROI는 성과로 표시하지 않습니다.</span></div><button class="btn primary" onclick="go('reports')">VIEW PREVIEW · NOT A VALIDATED REPORT →</button></div>';
 }
 function selectPlan(name,price){
  localStorage.setItem('aimpact_selected_plan',JSON.stringify({name,price,at:new Date().toISOString()}));

@@ -1,5 +1,6 @@
-const SUPABASE_URL = String(process.env.EXPO_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "");
-const SUPABASE_ANON_KEY = String(process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "");
+import Constants from "expo-constants";
+const SUPABASE_URL = String(process.env.EXPO_PUBLIC_SUPABASE_URL || Constants.expoConfig?.extra?.supabaseUrl || "").replace(/\/$/, "");
+const SUPABASE_ANON_KEY = String(process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || Constants.expoConfig?.extra?.supabasePublishableKey || "");
 
 export const authConfigReady = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 
