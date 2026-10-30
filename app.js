@@ -13,7 +13,33 @@ function normalize(t){return {...t,name:t.name||"Unnamed AI Tool",category:t.cat
 function relevance(t,q){const text=JSON.stringify({name:t.name,category:t.category,description:t.description,use_cases:t.use_cases,industries:t.industries}).toLowerCase();let score=0;q.toLowerCase().split(/\s+/).filter(Boolean).forEach(w=>{if(w.length>1&&text.includes(w))score+=text.includes(String(t.name).toLowerCase())?4:1});const intent={쇼핑몰:["e-commerce","commerce","image","marketing","automation","content"],상품:["image","design","marketing","content"],사진:["image","design","photo"],인스타그램:["social","marketing","content"],영상:["video"],고객센터:["customer","support","automation"],패션:["fashion","design","marketing"],콘텐츠:["content","writing","marketing","video"],자동화:["automation"],개발:["development"],웹사이트:["development","design"],검색:["research","data"],리서치:["research","data"],교육:["education"]};Object.entries(intent).forEach(([k,terms])=>{if(q.toLowerCase().includes(k))terms.forEach(x=>{if(text.includes(x))score+=3})});return score}
 function render(){const q=$("search")?.value.trim().toLowerCase(),cat=$("category")?.value,price=$("pricing")?.value;let list=tools.filter(t=>(!cat||t.category===cat)&&(!price||t.pricing.includes(price)));if(q)list=list.map(t=>({...t,_score:relevance(t,q)})).filter(t=>t._score>0).sort((a,b)=>b._score-a._score);$("grid").innerHTML=list.map(t=>'<article class="card"><div><span class="tag">'+escapeHtml(t.category)+' · '+escapeHtml(t.pricing)+'</span><h3>'+escapeHtml(t.name)+'</h3><p>'+escapeHtml(t.description)+'</p></div><div class="actions"><button class="primary" onclick="detail(\''+t.id+'\')">VIEW</button><button onclick="toggleCompare(\''+t.id+'\')">COMPARE</button></div></article>').join("")||'<div class="loading">No verified tools are currently published. AIMPACT is keeping the directory empty until evidence is verified.</div>';updateCompare()}
 function workflowScore(w,q){const text=JSON.stringify({title:w.title,problem:w.problem,industry:w.industry,category:w.category,steps:w.steps}).toLowerCase();return q.toLowerCase().split(/\s+/).filter(x=>x.length>1).reduce((s,x)=>s+(text.includes(x)?2:0),0)}
-function renderWorkflowResult(q,top,template){const workflow=template||workflows.map(w=>({...w,_score:workflowScore(w,q)})).sort((a,b)=>b._score-a._score)[0];const workflowTools=workflow?.tools?.length?workflow.tools:top;const toolCards=workflowTools.slice(0,5).map(ref=>{const t=tools.find(x=>x.id===ref.id)||tools.find(x=>x.name===ref.name)||ref;return '<div class="resultTool"><b>'+escapeHtml(t.name||"Verified tool")+'</b><span>'+escapeHtml(t.category||"")+' · '+escapeHtml(t.pricing||"UNKNOWN")+'</span></div>'}).join("");$("applyResult").innerHTML='<h3>WORKFLOW DRAFT</h3><p><b>Problem:</b> '+escapeHtml(q)+'</p>'+(workflow?'<h4>'+escapeHtml(workflow.title)+'</h4><p>'+escapeHtml(workflow.problem)+'</p><ol>'+((workflow.steps||[]).map(s=>'<li>'+escapeHtml(s)+'</li>').join(""))+'</ol>':"<p>AIMPACT will scope this as a new workflow during an audit.")+'<h4>VERIFIED TOOLS</h4>'+toolCards;event("workflow_start",{query:q,workflow_id:workflow?.id||null})}
+function verifiedWorkflowTools(refs){
+  const found=[];
+  const permitted=new Set(["LIVE","PUBLISHED","ACTIVE"]);
+  for(const ref of Array.isArray(refs)?refs:[]){
+    if(!ref||typeof ref!=="object")continue;
+    const candidate=ref.id
+      ?tools.find(t=>t.id===ref.id)
+      :ref.name?tools.find(t=>t.name===ref.name):null;
+    if(!candidate||candidate.verification_status!=="VERIFIED"||!permitted.has(String(candidate.status||"").toUpperCase()))continue;
+    if(found.some(t=>t.id===candidate.id))continue;
+    found.push(candidate);
+    if(found.length===5)break;
+  }
+  return found;
+}
+function renderWorkflowResult(q,top,template){
+  const workflow=template||workflows.map(w=>({...w,_score:workflowScore(w,q)})).sort((a,b)=>b._score-a._score)[0];
+  const workflowRefs=workflow?.tools?.length?workflow.tools:top;
+  const toolCards=verifiedWorkflowTools(workflowRefs).map(t=>'<div class="resultTool"><b>'+escapeHtml(t.name)+'</b><span>'+escapeHtml(t.category||"")+' · '+escapeHtml(t.pricing||"UNKNOWN")+'</span></div>').join("");
+  $("applyResult").innerHTML='<h3>WORKFLOW DRAFT</h3><p><b>Problem:</b> '+escapeHtml(q)+'</p>'+
+    (workflow?'<h4>'+escapeHtml(workflow.title)+'</h4><p>'+escapeHtml(workflow.problem)+'</p><ol>'+
+      ((workflow.steps||[]).map(s=>'<li>'+escapeHtml(s)+'</li>').join(""))+'</ol>'
+      :"<p>AIMPACT will scope this as a new workflow during an audit.")+
+    '<h4>VERIFIED TOOLS</h4>'+
+    (toolCards||'<p>No currently verified tools are published. Workflow recommendations remain a draft pending official evidence.</p>');
+  event("workflow_start",{query:q,workflow_id:workflow?.id||null});
+}
 window.detail=async id=>{const t=tools.find(x=>x.id===id);if(!t)return;$("modalBody").innerHTML='<span class="tag">'+escapeHtml(t.category)+' · '+escapeHtml(t.pricing)+'</span><h2>'+escapeHtml(t.name)+'</h2><p>'+escapeHtml(t.description)+'</p><div class="detailGrid"><div><b>Pricing</b><span>'+escapeHtml(t.pricing)+'</span></div><div><b>Commercial use</b><span>'+escapeHtml(t.commercial_use)+'</span></div><div><b>API</b><span>'+escapeHtml(t.api_access)+'</span></div><div><b>Verification</b><span>'+escapeHtml(t.verification_status)+'</span></div></div><div class="actions">'+(t.url?'<button class="primary" id="visitTool">VISIT TOOL →</button>':"")+'</div>';$("modal").classList.add("show");event("tool_view",{tool_id:t.id});$("visitTool")?.addEventListener("click",()=>{event("external_click",{tool_id:t.id,destination:t.url});window.open(t.url,"_blank","noopener,noreferrer")})}
 window.toggleCompare=id=>{selected=selected.includes(id)?selected.filter(x=>x!==id):selected.length<3?[...selected,id]:selected;updateCompare();event("compare",{tool_ids:selected})}
 function updateCompare(){const box=$("compareBox");if(!box)return;if(!selected.length){box.innerHTML="<p>No tools selected.</p>";return}const ts=selected.map(id=>tools.find(t=>t.id===id)).filter(Boolean);box.innerHTML='<div class="compareTable"><div class="compareHead"><b>CRITERIA</b>'+ts.map(t=>'<b>'+escapeHtml(t.name)+'</b>').join("")+'</div>'+[["Category","category"],["Pricing","pricing"],["Commercial Use","commercial_use"],["API","api_access"]].map(([l,k])=>'<div class="compareLine"><span>'+l+'</span>'+ts.map(t=>'<span>'+escapeHtml(t[k]||"UNKNOWN")+'</span>').join("")+'</div>').join("")+'</div>'}
